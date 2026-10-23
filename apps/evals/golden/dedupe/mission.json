@@ -1,0 +1,53 @@
+{
+  "key": "dedupe",
+  "title": "Fix dedupe order",
+  "goal": "dedupe(xs) in src/dedupe.mjs must drop repeated values and keep the first occurrence of each, in order (NaN counts as a value). It currently sorts. Fix it.",
+  "category": "bugfix",
+  "plan": {
+    "tasks": [
+      {
+        "key": "fix.dedupe",
+        "type": "code.bugfix",
+        "title": "Fix dedupe order",
+        "contract": {
+          "objective": "Fix dedupe order",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "diff",
+              "description": "Fix dedupe order"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "tests",
+              "command": "node --test 'test/*.test.mjs'",
+              "hard": true
+            },
+            {
+              "kind": "diff_scope",
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal",
+          "expectedFootprint": {
+            "paths": ["src/dedupe.mjs"]
+          }
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      }
+    ],
+    "assumptions": [],
+    "questions": []
+  },
+  "scorer": {
+    "kind": "tests",
+    "command": "node --test 'hidden/*.test.mjs'"
+  }
+}

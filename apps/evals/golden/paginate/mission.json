@@ -1,0 +1,53 @@
+{
+  "key": "paginate",
+  "title": "Fix pagination",
+  "goal": "page(items, n, size) in src/page.mjs takes 1-based page numbers but skips the first page. Fix it; a page past the end is an empty array.",
+  "category": "bugfix",
+  "plan": {
+    "tasks": [
+      {
+        "key": "fix.page",
+        "type": "code.bugfix",
+        "title": "Fix pagination",
+        "contract": {
+          "objective": "Fix pagination",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "diff",
+              "description": "Fix pagination"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "tests",
+              "command": "node --test 'test/*.test.mjs'",
+              "hard": true
+            },
+            {
+              "kind": "diff_scope",
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal",
+          "expectedFootprint": {
+            "paths": ["src/page.mjs"]
+          }
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      }
+    ],
+    "assumptions": [],
+    "questions": []
+  },
+  "scorer": {
+    "kind": "tests",
+    "command": "node --test 'hidden/*.test.mjs'"
+  }
+}

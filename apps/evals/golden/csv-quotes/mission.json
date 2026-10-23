@@ -1,0 +1,53 @@
+{
+  "key": "csv-quotes",
+  "title": "Fix CSV quoting",
+  "goal": "parseLine in src/csv.mjs splits a CSV line on every comma. Quoted fields may contain commas and doubled quotes (\"\" means a quote). Fix it.",
+  "category": "bugfix",
+  "plan": {
+    "tasks": [
+      {
+        "key": "fix.csv",
+        "type": "code.bugfix",
+        "title": "Fix CSV quoting",
+        "contract": {
+          "objective": "Fix CSV quoting",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "diff",
+              "description": "Fix CSV quoting"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "tests",
+              "command": "node --test 'test/*.test.mjs'",
+              "hard": true
+            },
+            {
+              "kind": "diff_scope",
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal",
+          "expectedFootprint": {
+            "paths": ["src/csv.mjs"]
+          }
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      }
+    ],
+    "assumptions": [],
+    "questions": []
+  },
+  "scorer": {
+    "kind": "tests",
+    "command": "node --test 'hidden/*.test.mjs'"
+  }
+}

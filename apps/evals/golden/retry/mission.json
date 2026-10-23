@@ -1,0 +1,53 @@
+{
+  "key": "retry",
+  "title": "Fix retry",
+  "goal": "retry(fn, times) in src/retry.mjs should call an async fn up to `times` times in total, returning the first success and throwing the last error. It currently gives up one try early. Fix it.",
+  "category": "bugfix",
+  "plan": {
+    "tasks": [
+      {
+        "key": "fix.retry",
+        "type": "code.bugfix",
+        "title": "Fix retry",
+        "contract": {
+          "objective": "Fix retry",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "diff",
+              "description": "Fix retry"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "tests",
+              "command": "node --test 'test/*.test.mjs'",
+              "hard": true
+            },
+            {
+              "kind": "diff_scope",
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal",
+          "expectedFootprint": {
+            "paths": ["src/retry.mjs"]
+          }
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      }
+    ],
+    "assumptions": [],
+    "questions": []
+  },
+  "scorer": {
+    "kind": "tests",
+    "command": "node --test 'hidden/*.test.mjs'"
+  }
+}

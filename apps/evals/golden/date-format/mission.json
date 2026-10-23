@@ -1,0 +1,53 @@
+{
+  "key": "date-format",
+  "title": "Fix the date format",
+  "goal": "formatDate in src/date.mjs must return the UTC date as DD/MM/YYYY with zero padding (5 Jan 2024 \u2192 \"05/01/2024\"). It prints the weekday and a zero-based month. Fix it.",
+  "category": "bugfix",
+  "plan": {
+    "tasks": [
+      {
+        "key": "fix.date",
+        "type": "code.bugfix",
+        "title": "Fix the date format",
+        "contract": {
+          "objective": "Fix the date format",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "diff",
+              "description": "Fix the date format"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "tests",
+              "command": "node --test 'test/*.test.mjs'",
+              "hard": true
+            },
+            {
+              "kind": "diff_scope",
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal",
+          "expectedFootprint": {
+            "paths": ["src/date.mjs"]
+          }
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      }
+    ],
+    "assumptions": [],
+    "questions": []
+  },
+  "scorer": {
+    "kind": "tests",
+    "command": "node --test 'hidden/*.test.mjs'"
+  }
+}

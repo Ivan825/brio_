@@ -1,0 +1,53 @@
+{
+  "key": "roman",
+  "title": "Implement Roman numerals",
+  "goal": "Implement toRoman(n) in src/roman.mjs for 1\u20133999 using subtractive notation (4 \u2192 IV, 1994 \u2192 MCMXCIV).",
+  "category": "feature",
+  "plan": {
+    "tasks": [
+      {
+        "key": "feat.roman",
+        "type": "code.feature",
+        "title": "Implement Roman numerals",
+        "contract": {
+          "objective": "Implement Roman numerals",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "diff",
+              "description": "Implement Roman numerals"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "tests",
+              "command": "node --test 'test/*.test.mjs'",
+              "hard": true
+            },
+            {
+              "kind": "diff_scope",
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal",
+          "expectedFootprint": {
+            "paths": ["src/roman.mjs"]
+          }
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      }
+    ],
+    "assumptions": [],
+    "questions": []
+  },
+  "scorer": {
+    "kind": "tests",
+    "command": "node --test 'hidden/*.test.mjs'"
+  }
+}

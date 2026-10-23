@@ -1,0 +1,53 @@
+{
+  "key": "extract-invoice",
+  "title": "Extract the invoice fields",
+  "goal": "Extract number, total (a number), currency (ISO code) and due (YYYY-MM-DD) from this invoice as JSON: 'INVOICE INV-2041 \u2014 Acme Ltd. Amount due: \u20ac1,240.50. Payment due by 15 November 2026.'",
+  "category": "data",
+  "plan": {
+    "tasks": [
+      {
+        "key": "data.extract-invoice",
+        "type": "data.extraction",
+        "title": "Extract the invoice fields",
+        "contract": {
+          "objective": "Extract the invoice fields",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "report",
+              "description": "Extract the invoice fields"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "rubric_review",
+              "criteria": ["complete", "accurate"],
+              "threshold": 4,
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal"
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      }
+    ],
+    "assumptions": [],
+    "questions": []
+  },
+  "scorer": {
+    "kind": "json",
+    "task": "data.extract-invoice",
+    "expect": {
+      "number": "INV-2041",
+      "total": 1240.5,
+      "currency": "EUR",
+      "due": "2026-11-15"
+    }
+  }
+}

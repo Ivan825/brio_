@@ -1,0 +1,53 @@
+{
+  "key": "token-bucket",
+  "title": "Implement a token bucket",
+  "goal": "Implement createBucket({ capacity, refillPerSec, now }) in src/bucket.mjs returning { allow() }: it starts full, each allowed call takes a token, and tokens refill continuously up to capacity. `now` returns milliseconds (inject a clock for tests).",
+  "category": "feature",
+  "plan": {
+    "tasks": [
+      {
+        "key": "feat.bucket",
+        "type": "code.feature",
+        "title": "Implement a token bucket",
+        "contract": {
+          "objective": "Implement a token bucket",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "diff",
+              "description": "Implement a token bucket"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "tests",
+              "command": "node --test 'test/*.test.mjs'",
+              "hard": true
+            },
+            {
+              "kind": "diff_scope",
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal",
+          "expectedFootprint": {
+            "paths": ["src/bucket.mjs"]
+          }
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      }
+    ],
+    "assumptions": [],
+    "questions": []
+  },
+  "scorer": {
+    "kind": "tests",
+    "command": "node --test 'hidden/*.test.mjs'"
+  }
+}

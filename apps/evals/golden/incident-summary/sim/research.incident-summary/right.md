@@ -1,0 +1,1 @@
+Between 14:05 and 14:40 UTC the API was slow. A deploy raised worker concurrency and exhausted the database connection pool. On-call was paged at 14:12 and rolled back the deploy at 14:31; latency was normal by 14:40. Next we will cap connection pool use per worker.

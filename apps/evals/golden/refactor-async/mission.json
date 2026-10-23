@@ -1,0 +1,53 @@
+{
+  "key": "refactor-async",
+  "title": "Make readConfig async",
+  "goal": "readConfig(path, cb) in src/config.mjs is callback-style. Make it an async function readConfig(path) that resolves to the parsed JSON and rejects when the file is missing or invalid. Keep the module's other export.",
+  "category": "refactor",
+  "plan": {
+    "tasks": [
+      {
+        "key": "refactor.config",
+        "type": "code.refactor",
+        "title": "Make readConfig async",
+        "contract": {
+          "objective": "Make readConfig async",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "diff",
+              "description": "Make readConfig async"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "tests",
+              "command": "node --test 'test/*.test.mjs'",
+              "hard": true
+            },
+            {
+              "kind": "diff_scope",
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal",
+          "expectedFootprint": {
+            "paths": ["src/config.mjs"]
+          }
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      }
+    ],
+    "assumptions": [],
+    "questions": []
+  },
+  "scorer": {
+    "kind": "tests",
+    "command": "node --test 'hidden/*.test.mjs'"
+  }
+}

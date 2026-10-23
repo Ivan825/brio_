@@ -1,0 +1,53 @@
+{
+  "key": "refactor-rename",
+  "title": "Rename getUsr to getUser",
+  "goal": "Rename getUsr to getUser in src/users.mjs. Existing callers still import getUsr, so keep it as a deprecated alias of the same function.",
+  "category": "refactor",
+  "plan": {
+    "tasks": [
+      {
+        "key": "refactor.rename",
+        "type": "code.refactor",
+        "title": "Rename getUsr to getUser",
+        "contract": {
+          "objective": "Rename getUsr to getUser",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "diff",
+              "description": "Rename getUsr to getUser"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "tests",
+              "command": "node --test 'test/*.test.mjs'",
+              "hard": true
+            },
+            {
+              "kind": "diff_scope",
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal",
+          "expectedFootprint": {
+            "paths": ["src/users.mjs"]
+          }
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      }
+    ],
+    "assumptions": [],
+    "questions": []
+  },
+  "scorer": {
+    "kind": "tests",
+    "command": "node --test 'hidden/*.test.mjs'"
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "key": "query-string",
+  "title": "Implement query string stringify",
+  "goal": "Implement stringify(obj) in src/qs.mjs: key=value pairs joined by &, keys and values URI-encoded, arrays as repeated keys, undefined values skipped.",
+  "category": "feature",
+  "plan": {
+    "tasks": [
+      {
+        "key": "feat.qs",
+        "type": "code.feature",
+        "title": "Implement query string stringify",
+        "contract": {
+          "objective": "Implement query string stringify",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "diff",
+              "description": "Implement query string stringify"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "tests",
+              "command": "node --test 'test/*.test.mjs'",
+              "hard": true
+            },
+            {
+              "kind": "diff_scope",
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal",
+          "expectedFootprint": {
+            "paths": ["src/qs.mjs"]
+          }
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      }
+    ],
+    "assumptions": [],
+    "questions": []
+  },
+  "scorer": {
+    "kind": "tests",
+    "command": "node --test 'hidden/*.test.mjs'"
+  }
+}

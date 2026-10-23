@@ -1,0 +1,49 @@
+{
+  "key": "changelog",
+  "title": "Write the changelog entry",
+  "goal": "Write a Keep-a-Changelog entry for version 0.4.0 from these commits: 'add scoreboard page', 'add rating buttons', 'fix lease renewal race', 'fix SSE reconnect gap'. Use '### Added' and '### Fixed' sections.",
+  "category": "docs",
+  "plan": {
+    "tasks": [
+      {
+        "key": "docs.changelog",
+        "type": "write.doc",
+        "title": "Write the changelog entry",
+        "contract": {
+          "objective": "Write the changelog entry",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "report",
+              "description": "Write the changelog entry"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "rubric_review",
+              "criteria": ["complete", "accurate"],
+              "threshold": 4,
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal"
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      }
+    ],
+    "assumptions": [],
+    "questions": []
+  },
+  "scorer": {
+    "kind": "text",
+    "task": "docs.changelog",
+    "patterns": ["### Added", "### Fixed", "(?i)scoreboard", "(?i)lease", "(?i)reconnect"],
+    "forbid": []
+  }
+}

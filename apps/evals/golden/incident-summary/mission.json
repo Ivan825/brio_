@@ -1,0 +1,49 @@
+{
+  "key": "incident-summary",
+  "title": "Summarise the incident",
+  "goal": "Summarise this incident for the status page in under 120 words. Notes: 14:05 UTC API latency rose; 14:12 on-call paged; cause: the database connection pool was exhausted after a deploy raised worker concurrency; 14:31 rollback of the deploy; 14:40 latency normal; follow-up: cap pool usage per worker.",
+  "category": "research",
+  "plan": {
+    "tasks": [
+      {
+        "key": "research.incident-summary",
+        "type": "write.summary",
+        "title": "Summarise the incident",
+        "contract": {
+          "objective": "Summarise the incident",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "report",
+              "description": "Summarise the incident"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "rubric_review",
+              "criteria": ["complete", "accurate"],
+              "threshold": 4,
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal"
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      }
+    ],
+    "assumptions": [],
+    "questions": []
+  },
+  "scorer": {
+    "kind": "text",
+    "task": "research.incident-summary",
+    "patterns": ["14:05", "(?i)connection pool", "(?i)roll(ed)?[ -]?back", "14:40"],
+    "forbid": []
+  }
+}

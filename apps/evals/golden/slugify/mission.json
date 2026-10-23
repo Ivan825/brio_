@@ -1,0 +1,53 @@
+{
+  "key": "slugify",
+  "title": "Fix slugify",
+  "goal": "slugify in src/slugify.mjs should lowercase, drop punctuation, trim, and join words with single dashes (\"  Hello,  World! \" \u2192 \"hello-world\"). It currently leaves runs of dashes and punctuation. Fix it.",
+  "category": "bugfix",
+  "plan": {
+    "tasks": [
+      {
+        "key": "fix.slugify",
+        "type": "code.bugfix",
+        "title": "Fix slugify",
+        "contract": {
+          "objective": "Fix slugify",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "diff",
+              "description": "Fix slugify"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "tests",
+              "command": "node --test 'test/*.test.mjs'",
+              "hard": true
+            },
+            {
+              "kind": "diff_scope",
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal",
+          "expectedFootprint": {
+            "paths": ["src/slugify.mjs"]
+          }
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      }
+    ],
+    "assumptions": [],
+    "questions": []
+  },
+  "scorer": {
+    "kind": "tests",
+    "command": "node --test 'hidden/*.test.mjs'"
+  }
+}

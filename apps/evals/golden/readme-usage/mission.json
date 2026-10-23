@@ -1,0 +1,49 @@
+{
+  "key": "readme-usage",
+  "title": "Write the CLI usage section",
+  "goal": "Write the Usage section of the README for the `brio` CLI: `brio run <goal>` starts a mission, `--watch` streams the board, `--budget <usd>` caps spend, and `brio --help` lists everything. Use a Markdown heading `## Usage` and a fenced example.",
+  "category": "docs",
+  "plan": {
+    "tasks": [
+      {
+        "key": "docs.readme-usage",
+        "type": "write.doc",
+        "title": "Write the CLI usage section",
+        "contract": {
+          "objective": "Write the CLI usage section",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "report",
+              "description": "Write the CLI usage section"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "rubric_review",
+              "criteria": ["complete", "accurate"],
+              "threshold": 4,
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal"
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      }
+    ],
+    "assumptions": [],
+    "questions": []
+  },
+  "scorer": {
+    "kind": "text",
+    "task": "docs.readme-usage",
+    "patterns": ["## Usage", "brio run", "--watch", "--budget", "--help"],
+    "forbid": []
+  }
+}

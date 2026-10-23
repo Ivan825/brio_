@@ -1,3 +1,4 @@
-// Golden-mission benchmark harness. M3 ships the golden missions and their loader; the harness (baselines, scorers,
-// nightly runs, results page) arrives in M5 (docs/BUILD_PLAN.md).
+// Golden-mission benchmark harness (BUILD_PLAN M5): the golden missions, their hidden scorers, the offline simulation
+// and the runner that compares routing strategies.
 export * from "./golden";
+export * from "./score";

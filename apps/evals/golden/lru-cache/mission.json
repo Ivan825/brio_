@@ -1,0 +1,90 @@
+{
+  "key": "lru-cache",
+  "title": "Implement an LRU cache, and document it",
+  "goal": "Implement class LRU in src/lru.mjs (constructor(capacity), get(key), set(key, value)): when full, set evicts the least recently used key; get counts as a use. Then add a short section on it to README.md.",
+  "category": "feature",
+  "plan": {
+    "tasks": [
+      {
+        "key": "feat.lru",
+        "type": "code.feature",
+        "title": "Implement the LRU cache",
+        "contract": {
+          "objective": "Implement the LRU cache",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "diff",
+              "description": "Implement the LRU cache"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "tests",
+              "command": "node --test 'test/*.test.mjs'",
+              "hard": true
+            },
+            {
+              "kind": "diff_scope",
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal",
+          "expectedFootprint": {
+            "paths": ["src/lru.mjs"]
+          }
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      },
+      {
+        "key": "docs.lru",
+        "type": "write.doc",
+        "title": "Document the LRU cache",
+        "contract": {
+          "objective": "Document the LRU cache",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "diff",
+              "description": "Document the LRU cache"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "diff_scope",
+              "hard": true
+            },
+            {
+              "kind": "tests",
+              "command": "grep -q 'least recently used' README.md",
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal",
+          "expectedFootprint": {
+            "paths": ["README.md"]
+          }
+        },
+        "dependsOn": ["feat.lru"],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      }
+    ],
+    "assumptions": [],
+    "questions": []
+  },
+  "scorer": {
+    "kind": "tests",
+    "command": "node --test 'hidden/*.test.mjs'"
+  }
+}

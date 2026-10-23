@@ -1,0 +1,63 @@
+{
+  "key": "extract-contacts",
+  "title": "Extract the contacts",
+  "goal": "Extract every person's name and email from this text as JSON {\"contacts\":[{\"name\",\"email\"}]} in order of appearance: 'Ping Ada Lovelace (ada@example.org) and Grace Hopper <grace.hopper@navy.example>; cc Linus at linus@kernel.example.'",
+  "category": "data",
+  "plan": {
+    "tasks": [
+      {
+        "key": "data.extract-contacts",
+        "type": "data.extraction",
+        "title": "Extract the contacts",
+        "contract": {
+          "objective": "Extract the contacts",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "report",
+              "description": "Extract the contacts"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "rubric_review",
+              "criteria": ["complete", "accurate"],
+              "threshold": 4,
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal"
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      }
+    ],
+    "assumptions": [],
+    "questions": []
+  },
+  "scorer": {
+    "kind": "json",
+    "task": "data.extract-contacts",
+    "expect": {
+      "contacts": [
+        {
+          "name": "Ada Lovelace",
+          "email": "ada@example.org"
+        },
+        {
+          "name": "Grace Hopper",
+          "email": "grace.hopper@navy.example"
+        },
+        {
+          "name": "Linus",
+          "email": "linus@kernel.example"
+        }
+      ]
+    }
+  }
+}

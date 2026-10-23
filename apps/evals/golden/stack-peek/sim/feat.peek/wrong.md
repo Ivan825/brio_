@@ -1,0 +1,1 @@
+Done: Add peek and size to the stack.

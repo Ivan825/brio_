@@ -1,0 +1,49 @@
+{
+  "key": "compare-queues",
+  "title": "Compare the two job queues",
+  "goal": "From these notes, compare pg-boss and BullMQ for a service that already runs Postgres and no Redis, and recommend one. Notes: pg-boss stores jobs in Postgres, supports retries, cron and exactly-once claims via SKIP LOCKED; BullMQ needs Redis, is very fast and has a rich UI ecosystem.",
+  "category": "research",
+  "plan": {
+    "tasks": [
+      {
+        "key": "research.compare-queues",
+        "type": "research.web",
+        "title": "Compare the two job queues",
+        "contract": {
+          "objective": "Compare the two job queues",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "report",
+              "description": "Compare the two job queues"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "rubric_review",
+              "criteria": ["complete", "accurate"],
+              "threshold": 4,
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal"
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      }
+    ],
+    "assumptions": [],
+    "questions": []
+  },
+  "scorer": {
+    "kind": "text",
+    "task": "research.compare-queues",
+    "patterns": ["(?i)postgres", "(?i)redis", "(?i)recommend", "(?i)pg-boss \u2014|recommendation: pg-boss"],
+    "forbid": []
+  }
+}

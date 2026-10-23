@@ -1,0 +1,54 @@
+{
+  "key": "tests-titlecase",
+  "title": "Write tests for titleCase",
+  "goal": "src/title.mjs has titleCase(s): every word capitalised, the rest of each word lowercased, single spaces kept. Write tests in test/title.test.mjs that catch mistakes.",
+  "category": "tests",
+  "plan": {
+    "tasks": [
+      {
+        "key": "tests.titlecase",
+        "type": "code.tests",
+        "title": "Write tests for titleCase",
+        "contract": {
+          "objective": "src/title.mjs has titleCase(s): every word capitalised, the rest of each word lowercased, single spaces kept. Write tests in test/title.test.mjs that catch mistakes.",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "diff",
+              "description": "Write tests for titleCase"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "tests",
+              "command": "node --test 'test/*.test.mjs'",
+              "hard": true
+            },
+            {
+              "kind": "diff_scope",
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal",
+          "expectedFootprint": {
+            "paths": ["test/**"]
+          }
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      }
+    ],
+    "assumptions": [],
+    "questions": []
+  },
+  "scorer": {
+    "kind": "mutants",
+    "command": "node --test 'test/*.test.mjs'",
+    "mutants": ["collapses-spaces", "keeps-case"]
+  }
+}

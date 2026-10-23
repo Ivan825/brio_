@@ -1,0 +1,53 @@
+{
+  "key": "temperature",
+  "title": "Fix the temperature conversion",
+  "goal": "fToC in src/temp.mjs converts Fahrenheit to Celsius with the wrong formula. Fix it; cToF is right and must stay so.",
+  "category": "bugfix",
+  "plan": {
+    "tasks": [
+      {
+        "key": "fix.temp",
+        "type": "code.bugfix",
+        "title": "Fix the temperature conversion",
+        "contract": {
+          "objective": "Fix the temperature conversion",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "diff",
+              "description": "Fix the temperature conversion"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "tests",
+              "command": "node --test 'test/*.test.mjs'",
+              "hard": true
+            },
+            {
+              "kind": "diff_scope",
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal",
+          "expectedFootprint": {
+            "paths": ["src/temp.mjs"]
+          }
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      }
+    ],
+    "assumptions": [],
+    "questions": []
+  },
+  "scorer": {
+    "kind": "tests",
+    "command": "node --test 'hidden/*.test.mjs'"
+  }
+}

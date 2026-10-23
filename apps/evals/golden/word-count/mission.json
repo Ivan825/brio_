@@ -1,0 +1,53 @@
+{
+  "key": "word-count",
+  "title": "Implement word counts",
+  "goal": "Implement countWords(text) in src/words.mjs: a Map from lowercased word to count, ignoring punctuation; apostrophes and hyphens inside words are part of the word.",
+  "category": "feature",
+  "plan": {
+    "tasks": [
+      {
+        "key": "feat.words",
+        "type": "code.feature",
+        "title": "Implement word counts",
+        "contract": {
+          "objective": "Implement word counts",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "diff",
+              "description": "Implement word counts"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "tests",
+              "command": "node --test 'test/*.test.mjs'",
+              "hard": true
+            },
+            {
+              "kind": "diff_scope",
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal",
+          "expectedFootprint": {
+            "paths": ["src/words.mjs"]
+          }
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      }
+    ],
+    "assumptions": [],
+    "questions": []
+  },
+  "scorer": {
+    "kind": "tests",
+    "command": "node --test 'hidden/*.test.mjs'"
+  }
+}

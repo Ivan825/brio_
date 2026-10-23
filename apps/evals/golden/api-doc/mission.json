@@ -1,0 +1,49 @@
+{
+  "key": "api-doc",
+  "title": "Document the report endpoint",
+  "goal": "Document the endpoint GET /v1/missions/:id/report: it returns the mission report as JSON (live while the mission runs, the final snapshot once it ends), Markdown with ?format=md, and 404 for an unknown mission.",
+  "category": "docs",
+  "plan": {
+    "tasks": [
+      {
+        "key": "docs.api-doc",
+        "type": "write.doc",
+        "title": "Document the report endpoint",
+        "contract": {
+          "objective": "Document the report endpoint",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "report",
+              "description": "Document the report endpoint"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "rubric_review",
+              "criteria": ["complete", "accurate"],
+              "threshold": 4,
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal"
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      }
+    ],
+    "assumptions": [],
+    "questions": []
+  },
+  "scorer": {
+    "kind": "text",
+    "task": "docs.api-doc",
+    "patterns": ["GET /v1/missions/:id/report", "format=md", "404", "(?i)final"],
+    "forbid": []
+  }
+}

@@ -13,6 +13,8 @@
     "evals": "node -e \"console.error('TODO(milestone-5): golden-mission evals land in M5'); process.exit(1)\""
   },
   "dependencies": {
+    "@brio/core": "workspace:*",
+    "@brio/schema": "workspace:*",
     "zod": "4.6.7"
   }
 }

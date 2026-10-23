@@ -1,0 +1,53 @@
+{
+  "key": "chunk",
+  "title": "Implement chunk",
+  "goal": "Implement chunk(xs, size) in src/chunk.mjs: split an array into arrays of `size` (the last may be shorter). A size below 1 throws a RangeError.",
+  "category": "feature",
+  "plan": {
+    "tasks": [
+      {
+        "key": "feat.chunk",
+        "type": "code.feature",
+        "title": "Implement chunk",
+        "contract": {
+          "objective": "Implement chunk",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "diff",
+              "description": "Implement chunk"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "tests",
+              "command": "node --test 'test/*.test.mjs'",
+              "hard": true
+            },
+            {
+              "kind": "diff_scope",
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal",
+          "expectedFootprint": {
+            "paths": ["src/chunk.mjs"]
+          }
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      }
+    ],
+    "assumptions": [],
+    "questions": []
+  },
+  "scorer": {
+    "kind": "tests",
+    "command": "node --test 'hidden/*.test.mjs'"
+  }
+}

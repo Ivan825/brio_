@@ -1,0 +1,90 @@
+{
+  "key": "merge-clone",
+  "title": "Implement deepMerge and deepClone",
+  "goal": "Implement deepMerge(a, b) in src/merge.mjs (nested plain objects merged, arrays and other values from b replace, inputs never mutated) and deepClone(x) in src/clone.mjs (plain objects, arrays and Dates copied deeply).",
+  "category": "feature",
+  "plan": {
+    "tasks": [
+      {
+        "key": "feat.merge",
+        "type": "code.feature",
+        "title": "Implement deepMerge",
+        "contract": {
+          "objective": "Implement deepMerge",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "diff",
+              "description": "Implement deepMerge"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "tests",
+              "command": "node --test test/merge.test.mjs",
+              "hard": true
+            },
+            {
+              "kind": "diff_scope",
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal",
+          "expectedFootprint": {
+            "paths": ["src/merge.mjs"]
+          }
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      },
+      {
+        "key": "feat.clone",
+        "type": "code.feature",
+        "title": "Implement deepClone",
+        "contract": {
+          "objective": "Implement deepClone",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "diff",
+              "description": "Implement deepClone"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "tests",
+              "command": "node --test test/clone.test.mjs",
+              "hard": true
+            },
+            {
+              "kind": "diff_scope",
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal",
+          "expectedFootprint": {
+            "paths": ["src/clone.mjs"]
+          }
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      }
+    ],
+    "assumptions": [],
+    "questions": []
+  },
+  "scorer": {
+    "kind": "tests",
+    "command": "node --test 'hidden/*.test.mjs'"
+  }
+}

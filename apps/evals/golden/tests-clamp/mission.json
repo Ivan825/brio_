@@ -1,0 +1,54 @@
+{
+  "key": "tests-clamp",
+  "title": "Write tests for clamp",
+  "goal": "src/clamp.mjs has clamp(x, lo, hi). Write tests in test/clamp.test.mjs that pin its behaviour: inside the range, at both bounds, below and above.",
+  "category": "tests",
+  "plan": {
+    "tasks": [
+      {
+        "key": "tests.clamp",
+        "type": "code.tests",
+        "title": "Write tests for clamp",
+        "contract": {
+          "objective": "src/clamp.mjs has clamp(x, lo, hi). Write tests in test/clamp.test.mjs that pin its behaviour: inside the range, at both bounds, below and above.",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "diff",
+              "description": "Write tests for clamp"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "tests",
+              "command": "node --test 'test/*.test.mjs'",
+              "hard": true
+            },
+            {
+              "kind": "diff_scope",
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal",
+          "expectedFootprint": {
+            "paths": ["test/**"]
+          }
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      }
+    ],
+    "assumptions": [],
+    "questions": []
+  },
+  "scorer": {
+    "kind": "mutants",
+    "command": "node --test 'test/*.test.mjs'",
+    "mutants": ["no-upper", "swapped"]
+  }
+}

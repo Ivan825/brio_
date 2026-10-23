@@ -1,0 +1,53 @@
+{
+  "key": "stack-peek",
+  "title": "Add peek and size to the stack",
+  "goal": "Add peek() (the top item without removing it; undefined when empty) and a read-only size getter to the Stack class in src/stack.mjs.",
+  "category": "feature",
+  "plan": {
+    "tasks": [
+      {
+        "key": "feat.peek",
+        "type": "code.feature",
+        "title": "Add peek and size to the stack",
+        "contract": {
+          "objective": "Add peek and size to the stack",
+          "inputs": [],
+          "outputs": [
+            {
+              "kind": "diff",
+              "description": "Add peek and size to the stack"
+            }
+          ],
+          "acceptance": [
+            {
+              "kind": "tests",
+              "command": "node --test 'test/*.test.mjs'",
+              "hard": true
+            },
+            {
+              "kind": "diff_scope",
+              "hard": true
+            }
+          ],
+          "constraints": [],
+          "sensitivity": "internal",
+          "expectedFootprint": {
+            "paths": ["src/stack.mjs"]
+          }
+        },
+        "dependsOn": [],
+        "suggestedMode": "single",
+        "estimate": {
+          "usd": 0.05,
+          "minutes": 2
+        }
+      }
+    ],
+    "assumptions": [],
+    "questions": []
+  },
+  "scorer": {
+    "kind": "tests",
+    "command": "node --test 'hidden/*.test.mjs'"
+  }
+}
