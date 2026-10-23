@@ -27,8 +27,8 @@ export interface Dispatch {
   agent: AgentConfig;
   /** Null: the attempt needs no sandbox (API models on non-file tasks). */
   sandbox: SandboxSpec | null;
-  /** Which sandbox image: the base, or the one with the coding CLIs installed. */
-  image: "base" | "cli";
+  /** Which sandbox image: the base, the one with the coding CLIs, or the browser for computer use. */
+  image: "base" | "cli" | "browser";
   /** The project repository to work on; null gives the mission an empty repository. */
   repo: { url: string; branch: string | null } | null;
   /**

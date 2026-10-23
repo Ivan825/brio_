@@ -21,6 +21,7 @@ const Env = z.object({
   BRIO_IMAGE_CLI: z.string().optional(),
   BRIO_IMAGE_PROXY: z.string().optional(),
   BRIO_IMAGE_WEB: z.string().optional(),
+  BRIO_IMAGE_BROWSER: z.string().optional(),
 });
 
 export type RunnerConfig = z.infer<typeof Env> & { allowPrivateUrls: boolean };
