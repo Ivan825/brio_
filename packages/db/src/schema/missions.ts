@@ -34,6 +34,11 @@ import {
 import { projects } from "./projects";
 import { workspaces } from "./tenancy";
 
+export interface MissionInputs {
+  issue?: { url: string; title: string; body: string; state: string; comments: string[] };
+  files?: Array<{ name: string; sha256: string; size: number; contentType: string; text: boolean }>;
+}
+
 const ws = () =>
   uuid()
     .notNull()
@@ -52,6 +57,8 @@ export const missions = pgTable(
     priority: missionPriority().notNull().default("balanced"),
     budget: jsonb().$type<{ usd?: number; minutes?: number }>().notNull().default(sql`'{}'::jsonb`),
     assumptions: jsonb().$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    /** What the mission was started from besides its goal (PRD F1): an issue, read once, and files (bytes in blobs). */
+    inputs: jsonb().$type<MissionInputs>().notNull().default(sql`'{}'::jsonb`),
     report: jsonb().$type<Record<string, unknown>>(),
     createdBy: uuid().references(() => users.id),
     /** The agent that plans this mission; null lets the static router choose (M3) or the scoreboard (M4). */

@@ -1,0 +1,1 @@
+ALTER TABLE "missions" ADD COLUMN "inputs" jsonb DEFAULT '{}'::jsonb NOT NULL;
