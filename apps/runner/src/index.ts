@@ -6,6 +6,8 @@ export * from "./docker";
 export * from "./executor";
 export * from "./images";
 export * from "./integrate";
+export * from "./local/daemon";
+export * from "./local/protocol";
 export * from "./mailbox";
 export * from "./mailbox-mcp";
 export * from "./queue";

@@ -218,6 +218,8 @@ export class Runner {
           and(
             eq(attempts.status, "queued"),
             isNotNull(attempts.dispatch),
+            // A local runner's attempts wait for it to connect; they never go to the cloud queue.
+            sql`(${attempts.dispatch} -> 'target') is null`,
             lt(attempts.createdAt, new Date(Date.now() - 30_000)),
           ),
         );
@@ -247,6 +249,7 @@ export class Runner {
     await this.o.boss.offWork(ATTEMPT_QUEUE).catch(() => {});
     await this.o.boss.offWork(CHECK_QUEUE).catch(() => {});
     await this.o.boss.offWork(INTEGRATE_QUEUE).catch(() => {});
+    await this.o.boss.offWork(DELIVER_QUEUE).catch(() => {});
     for (const r of this.running.values()) r.abort.abort();
     await Promise.all([...this.running.values()].map((r) => r.done));
     await this.listener?.end().catch(() => {});

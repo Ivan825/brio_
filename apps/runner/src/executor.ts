@@ -8,7 +8,7 @@ import { type Db, type EventWriter, schema } from "@brio/db";
 import type { Ledger } from "@brio/governance";
 import type { Actor, EventType } from "@brio/schema";
 import type { Redactor, Vault } from "@brio/vault";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import {
   recordAttemptFinish,
   runAttemptWork,
@@ -65,7 +65,14 @@ export class AttemptExecutor {
         startedAt: new Date(),
         heartbeatAt: new Date(),
       })
-      .where(and(eq(attempts.id, attemptId), eq(attempts.status, "queued")))
+      // Attempts for a local runner (M8) are never this runner's to take.
+      .where(
+        and(
+          eq(attempts.id, attemptId),
+          eq(attempts.status, "queued"),
+          sql`(${attempts.dispatch} -> 'target') is null`,
+        ),
+      )
       .returning();
     return row ?? null;
   }
