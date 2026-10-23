@@ -235,6 +235,11 @@ function InstalledCard({ c }: { c: InstalledConnector }) {
         </p>
       )}
       {c.serviceKind === "a2a" && <A2aMapping c={c} />}
+      {c.serviceKind === "mcp" && (
+        <p className="text-xs text-fg-muted">
+          A tool, not an agent: attach it to agents in the agent builder, and they can call its tools.
+        </p>
+      )}
       {c.serviceKind === "cloud-browser" && (
         <p className="text-xs text-fg-muted">
           Infrastructure, not an agent: computer-use agents with the option{" "}
@@ -444,6 +449,7 @@ const SERVICE_KIND: Record<ServiceSummary["kind"], string> = {
   browser: "browser agent",
   "cloud-browser": "cloud browser for computer use",
   a2a: "any A2A agent, by its URL",
+  mcp: "MCP server: tools for your agents",
 };
 
 /** What a run costs, in the service's own unit, as the install form says it. */

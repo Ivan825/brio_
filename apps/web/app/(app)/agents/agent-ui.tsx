@@ -81,8 +81,15 @@ const num = (v: string) => (v.trim() === "" ? undefined : Number(v));
 export function AgentBuilder({ connectors: all }: { connectors: InstalledConnector[] }) {
   // Search, page-fetch and cloud-browser connectors are tools agents use, never agents themselves.
   const connectors = all.filter(
-    (c) => c.serviceKind !== "search" && c.serviceKind !== "fetch" && c.serviceKind !== "cloud-browser",
+    (c) =>
+      c.serviceKind !== "search" &&
+      c.serviceKind !== "fetch" &&
+      c.serviceKind !== "cloud-browser" &&
+      c.serviceKind !== "mcp",
   );
+  // MCP servers attach to agents as tools.
+  const mcpServers = all.filter((c) => c.serviceKind === "mcp");
+  const [tools, setTools] = useState<string[]>([]);
   const router = useRouter();
   const ids = useId();
   const [connectorId, setConnectorId] = useState(connectors[0]?.id ?? "");
@@ -163,11 +170,13 @@ export function AgentBuilder({ connectors: all }: { connectors: InstalledConnect
           limits: { maxCostUsd: num(maxCostUsd), maxMinutes: num(maxMinutes), maxTokens: num(maxTokens) },
           priceOverride: override,
           options: parsed,
+          tools: tools.map((connectorId) => ({ connectorId })),
         },
       });
       setName("");
       setRolePrompt("");
       setOptions("");
+      setTools([]);
       router.refresh();
     } catch (err) {
       setError((err as Error).message);
@@ -313,6 +322,26 @@ export function AgentBuilder({ connectors: all }: { connectors: InstalledConnect
             />
           </div>
         </fieldset>
+        {mcpServers.length > 0 && (
+          <fieldset className="flex flex-col gap-1 md:col-span-2">
+            <legend className="mb-1 font-mono text-2xs uppercase tracking-[0.08em] text-fg-muted">
+              MCP tools it may use
+            </legend>
+            {mcpServers.map((m) => (
+              <label key={m.id} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={tools.includes(m.id)}
+                  onChange={(e) =>
+                    setTools((v) => (e.target.checked ? [...v, m.id] : v.filter((x) => x !== m.id)))
+                  }
+                />
+                {m.displayName}
+                <span className="font-mono text-2xs text-fg-subtle">{m.health.detail ?? ""}</span>
+              </label>
+            ))}
+          </fieldset>
+        )}
         <div className="flex flex-col gap-1 md:col-span-2">
           <Label htmlFor={`${ids}-options`}>Options (optional JSON)</Label>
           <Textarea
