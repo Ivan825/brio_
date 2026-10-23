@@ -8,7 +8,27 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
+    "start": "tsx src/main.ts",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run",
+    "test:live": "vitest run --config vitest.live.config.ts"
+  },
+  "dependencies": {
+    "@brio/adapters": "workspace:*",
+    "@brio/core": "workspace:*",
+    "@brio/db": "workspace:*",
+    "@brio/governance": "workspace:*",
+    "@brio/registry": "workspace:*",
+    "@brio/schema": "workspace:*",
+    "@brio/vault": "workspace:*",
+    "drizzle-orm": "0.45.4",
+    "pg": "8.23.1",
+    "pg-boss": "12.38.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.0",
+    "tsx": "4.23.15"
   }
 }

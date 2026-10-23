@@ -1,3 +1,4 @@
-// Sandbox worker: pulls attempts from the queue and runs adapters in Docker
-// TODO(milestone-2): implemented in M2 (docs/BUILD_PLAN.md).
-export {};
+// Sandbox worker: pulls attempts from the queue and runs adapters in Docker (ARCHITECTURE §4.3).
+export * from "./docker";
+export * from "./images";
+export * from "./sandbox/docker-sandbox";
