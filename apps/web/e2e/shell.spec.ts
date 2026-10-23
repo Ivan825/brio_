@@ -5,6 +5,7 @@ const SCREENS = [
   { path: "/connectors", nav: "Connectors", heading: "Connectors" },
   { path: "/agents", nav: "Agents", heading: "Agents" },
   { path: "/scoreboard", nav: "Scoreboard", heading: "Nothing to score yet" },
+  { path: "/evals", nav: "Evals", heading: "No eval runs yet" },
   { path: "/settings", nav: "Settings", heading: "Workspace settings" },
 ];
 

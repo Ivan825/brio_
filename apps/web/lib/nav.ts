@@ -1,4 +1,4 @@
-import { Bot, Gauge, type LucideIcon, Plug, Settings, Workflow } from "lucide-react";
+import { Bot, FlaskConical, Gauge, type LucideIcon, Plug, Settings, Workflow } from "lucide-react";
 
 export interface NavItem {
   href: string;
@@ -11,5 +11,6 @@ export const NAV: readonly NavItem[] = [
   { href: "/connectors", label: "Connectors", icon: Plug },
   { href: "/agents", label: "Agents", icon: Bot },
   { href: "/scoreboard", label: "Scoreboard", icon: Gauge },
+  { href: "/evals", label: "Evals", icon: FlaskConical },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
