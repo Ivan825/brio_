@@ -1,0 +1,1 @@
+ALTER TABLE "integrations" ADD COLUMN "commands" jsonb DEFAULT '[]'::jsonb NOT NULL;

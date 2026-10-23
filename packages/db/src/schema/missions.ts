@@ -259,6 +259,8 @@ export const integrations = pgTable(
       .$type<Array<{ between: [string, string]; files: string[] }>>()
       .notNull()
       .default(sql`'[]'::jsonb`),
+    /** The hard command checks to run on the merged result (what a local runner reads; the cloud gets them in its job). */
+    commands: jsonb().$type<string[]>().notNull().default(sql`'[]'::jsonb`),
     /** The commands run on the merged result and how each went. */
     checks: jsonb()
       .$type<Array<{ command: string; passed: boolean; exitCode: number | null; output: string }>>()
