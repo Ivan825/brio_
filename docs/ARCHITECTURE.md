@@ -75,7 +75,7 @@ All tables have `id` (uuid v7), `workspace_id`, `created_at`, `updated_at` unles
 - `workspaces` (name, plan, settings jsonb)
 - `members` (user_id, workspace_id, role)
 - `api_tokens` (workspace_id, user_id, name, prefix, token_hash, last_used_at, expires_at, revoked_at): workspace-bound tokens for the CLI, the stdio MCP server and A2A clients; only the sha256 is stored (M7)
-- `users`, `sessions`, `accounts` (Better Auth tables)
+- `users`, `sessions`, `accounts` (Better Auth tables); `jwks` and `oauth_*` (clients, resources, client resources, access and refresh tokens, consents, client assertions): Better Auth's OAuth 2.1 provider, which remote MCP clients sign in with (M7)
 
 **Connectors & agents**
 - `connectors` — an installed connector: `registry_key` (→ connectors.json id), `display_name`, `route` (api|cli|sdk|hosted|a2a|mcp|browser|local), `credential_ref` (vault id), `config` jsonb, `health` jsonb, `status`.
