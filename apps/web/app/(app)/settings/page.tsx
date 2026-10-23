@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import { EmptyState } from "@/components/empty-state";
 import { getWorkspaces, serverApi } from "@/lib/server-api";
-import { InviteMember, PasskeySettings, RenameWorkspace } from "./settings-forms";
+import {
+  type ApiTokenRow,
+  ApiTokens,
+  InviteMember,
+  PasskeySettings,
+  RenameWorkspace,
+} from "./settings-forms";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -22,6 +28,11 @@ export default async function SettingsPage() {
   }
   const { data } = await serverApi<MembersResponse>(`/v1/workspaces/${active.id}/members`);
   const canManage = active.role === "owner" || active.role === "admin";
+  const canAct = canManage || active.role === "member";
+  const tokens = canAct
+    ? ((await serverApi<{ tokens: ApiTokenRow[] }>("/v1/tokens")).data?.tokens ?? [])
+    : [];
+  const origin = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/+$/, "");
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-10 px-6 py-8">
@@ -61,6 +72,19 @@ export default async function SettingsPage() {
         </ul>
         {canManage && <InviteMember workspaceId={active.id} />}
       </section>
+
+      {canAct && (
+        <section aria-labelledby="tokens" className="flex flex-col gap-3">
+          <h2 id="tokens" className="font-mono text-2xs uppercase tracking-[0.08em] text-fg-muted">
+            API tokens
+          </h2>
+          <p className="text-xs text-fg-muted">
+            For the brio CLI, MCP clients (Claude Code, Cursor, Codex) and A2A clients. A token acts as you,
+            in this workspace only.
+          </p>
+          <ApiTokens tokens={tokens} origin={origin} />
+        </section>
+      )}
 
       <section aria-labelledby="security" className="flex flex-col gap-3">
         <h2 id="security" className="font-mono text-2xs uppercase tracking-[0.08em] text-fg-muted">
