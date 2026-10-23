@@ -1,0 +1,104 @@
+/* Brio design tokens — terminal-native, dark-first.
+   Import once at the app root (apps/web/app/globals.css).
+   Fonts: Geist Sans + Geist Mono via the `geist` npm package (next/font), exposed as --font-geist-sans / --font-geist-mono.
+   Dark is the default look; light applies when the OS prefers light or <html data-theme="light">. */
+
+:root {
+  /* Brand constants */
+  --brio-ink: #0B0D17;        /* page black (slight indigo bias) */
+  --brio-navy: #121527;       /* icon tile, raised surfaces */
+  --brio-ivory: #EDEFF7;      /* wordmark on dark */
+  --brio-brass: #F2B33D;      /* the cursor — the only brand accent */
+  --brio-brass-deep: #C98A12; /* cursor on light backgrounds */
+
+  /* Dark (default) */
+  --bg: #0B0D17;
+  --surface: #121527;
+  --surface-2: #181C33;
+  --line: #262B4A;
+  --line-strong: #353B63;
+  --text: #EDEFF7;
+  --text-muted: #9EA3BF;
+  --text-subtle: #6B7090;
+
+  --primary: #F2B33D;         /* primary buttons: brass with ink text */
+  --primary-hover: #FFC45C;
+  --on-primary: #0B0D17;
+  --accent: #F2B33D;
+  --accent-soft: rgba(242, 179, 61, 0.12);
+  --focus: #6C8CFF;
+  --selection: rgba(108, 140, 255, 0.28);
+
+  /* Agent palette — one colour per agent/vendor lane on the board, chips, charts.
+     Never use these for status. Assign in this order. */
+  --agent-1: #2BB3A8; /* teal   */
+  --agent-2: #F2674F; /* coral  */
+  --agent-3: #6C8CFF; /* sky    */
+  --agent-4: #5CBF6E; /* green  */
+  --agent-5: #A88BFA; /* violet */
+  --agent-6: #E8C36A; /* sand   */
+
+  /* Status (separate from agent colours) */
+  --success: #4CC38A;
+  --warning: #FB923C;
+  --danger: #F87171;
+  --info: #6C8CFF;
+  --running: #F2B33D;         /* live/running = the blinking cursor colour */
+
+  /* Type */
+  --font-sans: var(--font-geist-sans, "Geist"), "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-geist-mono, "Geist Mono"), "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --text-2xs: 11px; --text-xs: 12px; --text-sm: 13px; --text-base: 14px; --text-md: 16px;
+  --text-lg: 20px; --text-xl: 24px; --text-2xl: 32px; --text-3xl: 48px; --text-4xl: 64px;
+
+  /* Shape & space */
+  --radius-xs: 4px; --radius-sm: 6px; --radius-md: 8px; --radius-lg: 12px; --radius-icon: 28px;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 64px;
+
+  /* Depth: borders first, shadows rarely */
+  --shadow-pop: 0 12px 32px rgba(0, 0, 0, 0.45);
+  --glow-brass: 0 0 0 1px rgba(242, 179, 61, 0.35), 0 0 24px rgba(242, 179, 61, 0.15);
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast: 120ms; --dur-base: 180ms; --dur-slow: 300ms;
+  --blink: 1.06s;             /* cursor blink period, steps(1) */
+
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #F7F7FA; --surface: #FFFFFF; --surface-2: #F0F1F6; --line: #E1E3EC; --line-strong: #CDD0DE;
+    --text: #0B0D17; --text-muted: #555A75; --text-subtle: #868AA3;
+    --primary: #0B0D17; --primary-hover: #1F2440; --on-primary: #EDEFF7;
+    --accent: #C98A12; --accent-soft: rgba(201, 138, 18, 0.12); --focus: #4F6FF0; --selection: rgba(79, 111, 240, 0.18);
+    --agent-1: #1E9E94; --agent-2: #E5533C; --agent-3: #4F6FF0; --agent-4: #3E9B4F; --agent-5: #8B5CF6; --agent-6: #B88A1E;
+    --success: #1F8A57; --warning: #C2410C; --danger: #C62828; --info: #4F6FF0; --running: #C98A12;
+    --shadow-pop: 0 12px 32px rgba(11, 13, 23, 0.12);
+    --glow-brass: 0 0 0 1px rgba(201, 138, 18, 0.35), 0 0 24px rgba(201, 138, 18, 0.12);
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #F7F7FA; --surface: #FFFFFF; --surface-2: #F0F1F6; --line: #E1E3EC; --line-strong: #CDD0DE;
+  --text: #0B0D17; --text-muted: #555A75; --text-subtle: #868AA3;
+  --primary: #0B0D17; --primary-hover: #1F2440; --on-primary: #EDEFF7;
+  --accent: #C98A12; --accent-soft: rgba(201, 138, 18, 0.12); --focus: #4F6FF0; --selection: rgba(79, 111, 240, 0.18);
+  --agent-1: #1E9E94; --agent-2: #E5533C; --agent-3: #4F6FF0; --agent-4: #3E9B4F; --agent-5: #8B5CF6; --agent-6: #B88A1E;
+  --success: #1F8A57; --warning: #C2410C; --danger: #C62828; --info: #4F6FF0; --running: #C98A12;
+  --shadow-pop: 0 12px 32px rgba(11, 13, 23, 0.12);
+  --glow-brass: 0 0 0 1px rgba(201, 138, 18, 0.35), 0 0 24px rgba(201, 138, 18, 0.12);
+  color-scheme: light;
+}
+
+html { background: var(--bg); }
+body { background: var(--bg); color: var(--text); font-family: var(--font-sans); font-size: var(--text-base); line-height: 1.55; -webkit-font-smoothing: antialiased; }
+code, pre, kbd, samp, .mono { font-family: var(--font-mono); }
+::selection { background: var(--selection); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* The signature: a blinking brass cursor. Use for running states, the logo, empty states. */
+@keyframes brio-blink { 0%, 50% { opacity: 1 } 50.01%, 100% { opacity: 0 } }
+.brio-cursor { display: inline-block; width: 0.6em; height: 0.12em; background: var(--running); vertical-align: baseline; animation: brio-blink var(--blink) steps(1) infinite; }
+@media (prefers-reduced-motion: reduce) { .brio-cursor { animation: none; } * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; } }

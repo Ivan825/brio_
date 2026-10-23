@@ -1,0 +1,33 @@
+# OS / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Dependencies and builds
+node_modules/
+.pnpm-store/
+dist/
+build/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+coverage/
+
+# Tests
+playwright-report/
+test-results/
+blob-report/
+
+# Env and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Logs
+*.log
+logs/
+.brio/

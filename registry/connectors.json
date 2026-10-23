@@ -1,0 +1,2039 @@
+{
+  "version": "1",
+  "generatedOn": "2026-10-23",
+  "note": "Verified status reflects sources checked on 2026-10-23. Re-check vendor docs before implementing each adapter.",
+  "routes": {
+    "api": "Model API",
+    "cli": "Headless CLI",
+    "sdk": "SDK",
+    "hosted": "Hosted agent API",
+    "a2a": "A2A",
+    "mcp": "MCP",
+    "browser": "Browser / UI only",
+    "local": "Self-host / local",
+    "none": "No official API"
+  },
+  "statuses": {
+    "v": "Verified Oct 2026",
+    "e": "Established",
+    "p": "Preview / limited",
+    "d": "Changing / retiring",
+    "x": "No API / ToS risk"
+  },
+  "categories": [
+    {
+      "id": "frontier",
+      "name": "Frontier model APIs",
+      "description": "The labs whose own models you call directly. These are the brains your router picks between."
+    },
+    {
+      "id": "open",
+      "name": "Open-weight & regional models",
+      "description": "Cheaper, often OpenAI-compatible APIs, plus models you can host yourself. Strong for bulk and utility steps."
+    },
+    {
+      "id": "gateway",
+      "name": "Gateways & clouds",
+      "description": "One key or one bill reaching many models. Use for fallback, price routing and enterprise buyers."
+    },
+    {
+      "id": "coding",
+      "name": "Coding agents",
+      "description": "Full agents (not just models) that edit repos. Driven headless, by SDK, or as cloud tasks."
+    },
+    {
+      "id": "hosted",
+      "name": "Hosted agent runtimes",
+      "description": "Vendor-run sandboxes you send a task to over REST and get results back. Best way to run other labs' agents at scale."
+    },
+    {
+      "id": "browser",
+      "name": "Computer-use & browser agents",
+      "description": "For sites and apps with no API. Slower and riskier, so use only where no API exists."
+    },
+    {
+      "id": "research",
+      "name": "Research & search",
+      "description": "Deep research agents and search APIs that feed facts and citations to every other agent."
+    },
+    {
+      "id": "general",
+      "name": "General autonomous agents",
+      "description": "Do-anything agents. Few have real APIs, so most are reachable only through their apps."
+    },
+    {
+      "id": "media",
+      "name": "Image, video, voice & music",
+      "description": "Specialists the router hands creative sub-tasks to."
+    },
+    {
+      "id": "design",
+      "name": "Design & workspace tools",
+      "description": "Where outputs land and get edited: design canvases, docs, workspaces."
+    },
+    {
+      "id": "enterprise",
+      "name": "Enterprise agent platforms",
+      "description": "Company agent stacks that already speak A2A. Your orchestrator can delegate to them, or be delegated to."
+    },
+    {
+      "id": "proto",
+      "name": "Protocols & frameworks",
+      "description": "The plumbing: open protocols to talk to agents, and frameworks to build your own specialist agents."
+    },
+    {
+      "id": "hub",
+      "name": "Automation & app hubs",
+      "description": "Thousands of apps behind one auth layer, so agents can act in Gmail, Slack, CRMs and more."
+    }
+  ],
+  "connectors": [
+    {
+      "id": "openai-api",
+      "name": "OpenAI API",
+      "maker": "OpenAI",
+      "category": "frontier",
+      "routes": [
+        "api",
+        "sdk"
+      ],
+      "howToConnect": "Responses API · Chat Completions · Batch · Realtime",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P0",
+      "notes": "GPT-6 family (Sol, Luna, Astra) live in the API in Oct 2026; API prices unchanged with the GPT-6 ChatGPT launch.",
+      "plannedAdapter": "openai-compatible:openai",
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "claude-api",
+      "name": "Claude API",
+      "maker": "Anthropic",
+      "category": "frontier",
+      "routes": [
+        "api",
+        "sdk"
+      ],
+      "howToConnect": "Messages API · Batch · prompt caching · tool use",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P0",
+      "notes": "Pull live model list; Opus, Sonnet and Haiku tiers serve planner, worker and utility roles.",
+      "plannedAdapter": "anthropic",
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "gemini-api",
+      "name": "Gemini API",
+      "maker": "Google",
+      "category": "frontier",
+      "routes": [
+        "api",
+        "sdk"
+      ],
+      "howToConnect": "AI Studio key or Vertex AI · Interactions API",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P0",
+      "notes": "Same key also unlocks Gemini Managed Agents (preview). Very long context; cheap Flash tier.",
+      "plannedAdapter": "gemini",
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "grok-api",
+      "name": "Grok API",
+      "maker": "xAI (operating as SpaceXAI)",
+      "category": "frontier",
+      "routes": [
+        "api",
+        "sdk"
+      ],
+      "howToConnect": "OpenAI-SDK compatible: change base URL · Responses + Agents API",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P0",
+      "notes": "Grok 4.6 (Aug 2026) aimed at long-running agents and coding; also grok-code-fast and a multi-agent variant. Server-side tools billed per call.",
+      "plannedAdapter": "openai-compatible:xai",
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "meta-model-api-muse-spark",
+      "name": "Meta Model API (Muse Spark)",
+      "maker": "Meta Superintelligence Labs",
+      "category": "frontier",
+      "routes": [
+        "api"
+      ],
+      "howToConnect": "OpenAI-compatible endpoint · model id muse-spark-1.1",
+      "status": "Preview / limited",
+      "statusKey": "p",
+      "tier": "P1",
+      "notes": "Public preview, US developers only. $1.25 / $4.25 per M tokens, 1M context, tool calls, caching. Muse Image not in the API yet.",
+      "plannedAdapter": "openai-compatible:meta",
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "mistral-api",
+      "name": "Mistral API",
+      "maker": "Mistral AI",
+      "category": "frontier",
+      "routes": [
+        "api",
+        "local"
+      ],
+      "howToConnect": "La Plateforme API · open-weight models to self-host",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P1",
+      "notes": "EU-hosted option for customers who need data in Europe; strong code models.",
+      "plannedAdapter": "openai-compatible:mistral",
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "cohere-api",
+      "name": "Cohere API",
+      "maker": "Cohere",
+      "category": "frontier",
+      "routes": [
+        "api"
+      ],
+      "howToConnect": "Chat · Embed · Rerank endpoints",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "Use mainly for rerank and embeddings in your memory layer.",
+      "plannedAdapter": null,
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "amazon-nova",
+      "name": "Amazon Nova",
+      "maker": "AWS",
+      "category": "frontier",
+      "routes": [
+        "api"
+      ],
+      "howToConnect": "Via Amazon Bedrock",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "Nova 2 family incl. Omni and Sonic voice; cheap option inside AWS accounts.",
+      "plannedAdapter": null,
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "microsoft-mai-models",
+      "name": "Microsoft MAI models",
+      "maker": "Microsoft",
+      "category": "frontier",
+      "routes": [
+        "api"
+      ],
+      "howToConnect": "Via Microsoft Foundry",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P3",
+      "notes": "Mostly image and voice so far (MAI-Image-2.5, Jun 2026). Check text-model availability.",
+      "plannedAdapter": null,
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "ai21-jamba",
+      "name": "AI21 Jamba",
+      "maker": "AI21 Labs",
+      "category": "frontier",
+      "routes": [
+        "api",
+        "local"
+      ],
+      "howToConnect": "AI21 Studio API",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P3",
+      "notes": "Long-context niche; low priority.",
+      "plannedAdapter": null,
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "deepseek-api",
+      "name": "DeepSeek API",
+      "maker": "DeepSeek",
+      "category": "open",
+      "routes": [
+        "api",
+        "local"
+      ],
+      "howToConnect": "OpenAI- and Anthropic-format endpoints",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P1",
+      "notes": "Very low cost; V4 series with thinking mode. Good for bulk coding and reasoning steps.",
+      "plannedAdapter": "openai-compatible:deepseek",
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "qwen-model-studio",
+      "name": "Qwen (Model Studio)",
+      "maker": "Alibaba Cloud",
+      "category": "open",
+      "routes": [
+        "api",
+        "local",
+        "cli"
+      ],
+      "howToConnect": "DashScope / Model Studio API · Qwen Code CLI · open weights",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P1",
+      "notes": "Qwen3 coder line is a strong open coding model; run locally or via API.",
+      "plannedAdapter": "openai-compatible:qwen",
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "kimi-api",
+      "name": "Kimi API",
+      "maker": "Moonshot AI",
+      "category": "open",
+      "routes": [
+        "api",
+        "cli",
+        "local"
+      ],
+      "howToConnect": "Kimi platform API · Kimi Code API · Kimi CLI",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P1",
+      "notes": "K2 series for agentic coding and long docs. OpenAI and Anthropic compatible.",
+      "plannedAdapter": "openai-compatible:kimi",
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "glm-api",
+      "name": "GLM API",
+      "maker": "Zhipu (Z.ai)",
+      "category": "open",
+      "routes": [
+        "api",
+        "local"
+      ],
+      "howToConnect": "Z.ai API · GLM Coding Plan (works inside Claude Code / Cline)",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P1",
+      "notes": "GLM-5.x noted for reliable structured output and long coding runs.",
+      "plannedAdapter": "openai-compatible:glm",
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "minimax-api",
+      "name": "MiniMax API",
+      "maker": "MiniMax",
+      "category": "open",
+      "routes": [
+        "api",
+        "local"
+      ],
+      "howToConnect": "MiniMax platform API · open weights",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "Budget coding and long context; also speech and video models.",
+      "plannedAdapter": null,
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "sarvam-ai-api",
+      "name": "Sarvam AI API",
+      "maker": "Sarvam AI (India)",
+      "category": "open",
+      "routes": [
+        "api",
+        "local"
+      ],
+      "howToConnect": "Chat Completions (sarvam-105b) · speech · Document AI",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P1",
+      "notes": "Indian-language specialist. Sarvam-105B is the only supported chat model since Jul 2026; self-host in your own AWS available.",
+      "plannedAdapter": "openai-compatible:sarvam",
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "local-models",
+      "name": "Local models",
+      "maker": "Ollama · vLLM · LM Studio",
+      "category": "open",
+      "routes": [
+        "local",
+        "api"
+      ],
+      "howToConnect": "OpenAI-compatible localhost endpoint",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P1",
+      "notes": "Private or offline mode: route sensitive sub-tasks to a model on the user's machine.",
+      "plannedAdapter": "openai-compatible:local",
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "nvidia-nim",
+      "name": "NVIDIA NIM",
+      "maker": "NVIDIA",
+      "category": "open",
+      "routes": [
+        "api",
+        "local"
+      ],
+      "howToConnect": "NIM microservices · build.nvidia.com API",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "Packaged open models (Nemotron, Llama, Sarvam and others) for GPU hosts.",
+      "plannedAdapter": null,
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "openrouter",
+      "name": "OpenRouter",
+      "maker": "OpenRouter",
+      "category": "gateway",
+      "routes": [
+        "api"
+      ],
+      "howToConnect": "One key, OpenAI-format; per-model routing and fallbacks",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P0",
+      "notes": "Fastest way to reach hundreds of models incl. Grok 4.x on day one. Your router can sit on top.",
+      "plannedAdapter": "openai-compatible:openrouter",
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "litellm",
+      "name": "LiteLLM",
+      "maker": "BerriAI (open source)",
+      "category": "gateway",
+      "routes": [
+        "local",
+        "api"
+      ],
+      "howToConnect": "Self-hosted proxy: one API, 100+ providers, budgets, logs",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P0",
+      "notes": "Your internal plumbing: metering, keys per workspace, spend caps. Pairs with Mandate-style limits.",
+      "plannedAdapter": "openai-compatible:litellm",
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "amazon-bedrock",
+      "name": "Amazon Bedrock",
+      "maker": "AWS",
+      "category": "gateway",
+      "routes": [
+        "api"
+      ],
+      "howToConnect": "Converse API · Claude, Llama, Mistral, Nova and more",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P1",
+      "notes": "Enterprise buyers already on AWS; data stays in their account.",
+      "plannedAdapter": null,
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "microsoft-foundry",
+      "name": "Microsoft Foundry",
+      "maker": "Microsoft",
+      "category": "gateway",
+      "routes": [
+        "api",
+        "hosted",
+        "a2a"
+      ],
+      "howToConnect": "Responses-API wire format · OpenAI, Anthropic, Meta, Mistral models",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P1",
+      "notes": "Renamed from Azure AI Foundry; Foundry Agent Service went GA on 16 Mar 2026.",
+      "plannedAdapter": null,
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "vertex-ai-model-garden",
+      "name": "Vertex AI Model Garden",
+      "maker": "Google Cloud",
+      "category": "gateway",
+      "routes": [
+        "api"
+      ],
+      "howToConnect": "Gemini, Claude, Llama and open models in one GCP project",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P1",
+      "notes": "Google-cloud customers; also the billed path for Antigravity SDK.",
+      "plannedAdapter": null,
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "groq-cerebras",
+      "name": "Groq · Cerebras",
+      "maker": "Groq · Cerebras",
+      "category": "gateway",
+      "routes": [
+        "api"
+      ],
+      "howToConnect": "OpenAI-compatible fast-inference endpoints",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "Very low latency for quick routing, classification and judge calls.",
+      "plannedAdapter": "openai-compatible:groq",
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "together-fireworks-deepinfra",
+      "name": "Together · Fireworks · DeepInfra",
+      "maker": "Various",
+      "category": "gateway",
+      "routes": [
+        "api"
+      ],
+      "howToConnect": "OpenAI-compatible hosts for open-weight models",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "Cheap hosted open models without running GPUs.",
+      "plannedAdapter": "openai-compatible:together",
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "vercel-ai-gateway-cloudflare-ai-gateway",
+      "name": "Vercel AI Gateway · Cloudflare AI Gateway",
+      "maker": "Vercel · Cloudflare",
+      "category": "gateway",
+      "routes": [
+        "api"
+      ],
+      "howToConnect": "Edge proxy with caching and analytics",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "Useful if you host on Vercel; both listed Grok 4.6 at launch.",
+      "plannedAdapter": null,
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "hugging-face-inference-providers",
+      "name": "Hugging Face Inference Providers",
+      "maker": "Hugging Face",
+      "category": "gateway",
+      "routes": [
+        "api",
+        "local"
+      ],
+      "howToConnect": "One HF token routes to many hosts",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P3",
+      "notes": "Long tail of niche and research models.",
+      "plannedAdapter": null,
+      "buildMilestone": "M1",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "claude-code",
+      "name": "Claude Code",
+      "maker": "Anthropic",
+      "category": "coding",
+      "routes": [
+        "cli",
+        "sdk",
+        "mcp"
+      ],
+      "howToConnect": "claude -p (headless) · Claude Agent SDK (Python/TS)",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P0",
+      "notes": "Use API keys: subscription limits are not allowed for third-party agents. Hooks let you intercept writes, as Relay does.",
+      "plannedAdapter": "claude-code",
+      "buildMilestone": "M2",
+      "subscriptionUse": "Not allowed for third-party agents (claude.ai login/subscription limits); use API keys. Subscription claude -p usage draws from a separate Agent SDK credit for the user's own use.",
+      "supported": true
+    },
+    {
+      "id": "openai-codex",
+      "name": "OpenAI Codex",
+      "maker": "OpenAI",
+      "category": "coding",
+      "routes": [
+        "cli",
+        "sdk",
+        "hosted"
+      ],
+      "howToConnect": "codex exec · Codex SDK (TS) · Codex Cloud tasks · GitHub Action",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P0",
+      "notes": "Cloud tasks need a ChatGPT plan; an API key runs Codex locally only. DevDay 2026 rebuilt Codex Cloud environments.",
+      "plannedAdapter": "codex",
+      "buildMilestone": "M2",
+      "subscriptionUse": "Codex Cloud requires a ChatGPT plan; API-key mode runs locally only.",
+      "supported": true
+    },
+    {
+      "id": "cursor-agent",
+      "name": "Cursor Agent",
+      "maker": "Anysphere",
+      "category": "coding",
+      "routes": [
+        "cli",
+        "hosted"
+      ],
+      "howToConnect": "cursor agent -p --trust (stream-json) · Cloud Agents",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P0",
+      "notes": "Headless CLI works anywhere with CURSOR_API_KEY; supports worktrees and ACP. Cloud Agents run in Cursor VMs.",
+      "plannedAdapter": "cursor-agent",
+      "buildMilestone": "M2",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "google-antigravity",
+      "name": "Google Antigravity",
+      "maker": "Google",
+      "category": "coding",
+      "routes": [
+        "cli",
+        "sdk",
+        "hosted"
+      ],
+      "howToConnect": "agy -p --output-format stream-json · Antigravity SDK · Managed Agents",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P0",
+      "notes": "Serves Gemini plus Claude and GPT-OSS models. Headless permission bug (issue #548) auto-denies tools; set explicit allowlists.",
+      "plannedAdapter": "antigravity",
+      "buildMilestone": "M2",
+      "subscriptionUse": "Reusing agy login tokens in other software forbidden; official agy binary headless allowed (local runner only). Antigravity SDK needs API key or Vertex.",
+      "supported": true
+    },
+    {
+      "id": "gemini-cli",
+      "name": "Gemini CLI",
+      "maker": "Google",
+      "category": "coding",
+      "routes": [
+        "cli"
+      ],
+      "howToConnect": "gemini (API-key mode)",
+      "status": "Changing / retiring",
+      "statusKey": "d",
+      "tier": "P3",
+      "notes": "Free and AI Pro/Ultra sign-ins moved to Antigravity CLI on 18 Jun 2026. Treat agy as the successor.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6+",
+      "subscriptionUse": "Free and AI Pro/Ultra sign-ins moved to Antigravity CLI on 2026-06-18.",
+      "supported": true
+    },
+    {
+      "id": "jules",
+      "name": "Jules",
+      "maker": "Google Labs",
+      "category": "coding",
+      "routes": [
+        "api",
+        "cli"
+      ],
+      "howToConnect": "Jules REST API (v1alpha) · Jules Tools CLI",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P1",
+      "notes": "Async issue-to-PR agent; GitHub only. Good for background backlog work.",
+      "plannedAdapter": "jules",
+      "buildMilestone": "M2",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "github-copilot-coding-agent",
+      "name": "GitHub Copilot coding agent",
+      "maker": "GitHub / Microsoft",
+      "category": "coding",
+      "routes": [
+        "cli",
+        "hosted"
+      ],
+      "howToConnect": "Copilot CLI · assign issues to Copilot via GitHub API",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P1",
+      "notes": "Works where the user's code already lives; enterprise seat holders.",
+      "plannedAdapter": null,
+      "buildMilestone": "M2",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "grok-build",
+      "name": "Grok Build",
+      "maker": "xAI",
+      "category": "coding",
+      "routes": [
+        "cli"
+      ],
+      "howToConnect": "Local-first coding agent; Grok 4.6 is its default",
+      "status": "Preview / limited",
+      "statusKey": "p",
+      "tier": "P1",
+      "notes": "Was waitlisted into spring 2026; confirm open access and headless flags.",
+      "plannedAdapter": null,
+      "buildMilestone": "M2",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "devin",
+      "name": "Devin",
+      "maker": "Cognition",
+      "category": "coding",
+      "routes": [
+        "api",
+        "hosted"
+      ],
+      "howToConnect": "Devin API: create sessions, poll, fetch PRs",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P1",
+      "notes": "Long autonomous tasks in its own VM. Cognition also owns Windsurf.",
+      "plannedAdapter": "devin",
+      "buildMilestone": "M2",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "kiro",
+      "name": "Kiro",
+      "maker": "AWS",
+      "category": "coding",
+      "routes": [
+        "cli"
+      ],
+      "howToConnect": "Kiro IDE · Kiro CLI · Kiro Powers",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "Spec-driven coding; natural fit for AWS-heavy teams and AgentCore.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6+",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "opencode",
+      "name": "OpenCode",
+      "maker": "open source",
+      "category": "coding",
+      "routes": [
+        "cli",
+        "local"
+      ],
+      "howToConnect": "opencode run (headless) · any model via BYOK",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P1",
+      "notes": "Model-agnostic terminal agent; easy to pair with cheap open models.",
+      "plannedAdapter": "opencode",
+      "buildMilestone": "M2",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "cline-roo-code-kilo-code",
+      "name": "Cline · Roo Code · Kilo Code",
+      "maker": "open source",
+      "category": "coding",
+      "routes": [
+        "cli",
+        "local"
+      ],
+      "howToConnect": "Cline CLI · VS Code extensions · BYOK",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "Popular BYOK agents; Cline bundles open-weight models in a cheap pass.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6+",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "aider",
+      "name": "Aider",
+      "maker": "open source",
+      "category": "coding",
+      "routes": [
+        "cli",
+        "local"
+      ],
+      "howToConnect": "aider --message (scriptable)",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "Lightweight git-native pair programmer.",
+      "plannedAdapter": "aider",
+      "buildMilestone": "M6+",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "goose-openhands",
+      "name": "Goose · OpenHands",
+      "maker": "Block · All Hands (open source)",
+      "category": "coding",
+      "routes": [
+        "cli",
+        "local",
+        "hosted"
+      ],
+      "howToConnect": "goose run · OpenHands headless / cloud",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "Open agents you can self-host as specialists.",
+      "plannedAdapter": "goose",
+      "buildMilestone": "M6+",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "amp-factory-droid-augment-warp-junie",
+      "name": "Amp · Factory Droid · Augment · Warp · Junie",
+      "maker": "Various",
+      "category": "coding",
+      "routes": [
+        "cli"
+      ],
+      "howToConnect": "Each ships a CLI or headless mode",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "Add as demand appears; check each for non-interactive flags.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6+",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "v0-lovable-bolt-replit-agent",
+      "name": "v0 · Lovable · Bolt · Replit Agent",
+      "maker": "Vercel · Lovable · StackBlitz · Replit",
+      "category": "coding",
+      "routes": [
+        "api",
+        "browser"
+      ],
+      "howToConnect": "v0 Platform API; others mostly app-only",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "Full-app builders for prototypes and landing pages. Confirm which expose task APIs.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6+",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "claude-managed-agents",
+      "name": "Claude Managed Agents",
+      "maker": "Anthropic",
+      "category": "hosted",
+      "routes": [
+        "hosted"
+      ],
+      "howToConnect": "REST beta, header managed-agents-2026-04-01",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P0",
+      "notes": "Anthropic runs the harness, sandbox and session log. Launched 8 Apr 2026; not ZDR or HIPAA eligible yet.",
+      "plannedAdapter": "claude-managed-agents",
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "openai-agents-api",
+      "name": "OpenAI Agents API",
+      "maker": "OpenAI",
+      "category": "hosted",
+      "routes": [
+        "hosted"
+      ],
+      "howToConnect": "POST /v1/agents/sessions, header OpenAI-Beta: agents=v1",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P0",
+      "notes": "Since 29 Sep 2026 can run tasks in an OpenAI-hosted browser; your app handles site approvals and sign-in.",
+      "plannedAdapter": "openai-agents",
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "gemini-managed-agents",
+      "name": "Gemini Managed Agents",
+      "maker": "Google",
+      "category": "hosted",
+      "routes": [
+        "hosted",
+        "mcp"
+      ],
+      "howToConnect": "Antigravity harness via the Interactions API",
+      "status": "Preview / limited",
+      "statusKey": "p",
+      "tier": "P1",
+      "notes": "Preview: persistent sandboxes, saved agents, triggers, budgets, remote MCP.",
+      "plannedAdapter": "gemini-managed-agents",
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "bedrock-agentcore",
+      "name": "Bedrock AgentCore",
+      "maker": "AWS",
+      "category": "hosted",
+      "routes": [
+        "hosted",
+        "a2a",
+        "mcp"
+      ],
+      "howToConnect": "Runtime · Gateway · Memory · Browser · managed harness (preview)",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P1",
+      "notes": "Per-session microVMs; Cedar policies on tool calls. CLI and harness added Apr 2026.",
+      "plannedAdapter": "bedrock-agentcore",
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "foundry-agent-service",
+      "name": "Foundry Agent Service",
+      "maker": "Microsoft",
+      "category": "hosted",
+      "routes": [
+        "hosted",
+        "a2a"
+      ],
+      "howToConnect": "Prompt agents or hosted agents on the Responses API",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P1",
+      "notes": "GA Mar 2026. Bridges to Copilot Studio over A2A.",
+      "plannedAdapter": "foundry-agents",
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "claude-computer-use",
+      "name": "Claude computer use",
+      "maker": "Anthropic",
+      "category": "browser",
+      "routes": [
+        "api"
+      ],
+      "howToConnect": "Computer-use tool in the Messages API",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P1",
+      "notes": "Run it in your own VM or cloud browser for sites without APIs.",
+      "plannedAdapter": "anthropic-computer-use",
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "amazon-nova-act",
+      "name": "Amazon Nova Act",
+      "maker": "AWS",
+      "category": "browser",
+      "routes": [
+        "sdk",
+        "hosted"
+      ],
+      "howToConnect": "pip install nova-act · CLI deploys to AgentCore Runtime",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P1",
+      "notes": "Browser agent on a Nova model trained for web driving; playground at nova.amazon.com/act.",
+      "plannedAdapter": "nova-act",
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "browser-use",
+      "name": "Browser Use",
+      "maker": "Browser Use (open source + cloud)",
+      "category": "browser",
+      "routes": [
+        "sdk",
+        "hosted",
+        "local"
+      ],
+      "howToConnect": "Python library · Browser Use Cloud API",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P1",
+      "notes": "Leading open framework; cloud adds stealth browsers and proxies.",
+      "plannedAdapter": "browser-use",
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "browserbase-steel-hyperbrowser",
+      "name": "Browserbase · Steel · Hyperbrowser",
+      "maker": "Various",
+      "category": "browser",
+      "routes": [
+        "api"
+      ],
+      "howToConnect": "Cloud browser sessions over CDP",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "Infrastructure under any browser agent; Steel documents an OpenAI computer-use integration.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "skyvern",
+      "name": "Skyvern",
+      "maker": "open source",
+      "category": "browser",
+      "routes": [
+        "api",
+        "local"
+      ],
+      "howToConnect": "Skyvern API · self-host",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P3",
+      "notes": "Form-filling workflows on legacy portals.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "perplexity-comet",
+      "name": "Perplexity Comet",
+      "maker": "Perplexity",
+      "category": "browser",
+      "routes": [
+        "browser",
+        "mcp"
+      ],
+      "howToConnect": "Consumer browser; community MCP bridges over CDP",
+      "status": "No API / ToS risk",
+      "statusKey": "x",
+      "tier": "P3",
+      "notes": "No public REST API for Comet itself. Use Perplexity's Agent API instead.",
+      "plannedAdapter": null,
+      "buildMilestone": null,
+      "subscriptionUse": null,
+      "supported": false
+    },
+    {
+      "id": "chatgpt-agent-atlas",
+      "name": "ChatGPT agent · Atlas",
+      "maker": "OpenAI",
+      "category": "browser",
+      "routes": [
+        "browser"
+      ],
+      "howToConnect": "Consumer app only",
+      "status": "No API / ToS risk",
+      "statusKey": "x",
+      "tier": "P3",
+      "notes": "Do not scrape; the Agents API offers the same hosted-browser ability legitimately.",
+      "plannedAdapter": null,
+      "buildMilestone": null,
+      "subscriptionUse": null,
+      "supported": false
+    },
+    {
+      "id": "claude-in-chrome-gemini-in-chrome",
+      "name": "Claude in Chrome · Gemini in Chrome",
+      "maker": "Anthropic · Google",
+      "category": "browser",
+      "routes": [
+        "browser"
+      ],
+      "howToConnect": "User-side browser extensions",
+      "status": "No API / ToS risk",
+      "statusKey": "x",
+      "tier": "P3",
+      "notes": "Runs in the user's own browser; your product can hand off to it but not drive it remotely.",
+      "plannedAdapter": null,
+      "buildMilestone": null,
+      "subscriptionUse": null,
+      "supported": false
+    },
+    {
+      "id": "perplexity-agent-api",
+      "name": "Perplexity Agent API",
+      "maker": "Perplexity",
+      "category": "research",
+      "routes": [
+        "api"
+      ],
+      "howToConnect": "Agent API (replacing Sonar API)",
+      "status": "Changing / retiring",
+      "statusKey": "d",
+      "tier": "P1",
+      "notes": "Perplexity said Sonar API retires 27 Sep 2026 in favour of the Agent API. Cited, web-grounded answers.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "openai-search-deep-research",
+      "name": "OpenAI search & deep research",
+      "maker": "OpenAI",
+      "category": "research",
+      "routes": [
+        "api"
+      ],
+      "howToConnect": "gpt-5-search-api · deep-research models via Responses",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P1",
+      "notes": "Search-grounded model snapshot dated 14 Oct 2026.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "gemini-deep-research",
+      "name": "Gemini Deep Research",
+      "maker": "Google",
+      "category": "research",
+      "routes": [
+        "api"
+      ],
+      "howToConnect": "Via Gemini API / Interactions",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "Long multi-source reports; confirm API exposure in your region.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "grok-live-search",
+      "name": "Grok live search",
+      "maker": "xAI",
+      "category": "research",
+      "routes": [
+        "api"
+      ],
+      "howToConnect": "Server-side web and X search tools in the xAI API",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P1",
+      "notes": "Unique access to live X posts; useful for market chatter.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "exa-tavily-parallel",
+      "name": "Exa · Tavily · Parallel",
+      "maker": "Various",
+      "category": "research",
+      "routes": [
+        "api",
+        "mcp"
+      ],
+      "howToConnect": "Search APIs built for agents",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P1",
+      "notes": "Give every agent the same search tool so results are comparable.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "brave-search-api-you-com",
+      "name": "Brave Search API · You.com",
+      "maker": "Brave · You.com",
+      "category": "research",
+      "routes": [
+        "api"
+      ],
+      "howToConnect": "Web index APIs",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "Independent indexes for cross-checking.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "firecrawl-jina-reader",
+      "name": "Firecrawl · Jina Reader",
+      "maker": "Various",
+      "category": "research",
+      "routes": [
+        "api",
+        "mcp"
+      ],
+      "howToConnect": "URL to clean markdown",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "Page fetching for research agents.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "manus",
+      "name": "Manus",
+      "maker": "Butterfly Effect",
+      "category": "general",
+      "routes": [
+        "api"
+      ],
+      "howToConnect": "Manus API: tasks, projects, connectors, webhooks",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P1",
+      "notes": "One of few general agents with an official API. Wide Research and cloud browser included.",
+      "plannedAdapter": "manus",
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "genspark",
+      "name": "Genspark",
+      "maker": "Genspark",
+      "category": "general",
+      "routes": [
+        "browser",
+        "mcp"
+      ],
+      "howToConnect": "Workspace app; MCP and skills inside",
+      "status": "No API / ToS risk",
+      "statusKey": "x",
+      "tier": "P3",
+      "notes": "No documented public task API found. Treat as user-side only.",
+      "plannedAdapter": null,
+      "buildMilestone": null,
+      "subscriptionUse": null,
+      "supported": false
+    },
+    {
+      "id": "kimi-agent-minimax-agent",
+      "name": "Kimi Agent · MiniMax Agent",
+      "maker": "Moonshot · MiniMax",
+      "category": "general",
+      "routes": [
+        "browser"
+      ],
+      "howToConnect": "Consumer apps (Agent Swarm, Kimi Claw)",
+      "status": "No API / ToS risk",
+      "statusKey": "x",
+      "tier": "P3",
+      "notes": "Use their model APIs instead of the apps.",
+      "plannedAdapter": null,
+      "buildMilestone": null,
+      "subscriptionUse": null,
+      "supported": false
+    },
+    {
+      "id": "openclaw-openmanus",
+      "name": "OpenClaw · OpenManus",
+      "maker": "open source",
+      "category": "general",
+      "routes": [
+        "local"
+      ],
+      "howToConnect": "Self-hosted general agents",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "Host as your own general-purpose worker.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "openai-image-voice",
+      "name": "OpenAI image & voice",
+      "maker": "OpenAI",
+      "category": "media",
+      "routes": [
+        "api"
+      ],
+      "howToConnect": "gpt-image · Realtime · gpt-transcribe",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P1",
+      "notes": "Sora API was scheduled to shut down 24 Sep 2026; don't build on it.",
+      "plannedAdapter": "openai-image",
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "google-veo-nano-banana",
+      "name": "Google Veo · Nano Banana",
+      "maker": "Google",
+      "category": "media",
+      "routes": [
+        "api"
+      ],
+      "howToConnect": "Gemini API / Vertex",
+      "status": "Changing / retiring",
+      "statusKey": "d",
+      "tier": "P1",
+      "notes": "Imagen 4 was deprecated in the Gemini API (shutdown 17 Aug 2026). Use current image and Veo models.",
+      "plannedAdapter": "google-media",
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "black-forest-labs-flux",
+      "name": "Black Forest Labs Flux",
+      "maker": "BFL",
+      "category": "media",
+      "routes": [
+        "api",
+        "local"
+      ],
+      "howToConnect": "Official API · open weights",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P1",
+      "notes": "The legitimate stand-in for Midjourney-style images.",
+      "plannedAdapter": "flux",
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "runway",
+      "name": "Runway",
+      "maker": "Runway",
+      "category": "media",
+      "routes": [
+        "api"
+      ],
+      "howToConnect": "Official API (Gen-4.5, Aleph editing)",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P1",
+      "notes": "Video generation and frame-directed editing.",
+      "plannedAdapter": "runway",
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "elevenlabs",
+      "name": "ElevenLabs",
+      "maker": "ElevenLabs",
+      "category": "media",
+      "routes": [
+        "api",
+        "mcp"
+      ],
+      "howToConnect": "TTS · voice cloning · conversational agents API",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P1",
+      "notes": "Voice layer for explainer videos and voice agents.",
+      "plannedAdapter": "elevenlabs",
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "luma-kling",
+      "name": "Luma · Kling",
+      "maker": "Luma AI · Kuaishou",
+      "category": "media",
+      "routes": [
+        "api"
+      ],
+      "howToConnect": "Official video APIs",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P2",
+      "notes": "Luma Uni-1.1 API (May 2026); Kling 3 with native 4K.",
+      "plannedAdapter": "luma",
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "ideogram-recraft",
+      "name": "Ideogram · Recraft",
+      "maker": "Ideogram · Recraft",
+      "category": "media",
+      "routes": [
+        "api"
+      ],
+      "howToConnect": "Official image APIs",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "Text-in-image and vector or brand graphics.",
+      "plannedAdapter": "ideogram",
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "midjourney",
+      "name": "Midjourney",
+      "maker": "Midjourney",
+      "category": "media",
+      "routes": [
+        "none"
+      ],
+      "howToConnect": "Discord / web app only",
+      "status": "No API / ToS risk",
+      "statusKey": "x",
+      "tier": "P3",
+      "notes": "No official API. Third-party proxies breach its terms and risk bans.",
+      "plannedAdapter": null,
+      "buildMilestone": null,
+      "subscriptionUse": null,
+      "supported": false
+    },
+    {
+      "id": "suno-udio",
+      "name": "Suno · Udio",
+      "maker": "Suno · Udio",
+      "category": "media",
+      "routes": [
+        "none"
+      ],
+      "howToConnect": "Apps; access mainly via unofficial wrappers",
+      "status": "No API / ToS risk",
+      "statusKey": "x",
+      "tier": "P3",
+      "notes": "No confirmed official public API; check licensing before any use.",
+      "plannedAdapter": null,
+      "buildMilestone": null,
+      "subscriptionUse": null,
+      "supported": false
+    },
+    {
+      "id": "muse-image",
+      "name": "Muse Image",
+      "maker": "Meta",
+      "category": "media",
+      "routes": [
+        "none"
+      ],
+      "howToConnect": "Meta AI app only",
+      "status": "Preview / limited",
+      "statusKey": "p",
+      "tier": "P3",
+      "notes": "Shipped Jul 2026 but not yet in the Meta Model API.",
+      "plannedAdapter": null,
+      "buildMilestone": null,
+      "subscriptionUse": null,
+      "supported": false
+    },
+    {
+      "id": "figma",
+      "name": "Figma",
+      "maker": "Figma",
+      "category": "design",
+      "routes": [
+        "api",
+        "mcp"
+      ],
+      "howToConnect": "REST API · Dev Mode MCP server",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P1",
+      "notes": "Read designs into coding agents; write back comments and frames.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "canva",
+      "name": "Canva",
+      "maker": "Canva",
+      "category": "design",
+      "routes": [
+        "api",
+        "mcp"
+      ],
+      "howToConnect": "Connect API · Canva MCP",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P1",
+      "notes": "Branded marketing assets from agent output.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "claude-design-claude-artifacts",
+      "name": "Claude Design · Claude artifacts",
+      "maker": "Anthropic",
+      "category": "design",
+      "routes": [
+        "browser"
+      ],
+      "howToConnect": "Inside the Claude app",
+      "status": "No API / ToS risk",
+      "statusKey": "x",
+      "tier": "P3",
+      "notes": "No standalone public API known; drive Claude through its API and render designs yourself.",
+      "plannedAdapter": null,
+      "buildMilestone": null,
+      "subscriptionUse": null,
+      "supported": false
+    },
+    {
+      "id": "notion",
+      "name": "Notion",
+      "maker": "Notion",
+      "category": "design",
+      "routes": [
+        "api",
+        "mcp"
+      ],
+      "howToConnect": "Notion API · Notion MCP · Notion agents",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "Common place teams want final docs and task boards.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "google-workspace-microsoft-365",
+      "name": "Google Workspace · Microsoft 365",
+      "maker": "Google · Microsoft",
+      "category": "design",
+      "routes": [
+        "api",
+        "mcp"
+      ],
+      "howToConnect": "Drive / Docs / Sheets APIs · Graph API",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "Deliver outputs where the user already works.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "gamma-google-stitch",
+      "name": "Gamma · Google Stitch",
+      "maker": "Gamma · Google",
+      "category": "design",
+      "routes": [
+        "browser",
+        "api"
+      ],
+      "howToConnect": "Decks and UI generation",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P3",
+      "notes": "Check current API exposure before committing.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "microsoft-copilot-studio",
+      "name": "Microsoft Copilot Studio",
+      "maker": "Microsoft",
+      "category": "enterprise",
+      "routes": [
+        "a2a",
+        "mcp"
+      ],
+      "howToConnect": "A2A delegation · connected agents · MCP tools",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P2",
+      "notes": "Can directly talk to and delegate to first-, second- and third-party agents over A2A.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "gemini-enterprise-agentspace",
+      "name": "Gemini Enterprise (Agentspace)",
+      "maker": "Google Cloud",
+      "category": "enterprise",
+      "routes": [
+        "a2a"
+      ],
+      "howToConnect": "A2A agent registry",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "Google donated A2A; its enterprise agents speak it natively.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "salesforce-agentforce",
+      "name": "Salesforce Agentforce",
+      "maker": "Salesforce",
+      "category": "enterprise",
+      "routes": [
+        "a2a",
+        "api"
+      ],
+      "howToConnect": "Agent API · A2A",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "CRM-side agents for sales and service tasks.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "servicenow-sap-joule-workday",
+      "name": "ServiceNow · SAP Joule · Workday",
+      "maker": "Various",
+      "category": "enterprise",
+      "routes": [
+        "a2a"
+      ],
+      "howToConnect": "A2A-enabled enterprise agents",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P3",
+      "notes": "Later, for enterprise deals; confirm each vendor's A2A status.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "a2a-protocol",
+      "name": "A2A protocol",
+      "maker": "Linux Foundation",
+      "category": "proto",
+      "routes": [
+        "a2a"
+      ],
+      "howToConnect": "Agent Cards (JSON) · tasks · streaming · artifacts",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P0",
+      "notes": "v1.0 in Mar 2026; 150+ organisations; built into Google, Microsoft and AWS. AP2 adds agent payments.",
+      "plannedAdapter": "a2a",
+      "buildMilestone": "M7",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "model-context-protocol",
+      "name": "Model Context Protocol",
+      "maker": "Linux Foundation",
+      "category": "proto",
+      "routes": [
+        "mcp"
+      ],
+      "howToConnect": "Tools and data for any agent",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P0",
+      "notes": "Expose your orchestrator as an MCP server so any agent can call it, and consume thousands of MCP tools.",
+      "plannedAdapter": "mcp",
+      "buildMilestone": "M7",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "agent-client-protocol-acp",
+      "name": "Agent Client Protocol (ACP)",
+      "maker": "Zed and others",
+      "category": "proto",
+      "routes": [
+        "cli"
+      ],
+      "howToConnect": "Standard way for a client to drive a coding agent",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P1",
+      "notes": "Cursor CLI honours ACP; lets one adapter drive several CLIs.",
+      "plannedAdapter": null,
+      "buildMilestone": "M7",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "openai-agents-sdk",
+      "name": "OpenAI Agents SDK",
+      "maker": "OpenAI",
+      "category": "proto",
+      "routes": [
+        "sdk"
+      ],
+      "howToConnect": "pip install openai-agents · @openai/agents",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P1",
+      "notes": "Model-agnostic; handoffs, tracing, MCP. v0.24 on 15 Oct 2026.",
+      "plannedAdapter": null,
+      "buildMilestone": "M7",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "claude-agent-sdk",
+      "name": "Claude Agent SDK",
+      "maker": "Anthropic",
+      "category": "proto",
+      "routes": [
+        "sdk"
+      ],
+      "howToConnect": "pip install claude-agent-sdk · @anthropic-ai/claude-agent-sdk",
+      "status": "Verified Oct 2026",
+      "statusKey": "v",
+      "tier": "P1",
+      "notes": "Claude Code's harness as a library; prototype here, graduate to Managed Agents.",
+      "plannedAdapter": null,
+      "buildMilestone": "M7",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "google-adk",
+      "name": "Google ADK",
+      "maker": "Google",
+      "category": "proto",
+      "routes": [
+        "sdk",
+        "a2a"
+      ],
+      "howToConnect": "Agent Development Kit (Python, Java)",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "Native A2A publishing of your own agents.",
+      "plannedAdapter": null,
+      "buildMilestone": "M7",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "langgraph-crewai-microsoft-agent-framework",
+      "name": "LangGraph · CrewAI · Microsoft Agent Framework",
+      "maker": "Various",
+      "category": "proto",
+      "routes": [
+        "sdk"
+      ],
+      "howToConnect": "Graph and crew orchestration libraries",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "Borrow patterns; your core router is likely custom.",
+      "plannedAdapter": null,
+      "buildMilestone": "M7",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "pydantic-ai-mastra",
+      "name": "Pydantic AI · Mastra",
+      "maker": "open source",
+      "category": "proto",
+      "routes": [
+        "sdk"
+      ],
+      "howToConnect": "Typed agent frameworks (Python, TS)",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P3",
+      "notes": "Clean options for small specialist agents.",
+      "plannedAdapter": null,
+      "buildMilestone": "M7",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "composio",
+      "name": "Composio",
+      "maker": "Composio",
+      "category": "hub",
+      "routes": [
+        "api",
+        "mcp"
+      ],
+      "howToConnect": "Managed OAuth + tools for 250+ apps",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P1",
+      "notes": "Saves you building auth for every SaaS app agents need to touch.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "zapier-ai-actions-mcp",
+      "name": "Zapier AI Actions / MCP",
+      "maker": "Zapier",
+      "category": "hub",
+      "routes": [
+        "mcp",
+        "api"
+      ],
+      "howToConnect": "Zapier MCP server · 8,000+ apps",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "Widest app coverage; per-action pricing.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    },
+    {
+      "id": "n8n-make-pipedream",
+      "name": "n8n · Make · Pipedream",
+      "maker": "Various",
+      "category": "hub",
+      "routes": [
+        "api",
+        "local"
+      ],
+      "howToConnect": "Workflow engines with AI nodes",
+      "status": "Established",
+      "statusKey": "e",
+      "tier": "P2",
+      "notes": "n8n is self-hostable; Sarvam ships an n8n node.",
+      "plannedAdapter": null,
+      "buildMilestone": "M6",
+      "subscriptionUse": null,
+      "supported": true
+    }
+  ],
+  "sources": [
+    {
+      "title": "Meta opens Muse Spark 1.1 via Model API (Axios)",
+      "url": "https://www.axios.com/2026/07/09/meta-ai-spark-model-update-developer"
+    },
+    {
+      "title": "Meta Model API pricing and region (implicator.ai)",
+      "url": "https://www.implicator.ai/meta-prices-its-first-paid-ai-model-api-at-4-25-per-million-output-tokens/"
+    },
+    {
+      "title": "Grok 4.6 availability (geotoolbox)",
+      "url": "https://geotoolbox.ai/fr/blog/grok-4-6.md"
+    },
+    {
+      "title": "Grok for coding: Grok Build, xAI API (Verdent)",
+      "url": "https://www.verdent.ai/guides/grok-for-coding-2026"
+    },
+    {
+      "title": "Cursor Agent CLI",
+      "url": "https://cursor.com/blog/cli"
+    },
+    {
+      "title": "Antigravity CLI headless adapter (docs.rs)",
+      "url": "https://docs.rs/crate/atomr-agents-coding-cli-vendor-antigravity/latest"
+    },
+    {
+      "title": "Gemini CLI to Antigravity transition, terms (Glama)",
+      "url": "https://glama.ai/mcp/servers/dssbdev/gemini-bridge/tree"
+    },
+    {
+      "title": "Antigravity headless permissions issue (Glama)",
+      "url": "https://glama.ai/mcp/servers/LoliLin/memoh-antigravity-cli-mcp/tree"
+    },
+    {
+      "title": "Gemini Managed Agents snapshot (SuperQode)",
+      "url": "https://superagenticai.github.io/superqode/providers/antigravity/"
+    },
+    {
+      "title": "Codex Cloud after DevDay 2026 (Flavio Copes)",
+      "url": "https://flaviocopes.com/codex-cloud.md"
+    },
+    {
+      "title": "OpenAI GPT-6 release and API ids",
+      "url": "https://andrew.ooo/answers/what-changed-latest-openai-model-release-gpt-6-october-2026/"
+    },
+    {
+      "title": "OpenAI Agents API computer use",
+      "url": "https://www.developersdigest.tech/blog/openai-agents-api-computer-use"
+    },
+    {
+      "title": "OpenAI Agents SDK versions",
+      "url": "https://www.developersdigest.tech/agent-frameworks/openai-agents-sdk"
+    },
+    {
+      "title": "Claude Managed Agents docs",
+      "url": "https://platform.claude.com/docs/en/managed-agents/"
+    },
+    {
+      "title": "Claude Agent SDK and subscription rules",
+      "url": "https://tutorialsdojo.com/claude-agent-sdk/"
+    },
+    {
+      "title": "Jules Tools and Jules API (Google)",
+      "url": "https://blog.google/technology/google-labs/jules-tools-jules-api/"
+    },
+    {
+      "title": "Genspark vs Manus, Manus API",
+      "url": "https://aiidelist.com/blog/genspark-vs-manus"
+    },
+    {
+      "title": "Perplexity Sonar to Agent API",
+      "url": "https://tech-insider.org/it/?p=990"
+    },
+    {
+      "title": "Comet has no public API (apis.io)",
+      "url": "https://apis.io/providers/comet-browser/"
+    },
+    {
+      "title": "Nova Act interfaces (AWS docs)",
+      "url": "https://docs.aws.amazon.com/nova-act/latest/userguide/interfaces.md"
+    },
+    {
+      "title": "Bedrock AgentCore new features (AWS)",
+      "url": "https://aws.amazon.com/fr/about-aws/whats-new/2026/04/agentcore-new-features-to-build-agents-faster/"
+    },
+    {
+      "title": "Microsoft Foundry vs Copilot Studio",
+      "url": "https://jannikreinhard.com/foundry-vs-copilot-studio/"
+    },
+    {
+      "title": "Copilot Studio A2A (Microsoft)",
+      "url": "https://www.microsoft.com/en-us/microsoft-copilot/blog/?p=7459"
+    },
+    {
+      "title": "A2A one-year milestones (Linux Foundation)",
+      "url": "https://linuxfoundation.org/press/a2a-protocol-surpasses-150-organizations-lands-in-major-cloud-platforms-and-sees-enterprise-production-use-in-first-year"
+    },
+    {
+      "title": "Sarvam API changelog",
+      "url": "https://docs.sarvam.ai/changelog.md"
+    },
+    {
+      "title": "Midjourney API status",
+      "url": "https://www.myarchitectai.com/blog/midjourney-apis"
+    },
+    {
+      "title": "Media model status, Sora and Imagen retirements",
+      "url": "https://github.com/jayeshmepani/Media-AI"
+    },
+    {
+      "title": "Browser Use and computer-use agents (fast.io)",
+      "url": "https://fast.io/resources/best-computer-use-ai-agents-2026/"
+    },
+    {
+      "title": "Open-weight coding models (DeepSeek, Kimi, GLM, Qwen)",
+      "url": "https://www.test.atlascloud.ai/blog/tips/coding-plan-best-open-source-coding-llm"
+    },
+    {
+      "title": "Grok 4.20 on OpenRouter",
+      "url": "https://openrouter.ai/x-ai/grok-4.20/api"
+    }
+  ]
+}
