@@ -10,6 +10,7 @@ export const EVENT_TYPES = [
   "lease.granted",
   "lease.denied",
   "lease.released",
+  "attempt.queued",
   "attempt.started",
   "attempt.message",
   "attempt.tool_call",

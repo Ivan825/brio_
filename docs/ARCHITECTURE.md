@@ -115,7 +115,7 @@ All tables have `id` (uuid v7), `workspace_id`, `created_at`, `updated_at` unles
 **Events (the spine)**
 - `events` — append-only: `mission_id`, `task_id`, `attempt_id`, `seq` (per mission), `type`, `actor` (system|user:id|agent:id), `payload` jsonb, `ts`. Indexed by (mission_id, seq). The board, scoreboard, ledger and memory ingest all read from here.
 
-Event types (initial): `mission.created`, `plan.proposed`, `plan.approved`, `task.ready`, `lease.granted`, `lease.denied`, `lease.released`, `attempt.started`, `attempt.message`, `attempt.tool_call`, `attempt.file_edit`, `attempt.cost`, `attempt.finished`, `check.result`, `review.verdict`, `judge.verdict`, `handoff.created`, `message.sent`, `message.answered`, `contract.changed`, `budget.warn`, `budget.stop`, `approval.requested`, `approval.decided`, `merge.started`, `merge.conflict`, `merge.done`, `mission.done`, `mission.failed`.
+Event types (initial): `mission.created`, `plan.proposed`, `plan.approved`, `task.ready`, `lease.granted`, `lease.denied`, `lease.released`, `attempt.queued`, `attempt.started`, `attempt.message`, `attempt.tool_call`, `attempt.file_edit`, `attempt.cost`, `attempt.finished`, `check.result`, `review.verdict`, `judge.verdict`, `handoff.created`, `message.sent`, `message.answered`, `contract.changed`, `budget.warn`, `budget.stop`, `approval.requested`, `approval.decided`, `merge.started`, `merge.conflict`, `merge.done`, `mission.done`, `mission.failed`.
 
 ## 4. Core flows
 

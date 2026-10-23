@@ -123,9 +123,18 @@ export const attempts = pgTable(
     tokensOut: integer().notNull().default(0),
     exitReason: text(),
     transcriptRef: text(),
+    /**
+     * Exactly what was dispatched, resolved by the API before queueing: rendered input, agent and connector config
+     * (no secrets), price, limits and sandbox spec. The runner executes this and nothing else.
+     */
+    dispatch: jsonb().$type<Record<string, unknown>>(),
+    /** The runner holding the attempt and its last sign of life; the reaper fails attempts whose heartbeat stops. */
+    runnerId: text(),
+    heartbeatAt: timestamp({ withTimezone: true }),
+    cancelRequestedAt: timestamp({ withTimezone: true }),
     ...timestamps(),
   },
-  (t) => [index().on(t.taskId), index().on(t.agentId)],
+  (t) => [index().on(t.taskId), index().on(t.agentId), index().on(t.status, t.heartbeatAt)],
 );
 
 export const artifacts = pgTable(
