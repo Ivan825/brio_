@@ -114,7 +114,7 @@ Prompts longer than 100 KB go to the agent as `.brio/prompt.md` (one argv elemen
 Lease enforcement for CLIs: generate the agent's own hook config (Claude Code `.claude/settings.json` PreToolUse, Cursor `.cursor/hooks.json`, Codex `.codex/hooks.json`, Antigravity `.agents/hooks.json`) that calls the local runner's lease endpoint before writes — the same mechanism Relay uses, but checking task leases and contracts.
 
 ### 2.4 Hosted agent APIs (route: hosted) — vendor runs the sandbox
-Pattern: create session/task → stream or poll events → fetch outputs (diff, PR URL, files) → map to artifacts.
+Pattern: create session/task → stream or poll events → fetch outputs (diff, PR URL, files) → map to artifacts. As implemented (M6): every service connector is registry data (`services` in `registry/connectors.json`: base URL with settings, auth scheme incl. SigV4 and Entra, a free key check, the billing unit, the task types it takes; D-62), and every vendor is one `JobVendor` (start, poll, answer, cancel, outputs) on the shared job runner in `packages/adapters/src/services/job.ts`. Questions and approvals go to a person through the mailbox (10 minutes; no answer is no; D-64). Changes come back as a patch applied to the task's own worktree. Wire facts per vendor: `docs/vendors/hosted-agents.md`.
 
 | Adapter key | API (verified 23 Oct 2026) | Notes |
 |---|---|---|
@@ -123,7 +123,7 @@ Pattern: create session/task → stream or poll events → fetch outputs (diff, 
 | `gemini-managed-agents` | Gemini Interactions API (preview) | Persistent sandboxes, saved agents, triggers, budgets, remote MCP. |
 | `jules` | Jules REST API v1alpha (sessions, activities, approve plan, messages, outputs) | GitHub repos only; output is a PR → treat as diff artifact. |
 | `devin` | Devin API (sessions) | Output PRs/messages. |
-| `manus` | Manus API (tasks, projects, connectors, webhooks) | Webhook endpoint in `apps/api` for completion. |
+| `manus` | Manus API (tasks, projects, connectors, webhooks) | Polled; with a public https Brio, a webhook (`/v1/hooks/manus/:connectorId`, RSA-signed) adds a board note at once (D-72). |
 | `bedrock-agentcore` | AgentCore Runtime invoke + managed harness | For AWS-hosted customer agents. |
 | `foundry-agents` | Foundry Agent Service (Responses API format) | For Microsoft customers. |
 | `codex-cloud` | Codex Cloud tasks | ChatGPT-plan auth → local runner, user-initiated only; verify allowed programmatic access before shipping. |
@@ -142,12 +142,13 @@ MCP servers are **tools**, not agents. Attach them to agents via `RunInput.mcpSe
 ### 2.7 Browser / computer use (route: browser via sdk/hosted)
 - `anthropic-computer-use` (Messages API tool, our sandboxed browser VM), `openai-agents` hosted browser, `nova-act` (SDK), `browser-use` (library or cloud API), cloud browsers (Browserbase/Steel) as infrastructure.
 - Always behind `browser` sandbox profile with per-task URL allowlist; credentials for sites never typed by agents — use approvals + user-side sign-in handoff.
+- As implemented (M6): `anthropic-computer-use` drives Chromium on a virtual display in the `sandbox-browser` image with xdotool and screenshots; the allowlist is the hosts the contract names (D-69). With `options.browser = "cloud"` it drives a Browserbase or Steel session over CDP instead, the allowlist enforced in the browser (D-70). `browser-use` runs Browser Use Cloud v4, capped at the attempt's budget (D-71).
 
 ### 2.8 Media (route: api)
-`openai-image`, `google-media` (Veo / current image models), `flux`, `runway`, `luma`, `kling`, `elevenlabs`, `ideogram`, `recraft`. Async job pattern (submit → poll/webhook → download → artifact with spec metadata: size, duration, format). Verifier runs spec checks and an optional vision-model review.
+`openai-image`, `openai-speech`, `google-media` (Gemini Omni video and Nano Banana images through the Interactions API; Veo left the Gemini API on 22 Oct 2026), `flux`, `runway`, `luma`, `kling`, `elevenlabs`, `ideogram`, `recraft`. Async job pattern (submit → poll/webhook → download → artifact with spec metadata: size, duration, format). Verifier runs spec checks and an optional vision-model review. As implemented (M6): the size, aspect, duration and format asked for come from the task's media_spec check; results are downloaded at once and placed at the contract's output path; voice reads a script file the contract names, never the instructions; metering in the vendor's unit (D-65). Wire facts: `docs/vendors/media.md`.
 
 ### 2.9 Research tools (route: api/mcp)
-Search APIs (Exa, Tavily, Parallel, Brave), Perplexity Agent API, OpenAI search models, Grok live search, page fetchers. Exposed to agents as MCP tools from `packages/adapters/research` so every agent gets the same search surface (makes results comparable for judging).
+Search APIs (Exa, Tavily, Parallel, Brave), Perplexity Agent API, OpenAI search models, Grok live search, page fetchers. Exposed to agents as MCP tools from `packages/adapters/research` so every agent gets the same search surface (makes results comparable for judging). As implemented (M6): search and fetch services are workspace tools, not agents — `web_search` and `fetch_url` in-process for model APIs and on the brio-mailbox MCP server for coding CLIs, metered per call, never on confidential tasks (D-66). Perplexity's Agent API, OpenAI's Responses web search and xAI's web and X search are research agents that answer with a numbered source list; Gemini Deep Research runs as a managed agent. Wire facts: `docs/vendors/research-browser.md`.
 
 ## 3. Explicitly unsupported (adapters must not exist)
 Midjourney (no official API), Suno/Udio wrappers, Perplexity Comet driving, ChatGPT/Claude/Gemini/Grok consumer web apps, Genspark/Kimi/MiniMax consumer agents, any adapter that reads another app's stored tokens. `packages/registry` marks these `route: none` and the UI shows "not supported — here's the legitimate alternative".
