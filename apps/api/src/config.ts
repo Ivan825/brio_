@@ -29,6 +29,8 @@ const Env = z.object({
   BRIO_ALLOW_PRIVATE_URLS: z.enum(["true", "false"]).optional(),
   /** USD per unit for vendors that price in other currencies, e.g. "INR=0.0114,CNY=0.14". */
   BRIO_FX_USD_PER: z.string().optional(),
+  /** Lets projects point at local repository paths (the runner clones them from its disk). Defaults to on outside production. */
+  BRIO_ALLOW_LOCAL_REPOS: z.enum(["true", "false"]).optional(),
   /** Hours between live price refreshes from public sources; 0 turns the timer off. */
   BRIO_PRICING_REFRESH_HOURS: z.coerce.number().min(0).default(24),
   /** Exposes GET /v1/dev/outbox with locally "sent" emails. Never in production. */
@@ -38,9 +40,10 @@ const Env = z.object({
     .transform((v) => v === "true"),
 });
 
-export type Config = Omit<z.infer<typeof Env>, "BRIO_ALLOW_PRIVATE_URLS"> & {
+export type Config = Omit<z.infer<typeof Env>, "BRIO_ALLOW_PRIVATE_URLS" | "BRIO_ALLOW_LOCAL_REPOS"> & {
   google: { clientId: string; clientSecret: string } | null;
   allowPrivateUrls: boolean;
+  allowLocalRepos: boolean;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -56,8 +59,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     c.GOOGLE_CLIENT_ID && c.GOOGLE_CLIENT_SECRET
       ? { clientId: c.GOOGLE_CLIENT_ID, clientSecret: c.GOOGLE_CLIENT_SECRET }
       : null;
-  const { BRIO_ALLOW_PRIVATE_URLS, ...rest } = c;
+  const { BRIO_ALLOW_PRIVATE_URLS, BRIO_ALLOW_LOCAL_REPOS, ...rest } = c;
   const allowPrivateUrls =
     BRIO_ALLOW_PRIVATE_URLS === undefined ? c.NODE_ENV !== "production" : BRIO_ALLOW_PRIVATE_URLS === "true";
-  return { ...rest, google, allowPrivateUrls };
+  const allowLocalRepos =
+    BRIO_ALLOW_LOCAL_REPOS === undefined ? c.NODE_ENV !== "production" : BRIO_ALLOW_LOCAL_REPOS === "true";
+  return { ...rest, google, allowPrivateUrls, allowLocalRepos };
 }

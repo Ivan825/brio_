@@ -30,6 +30,7 @@ export async function registryRoutes(app: FastifyInstance, ctx: AppContext) {
             notes: c.notes,
             supported: c.supported,
             buildMilestone: c.buildMilestone,
+            plannedAdapter: c.plannedAdapter,
             implemented: r.isImplemented(c.id, IMPLEMENTED_FAMILIES),
             regionLimited: c.regionLimited ?? null,
             taskTypes: r.taskTypesOf(c.id),

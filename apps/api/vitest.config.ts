@@ -10,6 +10,7 @@ try {
 export default defineConfig({
   test: {
     fsModuleCachePath: ownCache(import.meta.url),
+    exclude: ["**/node_modules/**", "test/live-*.test.ts"],
     testTimeout: 30_000,
     hookTimeout: 60_000,
   },

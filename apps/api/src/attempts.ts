@@ -5,7 +5,7 @@ import { type AgentConfig, type CliSpec, type Dispatch, EMPTY_BRIEF, type RunInp
 import { type AgentSandboxSetting, chooseSandbox } from "@brio/core";
 import { schema } from "@brio/db";
 import { enqueueAttempt, requestCancel } from "@brio/runner";
-import { type Actor, TaskContract, TaskType } from "@brio/schema";
+import { type Actor, type HandoffPacket, TaskContract, TaskType } from "@brio/schema";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { adapterOf, connectorConfig } from "./connectors";
 import type { AppContext } from "./context";
@@ -16,7 +16,7 @@ const { agents, attempts, connectors, missions, projects, tasks } = schema;
 /** Per-attempt defaults when neither the agent nor the task sets a limit. */
 export const DEFAULT_LIMITS = { maxCostUsd: 1, maxMinutes: 10, maxOutputTokens: 8192, maxTurns: 12 } as const;
 
-const RUNNABLE_TASK = ["pending", "ready", "failed", "verifying", "revise", "blocked"] as const;
+export const RUNNABLE_TASK = ["pending", "ready", "failed", "verifying", "revise", "blocked"] as const;
 
 type AttemptRow = typeof attempts.$inferSelect;
 
@@ -58,10 +58,21 @@ export class AttemptRunner {
     workspaceId: string;
     taskId: string;
     agentId: string;
-    userId: string;
+    /** Who dispatched: a user (direct run) or the system (the scheduler). */
+    actor: Actor;
+    /** Replaces the instructions rendered from the contract (the planner's prompt). */
+    instructions?: string;
+    /** Appended to the instructions: why the previous attempt was sent back. */
+    feedback?: string;
+    handoffs?: HandoffPacket[];
+    bases?: string[];
+    files?: Array<{ path: string; content: string }>;
+    repoMap?: boolean;
+    /** The router's one-line reason, shown on the board. */
+    rationale?: string;
   }): Promise<AttemptRow> {
     const { ctx } = this;
-    const actor: Actor = `user:${input.userId}`;
+    const { actor } = input;
     const [task] = await ctx.db
       .select()
       .from(tasks)
@@ -143,9 +154,16 @@ export class AttemptRunner {
     const runInput: Omit<RunInput, "attemptId"> = {
       taskTitle: task.title,
       taskType,
-      instructions: renderInstructions(task, contract, mission.goal),
+      instructions: [
+        input.instructions ?? renderInstructions(task, contract, mission.goal),
+        input.feedback
+          ? `## Your previous attempt was sent back\n${input.feedback}\nFix this and finish the task.`
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
       contract,
-      handoffs: [],
+      handoffs: input.handoffs ?? [],
       brief: EMPTY_BRIEF,
       attachments: [],
       limits,
@@ -208,6 +226,9 @@ export class AttemptRunner {
         sandbox,
         image: adapter.route === "cli" ? "cli" : "base",
         repo,
+        ...(input.bases?.length ? { bases: input.bases } : {}),
+        ...(input.files?.length ? { files: input.files } : {}),
+        ...(input.repoMap ? { repoMap: true } : {}),
       };
       await tx
         .update(attempts)
@@ -233,6 +254,8 @@ export class AttemptRunner {
           estimate,
           limits,
           sandbox: sandbox ? { profile: sandbox.profile, network: sandbox.network } : null,
+          rationale: input.rationale ?? null,
+          revision: input.feedback ? true : undefined,
           repo: repo ? { url: repo.url, branch: repo.branch } : null,
         },
       });

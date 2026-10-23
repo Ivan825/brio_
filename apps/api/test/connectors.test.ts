@@ -225,13 +225,39 @@ describe.skipIf(!hasTestDatabase)("M1 acceptance: connectors, agents, metered ru
     expect(unknown.json().agent).toMatchObject({ runnable: false, price: null });
   });
 
-  it("runs a one-task mission: events stream, cost matches the vendor's usage, answer stored", async () => {
-    const mission = await member.request("POST", "/v1/missions", {
-      goal: "Plan a health endpoint for the API",
-    });
-    missionId = mission.json().mission.id;
-    const detail = await member.request("GET", `/v1/missions/${missionId}`);
-    missionTaskId = detail.json().tasks[0].id;
+  it("runs a task with a chosen agent: events stream, cost matches the vendor's usage, answer stored", async () => {
+    // A mission whose plan waits for approval, with one task: the orchestrator leaves it alone, so this exercises the
+    // direct run (a person picks the agent) on its own.
+    const [m] = await h.db.db
+      .insert(schema.missions)
+      .values({
+        workspaceId,
+        title: "Health endpoint",
+        goal: "Plan a health endpoint for the API",
+        status: "awaiting_approval",
+      })
+      .returning();
+    missionId = m!.id;
+    const [t] = await h.db.db
+      .insert(schema.tasks)
+      .values({
+        workspaceId,
+        missionId,
+        planVersion: 1,
+        key: "plan.health",
+        type: "write.summary",
+        title: "Plan a health endpoint",
+        contract: {
+          objective: "Plan a health endpoint for the API",
+          inputs: [],
+          outputs: [{ kind: "report", description: "a plan" }],
+          acceptance: [{ kind: "human", hard: true }],
+          constraints: [],
+          sensitivity: "internal",
+        },
+      })
+      .returning();
+    missionTaskId = t!.id;
     const agents = (await member.request("GET", "/v1/agents")).json().agents as {
       id: string;
       name: string;

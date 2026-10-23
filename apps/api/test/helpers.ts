@@ -4,8 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Writable } from "node:stream";
 import { type FetchLike, redactingLogger } from "@brio/adapters";
+import { EventWriter } from "@brio/db";
 import { createTestDb, type TestDb } from "@brio/db/testing";
-import { DEFAULT_IMAGES, Runner } from "@brio/runner";
+import { Ledger } from "@brio/governance";
+import { DEFAULT_IMAGES, Runner, startQueue } from "@brio/runner";
 import { LocalKeyProvider, Redactor } from "@brio/vault";
 import { expect } from "vitest";
 import { loadConfig } from "../src/config";
@@ -21,6 +23,8 @@ export interface Harness {
   logs: string[];
   redactor: Redactor;
   close: () => Promise<void>;
+  /** Kills the API (as a crash would) and starts a fresh one on the same database; the runner keeps going. */
+  restartApi: () => Promise<void>;
 }
 
 export interface HarnessOptions {
@@ -53,25 +57,32 @@ export async function startHarness(opts: HarnessOptions = {}): Promise<Harness> 
     BRIO_PRICING_REFRESH_HOURS: "0",
     ...opts.env,
   });
-  const server = await buildServer({
-    config,
-    database: db,
-    logDestination: sink,
-    redactor,
-    keyProvider: LocalKeyProvider.fromBase64(randomBytes(32).toString("base64")),
-    resolve: publicResolver,
-    ...(opts.fetch ? { fetch: opts.fetch } : {}),
-  });
+  const keyProvider = LocalKeyProvider.fromBase64(randomBytes(32).toString("base64"));
+  const make = () =>
+    buildServer({
+      config,
+      database: db,
+      logDestination: sink,
+      redactor,
+      keyProvider,
+      resolve: publicResolver,
+      sweepMs: 500,
+      ...(opts.fetch ? { fetch: opts.fetch } : {}),
+    });
+  let server = await make();
   const runnerDir = await mkdtemp(join(tmpdir(), "brio-api-runner-"));
+  // The runner is its own process in production: its own queue client and writers, so an API crash leaves it running.
+  const runnerBoss = await startQueue(db.url);
   const runner = new Runner({
-    db: server.ctx.db,
+    db: db.db,
     databaseUrl: db.url,
-    boss: server.ctx.queue,
-    events: server.ctx.events,
-    ledger: server.ctx.ledger,
+    boss: runnerBoss,
+    events: new EventWriter(redactor),
+    ledger: new Ledger(redactor),
     vault: server.ctx.vault,
     redactor,
     fetch: server.ctx.fetch,
+    answerWaitMs: 20_000,
     log: redactingLogger((_level, obj, msg) => logs.push(JSON.stringify({ ...obj, msg })), redactor),
     dir: runnerDir,
     images: DEFAULT_IMAGES,
@@ -79,19 +90,26 @@ export async function startHarness(opts: HarnessOptions = {}): Promise<Harness> 
     reapEveryMs: 3_600_000,
   });
   if (opts.runner !== false) await runner.start();
-  return {
+  const h: Harness = {
     server,
     runner,
     db,
     logs,
     redactor,
+    restartApi: async () => {
+      await server.close();
+      server = await make();
+      h.server = server;
+    },
     close: async () => {
       await runner.stop();
+      await runnerBoss.stop({ graceful: false }).catch(() => {});
       await server.close();
       await db.drop();
       await rm(runnerDir, { recursive: true, force: true });
     },
   };
+  return h;
 }
 
 /** A browser-ish client: keeps cookies, sends the app Origin (Better Auth CSRF check). */

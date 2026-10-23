@@ -19,6 +19,7 @@ import type { Config } from "./config";
 import type { AppContext } from "./context";
 import { HttpError } from "./http";
 import { LogMailer } from "./mailer";
+import { Orchestrator } from "./orchestrator/orchestrator";
 import { PricingService, parseFx } from "./pricing";
 import { agentRoutes } from "./routes/agents";
 import { attemptRoutes } from "./routes/attempts";
@@ -26,8 +27,11 @@ import { authRoutes } from "./routes/auth";
 import { connectorRoutes } from "./routes/connectors";
 import { devRoutes } from "./routes/dev";
 import { healthRoutes } from "./routes/health";
+import { messageRoutes } from "./routes/messages";
 import { missionRoutes } from "./routes/missions";
+import { planRoutes } from "./routes/plans";
 import { pricingRoutes } from "./routes/pricing";
+import { projectRoutes } from "./routes/projects";
 import { registryRoutes } from "./routes/registry";
 import { workspaceRoutes } from "./routes/workspaces";
 
@@ -44,6 +48,8 @@ export interface BuildOptions {
   fetch?: FetchLike;
   /** DNS resolver for the URL guard (tests use a fixed one). */
   resolve?: Resolver;
+  /** How often the orchestrator sweeps active missions (default 3 s). */
+  sweepMs?: number;
 }
 
 export interface BrioServer {
@@ -60,6 +66,7 @@ export async function buildServer({
   keyProvider,
   fetch: outbound = globalThis.fetch,
   resolve,
+  sweepMs,
 }: BuildOptions): Promise<BrioServer> {
   const handle = database ?? createDb(config.DATABASE_URL);
   const ownsDb = !database;
@@ -110,6 +117,7 @@ export async function buildServer({
     queue: await startQueue(config.DATABASE_URL),
   } as AppContext;
   ctx.attempts = new AttemptRunner(ctx);
+  ctx.orchestrator = new Orchestrator(ctx, { ...(sweepMs ? { sweepMs } : {}) });
 
   await ctx.pricing.seed();
   let pricingTimer: NodeJS.Timeout | undefined;
@@ -151,13 +159,18 @@ export async function buildServer({
   await agentRoutes(app, ctx);
   await attemptRoutes(app, ctx);
   await pricingRoutes(app, ctx);
+  await planRoutes(app, ctx);
+  await projectRoutes(app, ctx);
+  await messageRoutes(app, ctx);
   if (config.BRIO_DEV_OUTBOX && config.NODE_ENV !== "production") await devRoutes(app, ctx);
+  ctx.orchestrator.start();
 
   return {
     app,
     ctx,
     close: async () => {
       if (pricingTimer) clearInterval(pricingTimer);
+      await ctx.orchestrator.stop();
       await app.close();
       await ctx.queue.stop({ graceful: false }).catch(() => {});
       await feed.stop();

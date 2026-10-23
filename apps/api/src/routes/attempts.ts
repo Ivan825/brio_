@@ -34,7 +34,7 @@ export async function attemptRoutes(app: FastifyInstance, ctx: AppContext) {
     await requireMember(ctx, workspaceId, s.userId, ["owner", "admin", "member"]);
     const { id } = Params.parse(req.params);
     const { agentId } = RunBody.parse(req.body);
-    const attempt = await ctx.attempts.start({ workspaceId, taskId: id, agentId, userId: s.userId });
+    const attempt = await ctx.attempts.start({ workspaceId, taskId: id, agentId, actor: `user:${s.userId}` });
     return reply.status(202).send({ attempt: presentAttempt(attempt) });
   });
 

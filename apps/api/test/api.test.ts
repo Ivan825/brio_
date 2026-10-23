@@ -118,20 +118,33 @@ describe.skipIf(!hasTestDatabase)("API (M0 acceptance)", () => {
     expect((await eve.request("GET", `/v1/workspaces/${acmeId}/members`)).statusCode).toBe(404);
   });
 
-  it("POST /v1/missions plans with the stub planner and writes events", async () => {
+  it("POST /v1/missions writes events and starts planning; with no agents it waits and says why", async () => {
     const res = await alice.request("POST", "/v1/missions", { goal: "Add passkey sign-in to the web app" });
     expect(res.statusCode, res.body).toBe(201);
     const m = res.json().mission;
-    expect(m).toMatchObject({ status: "awaiting_approval", workspaceId: acmeId, lastEventSeq: 2 });
+    expect(m).toMatchObject({ status: "planning", workspaceId: acmeId });
 
-    const events = await readEventsSince(h.db.db, m.id, 0);
+    let events = await readEventsSince(h.db.db, m.id, 0);
+    for (let i = 0; i < 100 && events.length < 2; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      events = await readEventsSince(h.db.db, m.id, 0);
+    }
     expect(events.map((e) => [e.seq, e.type, e.actor])).toEqual([
       [1, "mission.created", expect.stringMatching(/^user:/)],
-      [2, "plan.proposed", "system"],
+      [2, "mission.blocked", "system"],
     ]);
+    expect(events[1]?.payload).toEqual({
+      reason: "planning: no agents yet: add a connector and build an agent",
+    });
     const detail = (await alice.request("GET", `/v1/missions/${m.id}`)).json();
-    expect(detail.tasks).toEqual([expect.objectContaining({ key: "demo.review-goal", status: "pending" })]);
-    expect(detail.plan.status).toBe("proposed");
+    expect(detail.mission).toMatchObject({
+      status: "draft",
+      blockedReason: "planning: no agents yet: add a connector and build an agent",
+    });
+    expect(detail.tasks).toEqual([
+      expect.objectContaining({ key: "brio.plan", status: "pending", planVersion: 0 }),
+    ]);
+    expect(detail.plan).toBeNull();
 
     const list = (await alice.request("GET", "/v1/missions")).json();
     expect(list.missions[0].id).toBe(m.id);

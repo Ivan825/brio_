@@ -8,6 +8,7 @@ import type { AttemptRunner } from "./attempts";
 import type { Auth } from "./auth";
 import type { Config } from "./config";
 import type { LogMailer } from "./mailer";
+import type { Orchestrator } from "./orchestrator/orchestrator";
 import type { PricingService } from "./pricing";
 
 /** Everything routes need, built once in buildServer and passed explicitly (no globals). */
@@ -29,5 +30,7 @@ export interface AppContext {
   attempts: AttemptRunner;
   /** The attempt queue (pg-boss); runners consume it. */
   queue: PgBoss;
+  /** Plans missions, runs their task graphs and verifies results (ARCHITECTURE §4). */
+  orchestrator: Orchestrator;
   log: FastifyBaseLogger;
 }

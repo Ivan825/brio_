@@ -1,7 +1,6 @@
-import { PlannerNotAvailableError, STUB_PLANNER_ID, stubPlan } from "@brio/core";
 import { type DbOrTx, schema, streamMissionEvents } from "@brio/db";
-import { type Actor, type EventType, MissionPriority, type MissionStatus } from "@brio/schema";
-import { asc, desc, eq, inArray } from "drizzle-orm";
+import { type Actor, MissionPriority } from "@brio/schema";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { AppContext } from "../context";
@@ -15,6 +14,13 @@ const CreateMission = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   projectId: z.uuid().optional(),
   priority: MissionPriority.default("balanced"),
+  budget: z
+    .object({ usd: z.number().positive().optional(), minutes: z.number().positive().optional() })
+    .optional(),
+  /** The agent that plans; omitted, the static router picks a model-API agent. */
+  plannerAgentId: z.uuid().optional(),
+  /** Start without waiting for approval when the plan is clean and small (≤ $5, ≤ 10 tasks). */
+  autoApprove: z.boolean().default(false),
 });
 const Params = z.object({ id: z.uuid() });
 
@@ -24,8 +30,8 @@ const SSE_KEEPALIVE_MS = 15_000;
 
 export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
   /**
-   * Creates a mission and plans it with the M0 stub planner (one demo task, nothing dispatched). Every step is an event;
-   * mission, plan, task and events commit together.
+   * Creates a mission and starts planning it: a planning task (plan version 0) is dispatched to a planner agent, whose
+   * answer becomes plan v1 for the user to edit and approve (or approved automatically when allowed and small).
    */
   app.post("/v1/missions", async (req, reply) => {
     const s = await requireSession(ctx, req);
@@ -33,7 +39,13 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
     await requireMember(ctx, workspaceId, s.userId, ["owner", "admin", "member"]);
     const body = CreateMission.parse(req.body);
     const actor: Actor = `user:${s.userId}`;
-
+    if (body.projectId) {
+      const [p] = await ctx.db
+        .select({ id: schema.projects.id })
+        .from(schema.projects)
+        .where(and(eq(schema.projects.id, body.projectId), eq(schema.projects.workspaceId, workspaceId)));
+      if (!p) throw new HttpError(404, "project not found", "not_found");
+    }
     const mission = await ctx.db.transaction(async (tx) => {
       const m = one(
         await tx
@@ -44,54 +56,25 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
             title: body.title ?? titleFrom(body.goal),
             goal: body.goal,
             priority: body.priority,
+            budget: body.budget ?? {},
+            plannerAgentId: body.plannerAgentId ?? null,
+            autoApprove: body.autoApprove,
             status: "planning",
             createdBy: s.userId,
           })
           .returning(),
         "mission",
       );
-      const missionId = m.id;
-      const emit = (type: EventType, payload: Record<string, unknown>, by: Actor = actor) =>
-        ctx.events.append(tx, { workspaceId, missionId, type, actor: by, payload });
-
-      await emit("mission.created", { title: m.title, goal: m.goal, priority: m.priority });
-      let status: MissionStatus;
-      try {
-        const graph = stubPlan({ goal: body.goal });
-        await tx.insert(plans).values({ workspaceId, missionId, version: 1, graph, status: "proposed" });
-        await tx.insert(tasks).values(
-          graph.tasks.map((t) => ({
-            workspaceId,
-            missionId,
-            planVersion: 1,
-            key: t.key,
-            type: t.type,
-            title: t.title,
-            contract: t.contract,
-            mode: t.suggestedMode,
-          })),
-        );
-        await emit(
-          "plan.proposed",
-          {
-            version: 1,
-            planner: STUB_PLANNER_ID,
-            tasks: graph.tasks.map(({ key, type, title }) => ({ key, type, title })),
-            assumptions: graph.assumptions,
-          },
-          "system",
-        );
-        status = "awaiting_approval";
-      } catch (e) {
-        if (!(e instanceof PlannerNotAvailableError)) throw e;
-        await emit("mission.failed", { reason: e.message }, "system");
-        status = "failed";
-      }
-      return one(
-        await tx.update(missions).set({ status }).where(eq(missions.id, missionId)).returning(),
-        "mission",
-      );
+      await ctx.events.append(tx, {
+        workspaceId,
+        missionId: m.id,
+        type: "mission.created",
+        actor,
+        payload: { title: m.title, goal: m.goal, priority: m.priority, budget: m.budget },
+      });
+      return m;
     });
+    await ctx.orchestrator.startMission(mission);
     return reply.status(201).send({ mission: present(mission) });
   });
 
@@ -137,7 +120,15 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
       : [];
     return {
       mission: present(m),
-      plan: plan ? { version: plan.version, status: plan.status, graph: plan.graph } : null,
+      plan: plan
+        ? {
+            version: plan.version,
+            status: plan.status,
+            graph: plan.graph,
+            lint: plan.lint,
+            origin: plan.origin,
+          }
+        : null,
       tasks: taskRows.map((t) => ({
         id: t.id,
         key: t.key,
@@ -146,6 +137,10 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
         status: t.status,
         mode: t.mode,
         pinnedAgentId: t.pinnedAgentId,
+        planVersion: t.planVersion,
+        dependsOn: t.dependsOn,
+        blockedReason: t.blockedReason,
+        revisions: t.revisions,
         sensitivity: t.contract.sensitivity,
         attempts: attemptRows.filter((a) => a.taskId === t.id).map(presentAttempt),
       })),
@@ -218,6 +213,9 @@ function present(m: typeof missions.$inferSelect) {
     status: m.status,
     priority: m.priority,
     lastEventSeq: m.lastEventSeq,
+    blockedReason: m.blockedReason,
+    autoApprove: m.autoApprove,
+    budget: m.budget,
     createdAt: m.createdAt,
   };
 }
