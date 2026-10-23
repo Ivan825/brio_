@@ -24,6 +24,11 @@ describe.skipIf(!hasTestDatabase)("API (M0 acceptance)", () => {
     expect(res.json()).toEqual({ ok: true, db: "up" });
   });
 
+  it("lists sign-in providers (Google only when configured)", async () => {
+    const res = await h.server.app.inject({ method: "GET", url: "/v1/auth/providers" });
+    expect(res.json()).toEqual({ magicLink: true, passkey: true, google: false });
+  });
+
   it("rejects unauthenticated requests", async () => {
     expect((await new Client(h).request("GET", "/v1/workspaces")).statusCode).toBe(401);
   });

@@ -13,6 +13,11 @@ const Env = z.object({
     .min(32, "BETTER_AUTH_SECRET must be at least 32 characters (openssl rand -base64 32)"),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
+  /**
+   * SSE connections are closed after this long; the browser reconnects with Last-Event-ID and resumes. Keeps
+   * connections fresh behind proxies and load balancers that cut long-lived streams.
+   */
+  BRIO_SSE_MAX_CONNECTION_MS: z.coerce.number().int().min(1000).default(300_000),
   /** Exposes GET /v1/dev/outbox with locally "sent" emails. Never in production. */
   BRIO_DEV_OUTBOX: z
     .enum(["true", "false"])

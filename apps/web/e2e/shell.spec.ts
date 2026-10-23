@@ -1,21 +1,27 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const SCREENS = [
-  { path: "/missions", nav: "Missions", heading: "No missions yet" },
+  { path: "/missions", nav: "Missions", heading: "Create a workspace first" },
   { path: "/connectors", nav: "Connectors", heading: "No connectors yet" },
   { path: "/agents", nav: "Agents", heading: "No agents yet" },
   { path: "/scoreboard", nav: "Scoreboard", heading: "Nothing to score yet" },
   { path: "/settings", nav: "Settings", heading: "Workspace settings" },
 ];
 
-test("root redirects to missions", async ({ page }) => {
+test("signed-out visitors are sent to sign-in", async ({ page }) => {
+  await page.goto("/missions");
+  await expect(page).toHaveURL(/\/sign-in$/);
+  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  await expect(page).toHaveTitle("Sign in · Brio");
+});
+
+test("root redirects to missions", async ({ authed: page }) => {
   await page.goto("/");
   await expect(page).toHaveURL(/\/missions$/);
 });
 
 for (const { path, nav, heading } of SCREENS) {
-  test(`${nav} shows its empty state and is reachable from the nav`, async ({ page }) => {
-    await page.goto("/missions");
+  test(`${nav} shows its empty state and is reachable from the nav`, async ({ authed: page }) => {
     await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: nav }).click();
     await expect(page).toHaveURL(new RegExp(`${path}$`));
     await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
@@ -34,13 +40,11 @@ test("unknown paths get the branded 404", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Nothing at this path" })).toBeVisible();
 });
 
-test("no horizontal scroll at phone width", async ({ browser }) => {
-  const context = await browser.newContext({ viewport: { width: 375, height: 800 } });
-  const page = await context.newPage();
+test("no horizontal scroll at phone width", async ({ authed: page }) => {
+  await page.setViewportSize({ width: 375, height: 800 });
   await page.goto("/missions");
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
   expect(overflow).toBeLessThanOrEqual(0);
-  await context.close();
 });

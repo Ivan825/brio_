@@ -101,6 +101,8 @@ pnpm install
 pnpm dev            # web + api + runner (docker) locally
 pnpm db:generate    # drizzle-kit generate
 pnpm db:migrate
+pnpm db:seed        # demo workspace + project
+pnpm db:reset       # recreate a *_e2e / *_test database (refuses others)
 pnpm typecheck
 pnpm lint
 pnpm test

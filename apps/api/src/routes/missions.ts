@@ -165,6 +165,7 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
 
     const abort = new AbortController();
     const keepalive = setInterval(() => res.write(": keepalive\n\n"), SSE_KEEPALIVE_MS);
+    const rotate = setTimeout(() => abort.abort(), ctx.config.BRIO_SSE_MAX_CONNECTION_MS);
     req.raw.on("close", () => abort.abort());
     try {
       await streamMissionEvents(
@@ -180,6 +181,7 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
       req.log.error({ err }, "event stream failed");
     } finally {
       clearInterval(keepalive);
+      clearTimeout(rotate);
       res.end();
     }
   });

@@ -8,9 +8,11 @@ import { Wordmark } from "./wordmark";
 export function AppShell({
   children,
   workspaceSwitcher,
+  userMenu,
 }: {
   children: ReactNode;
   workspaceSwitcher?: ReactNode;
+  userMenu?: ReactNode;
 }) {
   return (
     <div className="flex min-h-dvh flex-col">
@@ -29,6 +31,7 @@ export function AppShell({
           <Breadcrumb />
         </div>
         <ThemeToggle />
+        {userMenu}
       </header>
       <nav aria-label="Primary" className="border-b border-line px-2 py-1.5 md:hidden">
         <NavLinks orientation="horizontal" />

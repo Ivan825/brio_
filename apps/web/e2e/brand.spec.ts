@@ -1,4 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect, signIn, test, uniqueEmail } from "./fixtures";
 
 // Computed colours as the browser reports them; source values live in packages/brand/tokens.css.
 const DARK_BG = "rgb(11, 13, 23)"; // --bg dark  #0B0D17
@@ -9,8 +10,7 @@ const BRASS_DEEP = "rgb(201, 138, 18)"; // --brio-brass-deep #C98A12
 const bodyBg = (page: Page) => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 
 test.describe("brand", () => {
-  test("dark theme is the default", async ({ page }) => {
-    await page.goto("/missions");
+  test("dark theme is the default", async ({ authed: page }) => {
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     expect(await bodyBg(page)).toBe(DARK_BG);
   });
@@ -18,13 +18,12 @@ test.describe("brand", () => {
   test("dark stays the default even when the OS prefers light", async ({ browser }) => {
     const context = await browser.newContext({ colorScheme: "light" });
     const page = await context.newPage();
-    await page.goto("/missions");
+    await page.goto("/sign-in");
     expect(await bodyBg(page)).toBe(DARK_BG);
     await context.close();
   });
 
-  test("light theme toggle switches tokens and persists", async ({ page }) => {
-    await page.goto("/missions");
+  test("light theme toggle switches tokens and persists", async ({ authed: page }) => {
     await page.getByRole("button", { name: "Switch to light theme" }).click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
     expect(await bodyBg(page)).toBe(LIGHT_BG);
@@ -33,8 +32,9 @@ test.describe("brand", () => {
     await expect(page.getByTestId("brio-cursor")).toHaveCSS("background-color", BRASS_DEEP);
   });
 
-  test("header wordmark is brio_ in Geist Mono with a brass cursor, solid when idle", async ({ page }) => {
-    await page.goto("/missions");
+  test("header wordmark is brio_ in Geist Mono with a brass cursor, solid when idle", async ({
+    authed: page,
+  }) => {
     const home = page.getByRole("link", { name: "Brio home" });
     await expect(home).toContainText("brio");
     const fontFamily = await home
@@ -49,13 +49,13 @@ test.describe("brand", () => {
   });
 
   test("UI text is set in Geist Sans", async ({ page }) => {
-    await page.goto("/missions");
+    await page.goto("/sign-in");
     const fontFamily = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
     expect(fontFamily.toLowerCase()).toMatch(/^"?geist(?! ?mono)/);
   });
 
   test("favicon, app icons, manifest and OG image are wired and served", async ({ page, request }) => {
-    await page.goto("/missions");
+    await page.goto("/sign-in");
     const head = page.locator("head");
     await expect(head.locator('link[rel="icon"][type="image/svg+xml"]')).toHaveAttribute(
       "href",
@@ -85,8 +85,11 @@ test.describe("brand", () => {
   test("the cursor does not animate with reduced motion", async ({ browser }) => {
     const context = await browser.newContext({ reducedMotion: "reduce" });
     const page = await context.newPage();
-    await page.goto("/missions");
-    const name = await page.locator("pre .brio-cursor").evaluate((el) => getComputedStyle(el).animationName);
+    await signIn(page, uniqueEmail("motion"));
+    const name = await page
+      .locator("pre .brio-cursor")
+      .first()
+      .evaluate((el) => getComputedStyle(el).animationName);
     expect(name).toBe("none");
     await context.close();
   });

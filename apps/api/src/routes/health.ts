@@ -11,4 +11,11 @@ export async function healthRoutes(app: FastifyInstance, ctx: AppContext) {
       return reply.status(503).send({ ok: false, db: "down" });
     }
   });
+
+  /** Which sign-in methods this deployment offers, so the web app only shows working buttons. */
+  app.get("/v1/auth/providers", async () => ({
+    magicLink: true,
+    passkey: true,
+    google: ctx.config.google !== null,
+  }));
 }

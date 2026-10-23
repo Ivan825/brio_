@@ -6,7 +6,7 @@ Status column: update as you go (`todo` / `in progress` / `done (commit sha)`).
 
 | # | Milestone | Depends on | Status |
 |---|---|---|---|
-| M0 | Foundation: monorepo, CI, DB, auth, workspaces, vault, events | — | todo |
+| M0 | Foundation: monorepo, CI, DB, auth, workspaces, vault, events | — | done (23 Oct 2026, pushed in 10 steps; see CHANGELOG) |
 | M1 | Connector framework, registry loader, model-API adapters, metering | M0 | todo |
 | M2 | Sandboxed runner + coding-CLI adapters | M1 | todo |
 | M3 | Missions, planner, task DAG engine, contracts, leases, handoffs, mailbox | M1 (M2 for code tasks) | todo |

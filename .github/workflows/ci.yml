@@ -51,6 +51,18 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: brio
+          POSTGRES_PASSWORD: brio
+          POSTGRES_DB: brio
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U brio -d brio" --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      E2E_DATABASE_URL: postgres://brio:brio@localhost:5433/brio_e2e
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6

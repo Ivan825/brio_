@@ -26,7 +26,7 @@ Give Brio one goal. It plans the work, hands each piece to the agent best at it,
 
 ---
 
-> **Pre-alpha, being built in the open.** The foundation milestone (M0) is in progress. This README describes
+> **Pre-alpha, being built in the open.** The foundation milestone (M0) is done; agents connect from M1. This README describes
 > the product Brio is being built to be; the [roadmap](docs/BUILD_PLAN.md) shows what is done, and anything
 > not built yet is marked **planned** below.
 
@@ -95,18 +95,20 @@ Node 22, pnpm 10 and Docker (for Postgres with pgvector).
 ```bash
 git clone https://github.com/Ivan825/brio_.git && cd brio_
 pnpm install
-docker compose up -d          # Postgres + pgvector
-cp .env.example .env
+cp .env.example .env          # then fill BETTER_AUTH_SECRET and BRIO_VAULT_LOCAL_KEK (openssl rand -base64 32)
+docker compose up -d --wait   # Postgres + pgvector on :5433
 pnpm db:migrate && pnpm db:seed
-pnpm dev                      # web + api
+pnpm dev                      # Postgres, API on :4000, web on http://localhost:3000
 ```
+
+Sign in with any email. Without an email provider, the sign-in link is printed in the API log (and available at `/v1/dev/outbox` while `BRIO_DEV_OUTBOX=true`).
 
 ```bash
 pnpm typecheck && pnpm lint && pnpm test    # unit and integration
 pnpm e2e                                    # real browser, brand and flows
 ```
 
-Database, auth and `pnpm dev` arrive during M0; until M0 is marked done in the [roadmap](docs/BUILD_PLAN.md), some of these commands are still being wired up.
+`pnpm e2e` builds the web app and starts the API against a throwaway `brio_e2e` database.
 
 ## Architecture
 
@@ -135,7 +137,7 @@ Every vendor call goes through one `AgentAdapter` interface ([`docs/ADAPTER_SPEC
 
 ## Status
 
-Pre-alpha. Built milestone by milestone in dependency order, each production-grade with tests, types and migrations. The current milestone is **M0, the foundation**: monorepo and CI, database, auth and workspaces, vault, events and ledger, and the branded web shell. See the [roadmap](docs/BUILD_PLAN.md) and [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
+Pre-alpha. Built milestone by milestone in dependency order, each production-grade with tests, types and migrations. **M0, the foundation, is done**: monorepo and CI, database, sign-in and workspaces with invitations, the vault and redactor, the event spine with live SSE, the hash-chained ledger, and the branded web app. Next is **M1**: connectors and model APIs. Planning is a labelled stub until M3, so missions are planned but not yet dispatched to agents. See the [roadmap](docs/BUILD_PLAN.md) and [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
 
 ## Licence
 
