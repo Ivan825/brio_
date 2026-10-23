@@ -3,6 +3,7 @@ import Link from "next/link";
 import { EmptyState } from "@/components/empty-state";
 import { StatusChip } from "@/components/status-chip";
 import { getWorkspaces, serverApi } from "@/lib/server-api";
+import type { AgentSummary, CrewSummary, ProjectSummary, TemplateSummary } from "@/lib/types";
 import { NewMission } from "./new-mission";
 
 export const metadata: Metadata = { title: "Missions" };
@@ -25,7 +26,13 @@ export default async function MissionsPage() {
       </EmptyState>
     );
   }
-  const { data } = await serverApi<{ missions: MissionRow[] }>("/v1/missions");
+  const [{ data }, projects, agents, crews, templates] = await Promise.all([
+    serverApi<{ missions: MissionRow[] }>("/v1/missions"),
+    serverApi<{ projects: ProjectSummary[] }>("/v1/projects"),
+    serverApi<{ agents: AgentSummary[] }>("/v1/agents"),
+    serverApi<{ crews: CrewSummary[] }>("/v1/crews"),
+    serverApi<{ templates: TemplateSummary[] }>("/v1/templates"),
+  ]);
   const missions = data?.missions ?? [];
 
   return (
@@ -42,7 +49,12 @@ export default async function MissionsPage() {
       ) : (
         <h1 className="text-xl font-semibold tracking-tight">Missions</h1>
       )}
-      <NewMission />
+      <NewMission
+        projects={projects.data?.projects ?? []}
+        agents={agents.data?.agents ?? []}
+        crews={crews.data?.crews ?? []}
+        templates={templates.data?.templates ?? []}
+      />
       {missions.length > 0 && (
         <ul className="divide-y divide-line rounded-lg border border-line" aria-label="Missions">
           {missions.map((m) => (

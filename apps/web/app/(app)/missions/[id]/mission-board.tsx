@@ -11,6 +11,7 @@ import type { AgentSummary, AttemptSummary } from "@/lib/types";
 import { type Delivery, DeliveryPanel } from "./delivery-panel";
 import { MessagesPanel, type MissionMessage } from "./messages-panel";
 import { PlanPanel, type PlanView } from "./plan-panel";
+import { SaveTemplate } from "./save-template";
 import { TaskList } from "./task-list";
 
 export interface MissionDetail {
@@ -22,6 +23,11 @@ export interface MissionDetail {
     lastEventSeq: number;
     blockedReason: string | null;
     autoApprove: boolean;
+    routing: { strategy: string };
+    inputs?: {
+      issue: { url: string; title: string } | null;
+      files: { name: string; size: number; text: boolean }[];
+    };
     createdAt: string;
   };
   plan: PlanView | null;
@@ -237,8 +243,32 @@ export function MissionBoard({
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-xl font-semibold tracking-tight">{mission.title}</h1>
           <StatusChip status={mission.status} />
+          {plan && (
+            <span className="ml-auto">
+              <SaveTemplate missionId={mission.id} title={mission.title} />
+            </span>
+          )}
         </div>
         <p className="max-w-3xl text-fg-muted">{mission.goal}</p>
+        {(mission.inputs?.issue || (mission.inputs?.files.length ?? 0) > 0) && (
+          <p className="flex flex-wrap items-center gap-2 text-xs text-fg-muted" data-testid="mission-inputs">
+            {mission.inputs?.issue && (
+              <a
+                href={mission.inputs.issue.url}
+                className="text-focus hover:underline"
+                target="_blank"
+                rel="noreferrer"
+              >
+                issue: {mission.inputs.issue.title}
+              </a>
+            )}
+            {mission.inputs?.files.map((f) => (
+              <span key={f.name} className="font-mono">
+                {f.name}
+              </span>
+            ))}
+          </p>
+        )}
         {mission.blockedReason && (
           <p
             className="rounded-md border border-line bg-surface px-3 py-2 font-mono text-xs text-warning"

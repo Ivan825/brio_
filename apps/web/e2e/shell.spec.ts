@@ -6,6 +6,8 @@ const SCREENS = [
   { path: "/projects", nav: "Projects", heading: "Create a workspace first" },
   { path: "/connectors", nav: "Connectors", heading: "Connectors" },
   { path: "/agents", nav: "Agents", heading: "Agents" },
+  { path: "/crews", nav: "Crews", heading: "Create a workspace first" },
+  { path: "/templates", nav: "Templates", heading: "Create a workspace first" },
   { path: "/scoreboard", nav: "Scoreboard", heading: "Nothing to score yet" },
   { path: "/evals", nav: "Evals", heading: "No eval runs yet" },
   { path: "/settings", nav: "Settings", heading: "Workspace settings" },

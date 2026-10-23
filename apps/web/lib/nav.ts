@@ -4,9 +4,11 @@ import {
   FolderGit2,
   Gauge,
   Inbox,
+  LayoutTemplate,
   type LucideIcon,
   Plug,
   Settings,
+  Users,
   Workflow,
 } from "lucide-react";
 
@@ -22,6 +24,8 @@ export const NAV: readonly NavItem[] = [
   { href: "/projects", label: "Projects", icon: FolderGit2 },
   { href: "/connectors", label: "Connectors", icon: Plug },
   { href: "/agents", label: "Agents", icon: Bot },
+  { href: "/crews", label: "Crews", icon: Users },
+  { href: "/templates", label: "Templates", icon: LayoutTemplate },
   { href: "/scoreboard", label: "Scoreboard", icon: Gauge },
   { href: "/evals", label: "Evals", icon: FlaskConical },
   { href: "/settings", label: "Settings", icon: Settings },

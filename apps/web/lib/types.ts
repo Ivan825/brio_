@@ -165,3 +165,20 @@ export interface ProjectSummary {
   githubRepo: string | null;
   createdAt: string;
 }
+
+export interface CrewSummary {
+  id: string;
+  name: string;
+  agentIds: string[];
+  pins: Record<string, string>;
+  createdAt: string;
+}
+
+export interface TemplateSummary {
+  id: string;
+  name: string;
+  description: string;
+  tasks: { key: string; type: string; title: string; dependsOn: string[] }[];
+  source: { missionId: string; version: number } | null;
+  createdAt: string;
+}
