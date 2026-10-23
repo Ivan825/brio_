@@ -274,3 +274,22 @@ export const oauthClientAssertions = pgTable("oauth_client_assertions", {
   id: text().primaryKey(),
   expiresAt: ts().notNull(),
 });
+
+/** OAuth device authorization (RFC 8628) for `brio login`: a code shown in the terminal, approved in the browser. */
+export const deviceCodes = pgTable(
+  "device_codes",
+  {
+    id: id(),
+    deviceCode: text().notNull(),
+    userCode: text().notNull(),
+    userId: uuid().references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+    status: text().notNull(),
+    lastPolledAt: timestamp({ withTimezone: true }),
+    pollingInterval: integer(),
+    clientId: text(),
+    scope: text(),
+    ...timestamps(),
+  },
+  (t) => [uniqueIndex().on(t.deviceCode), uniqueIndex().on(t.userCode)],
+);
