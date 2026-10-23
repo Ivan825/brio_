@@ -79,7 +79,10 @@ const PLANS: Record<string, ReturnType<typeof plannedTask>> = {
     key: "report",
     type: "research.deep_report",
     title: "Research greetings",
-    acceptance: [{ kind: "citation_present", hard: true }],
+    acceptance: [
+      { kind: "citation_present", hard: true },
+      { kind: "human", hard: true },
+    ],
   }),
   cascade: plannedTask({
     key: "sum",
@@ -386,8 +389,13 @@ describe.skipIf(!hasTestDatabase || !hasDocker)("M4 acceptance: execution modes 
     }
     expect(e.route.mode).toBe("ensemble");
     expect(e.accepted && e.purpose(e.accepted)).toBe("merge");
-    // The citation check waits for a person (until the M5 verifier); asked once, for the chosen result only.
+    // The citation check ran on its own; the person is asked once, for the chosen result only.
     expect(e.events.filter((x) => x.type === "approval.requested")).toHaveLength(1);
+    const checks = e.accepted?.checks as { items: { kind: string; status: string }[] };
+    expect(checks.items.map((i) => [i.kind, i.status])).toEqual([
+      ["citation_present", "passed"],
+      ["human", "needs_human"],
+    ]);
     const r = await c.request("POST", `/v1/tasks/${e.task.id}/review`, { verdict: "pass", reasons: "good" });
     expect(r.statusCode, r.body).toBe(200);
     await waitFor(id, (m) => m.status === "done");
@@ -470,7 +478,8 @@ describe.skipIf(!hasTestDatabase || !hasDocker)("M4 acceptance: execution modes 
     const up = await c.request("POST", `/v1/attempts/${made!.id}/rating`, { rating: 1, comment: "nice" });
     expect(up.statusCode, up.body).toBe(201);
     const after = await score("anthropic/claude-writer", "code.feature");
-    expect(after!.alpha).toBeCloseTo(before!.alpha + 0.5, 5);
+    // (The score decays a hair between the two reads.)
+    expect(after!.alpha).toBeCloseTo(before!.alpha + 0.5, 3);
     expect((await c.request("POST", `/v1/attempts/${made!.id}/rating`, { rating: -1 })).statusCode).toBe(409);
   });
 });

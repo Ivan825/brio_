@@ -2,18 +2,19 @@
 // database, asks the pure scheduler what to do, and applies each action with a conditional update. So it can crash,
 // run twice, or restart mid-mission, and the mission carries on from where the database says it is.
 import { randomUUID } from "node:crypto";
-import type { AttemptChecks, CheckItem, Dispatch } from "@brio/adapters";
+import type { AttemptChecks, Dispatch } from "@brio/adapters";
 import {
   type Assignment,
   buildHandoff,
   type Candidate,
   choosePlanner,
   decide,
-  diffScope,
   freshScore,
   judgeInstructions,
   LEASE_BLOCK,
   type LearnedDecision,
+  MAX_REROUTES,
+  MAX_REVISIONS,
   type Mode,
   type ModeAction,
   type ModeAttempt,
@@ -28,9 +29,9 @@ import {
   type SchedTask,
   seeded,
   stepInstructions,
+  verdict,
 } from "@brio/core";
 import { type DbOrTx, schema } from "@brio/db";
-import { enqueueChecks } from "@brio/runner";
 import { type Actor, type EventType, type HandoffPacket, TaskContract } from "@brio/schema";
 import { and, asc, desc, eq, gt, gte, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { RUNNABLE_TASK, renderInstructions } from "../attempts";
@@ -39,6 +40,7 @@ import { HttpError } from "../http";
 import { routeAgents, type WorkspaceAgent } from "./agents";
 import { approvePlan, latestPlan, storePlan } from "./plans";
 import { attemptAgentKey, Scoreboard } from "./scoreboard";
+import { Verifier } from "./verifier";
 
 const { artifacts, attempts, blobs, contracts, handoffs, leases, missions, tasks } = schema;
 
@@ -47,8 +49,6 @@ type Task = typeof tasks.$inferSelect;
 type Attempt = typeof attempts.$inferSelect;
 
 export const PLANNING_TASK_KEY = "brio.plan";
-/** Revise loops per task before it fails (ARCHITECTURE §4.2). */
-export const MAX_REVISIONS = 2;
 /** Planner retries when its answer is not a valid plan. */
 export const MAX_PLANNING_RETRIES = 2;
 const MAX_PARALLEL = 4;
@@ -81,8 +81,16 @@ type ModeParams = {
   n?: number;
   steps?: Array<{ agentId: string }>;
   explicit?: boolean;
+  /** Times the task moved to another agent after failing its revisions (ROUTING §4.2). */
+  reroutes?: number;
+  /** Set when the task must move: the next dispatch avoids these agents and tells the new one what failed. */
+  reroute?: { exclude: string[]; reasons: string[] };
+  /** The task failed for good (no more revisions, agents or mode steps). */
+  final?: boolean;
 };
 const paramsOf = (t: Task) => t.modeParams as ModeParams;
+/** Attempts that made a result (single-mode makers and a mode's makers and mergers), not reviewers or judges. */
+const MADE = sql`coalesce(${attempts.dispatch}->'mode'->>'purpose', 'make') in ('make', 'revise', 'merge')`;
 const multi = (t: Task) => {
   const r = paramsOf(t).route;
   return r !== undefined && r.mode !== "single";
@@ -105,12 +113,18 @@ export class Orchestrator {
   private unsubscribe: (() => void) | null = null;
   private stopped = false;
   readonly scores: Scoreboard;
+  private readonly verifier: Verifier;
 
   constructor(
     private readonly ctx: AppContext,
     private readonly opts: OrchestratorOptions = {},
   ) {
     this.scores = new Scoreboard(ctx);
+    this.verifier = new Verifier(
+      ctx,
+      (db, m, type, payload, extra) => this.emit(db, m, type, payload, extra),
+      this.scores,
+    );
   }
 
   /** Reacts to every new event, and sweeps active missions so nothing waits on a missed notification. */
@@ -223,11 +237,12 @@ export class Orchestrator {
     return t;
   }
 
+  /** The task's latest made attempt (the verifier's reviewer attempts are not results). */
   private async latestAttempt(taskId: string): Promise<Attempt | undefined> {
     const [a] = await this.ctx.db
       .select()
       .from(attempts)
-      .where(eq(attempts.taskId, taskId))
+      .where(and(eq(attempts.taskId, taskId), MADE))
       .orderBy(desc(attempts.createdAt))
       .limit(1);
     return a;
@@ -410,7 +425,7 @@ export class Orchestrator {
     // Multi-agent modes move on as their attempts and checks finish.
     for (const t of rows) if (t.status === "running" && multi(t)) await this.modeStep(m, t);
     for (const t of rows)
-      if (t.status === "failed" && t.revisions < MAX_REVISIONS) await this.reviseAfterFailedAttempt(m, t);
+      if (t.status === "failed" && !paramsOf(t).final) await this.reviseAfterFailedAttempt(m, t);
 
     const fresh = await this.ctx.db
       .select()
@@ -529,12 +544,30 @@ export class Orchestrator {
     const fresh = (await this.ctx.db.select().from(tasks).where(eq(tasks.id, task.id)))[0];
     if (!fresh || !(RUNNABLE_TASK as readonly string[]).includes(fresh.status)) return;
     const revising = fresh.status === "revise";
-    // A revision goes back to the agent that made the result: the mode's pick, or the last attempt.
-    const previous = revising ? await this.resultAttempt(fresh, false) : undefined;
+    // A reroute goes to another agent, from scratch; a revision goes back to the agent that made the result (the
+    // mode's pick, or the last attempt) and builds on it.
+    const rerouting = revising ? paramsOf(fresh).reroute : undefined;
+    const previous = revising && !rerouting ? await this.resultAttempt(fresh, false) : undefined;
     const agents = await routeAgents(this.ctx, m.workspaceId);
     const contract = TaskContract.parse(fresh.contract);
-    const decision = await this.route(m, fresh, contract, agents, previous?.agentId ?? fresh.pinnedAgentId);
+    const decision = await this.route(
+      m,
+      fresh,
+      contract,
+      rerouting ? agents.filter((a) => !rerouting.exclude.includes(a.id)) : agents,
+      rerouting ? null : (previous?.agentId ?? fresh.pinnedAgentId),
+      Boolean(rerouting),
+    );
     if (!decision.ok) {
+      if (rerouting) {
+        const last = await this.latestAttempt(fresh.id);
+        if (last)
+          await this.sendBack(m, fresh, last, "fail", [
+            ...rerouting.reasons,
+            `no other agent to take it: ${decision.reason}`,
+          ]);
+        return;
+      }
       await this.blockTask(m, fresh, `route: ${decision.reason}`);
       return;
     }
@@ -546,11 +579,15 @@ export class Orchestrator {
       estUsd: decision.estUsd,
       startedAt: new Date().toISOString(),
     };
-    const rationale = route.degraded ? `${route.rationale} · ${route.degraded}` : route.rationale;
+    const said =
+      revising && previous
+        ? `${route.rationale.replace(/ \(pinned\)$/, "")} revises its own result`
+        : route.rationale;
+    const rationale = route.degraded ? `${said} · ${route.degraded}` : said;
 
     const granted = isCodeTask(fresh) ? await this.acquireLeases(m, fresh) : [];
     if (granted === null) return; // lost a race for the files; the next tick blocks or retries it
-    const { result: _result, marks: _marks, ...kept } = paramsOf(fresh);
+    const { result: _result, marks: _marks, reroute: _reroute, ...kept } = paramsOf(fresh);
     const params = { ...kept, route };
 
     if (route.mode !== "single") {
@@ -582,8 +619,13 @@ export class Orchestrator {
         // A revision builds on the work it revises.
         bases: [...inputs.bases, ...(revising && previous?.worktreeRef ? [previous.worktreeRef] : [])],
         files: inputs.files,
-        rationale,
+        rationale: rerouting ? `${rationale} · rerouted after another agent failed` : rationale,
         ...(revising && previous ? { feedback: failedChecksFeedback(previous) } : {}),
+        ...(rerouting
+          ? {
+              instructions: `${renderInstructions(fresh, contract, m.goal)}\n\n## Another agent tried this task first and failed\n${rerouting.reasons.map((r) => `- ${r}`).join("\n")}\nStart from the task as described; avoid those failures.`,
+            }
+          : {}),
       });
     } catch (err) {
       if (granted.length) await this.releaseLeases(m, fresh, "dispatch failed");
@@ -599,6 +641,8 @@ export class Orchestrator {
     contract: TaskContract,
     agents: WorkspaceAgent[],
     pinnedAgentId: string | null,
+    /** A reroute runs one agent on its own. */
+    single = false,
   ): Promise<LearnedDecision> {
     const now = new Date();
     const scored = await this.scores.get(
@@ -629,9 +673,9 @@ export class Orchestrator {
         type: t.type,
         sensitivity: contract.sensitivity,
         pinnedAgentId,
-        mode: t.mode,
+        mode: single ? "single" : t.mode,
         hasTests: contract.acceptance.some((c) => c.hard && COMMAND_CHECKS.has(c.kind)),
-        modeExplicit: t.mode !== "single" || p.explicit === true,
+        modeExplicit: single || t.mode !== "single" || p.explicit === true,
         modeParams: { ...(p.n ? { n: p.n } : {}), ...(p.steps ? { steps: p.steps } : {}) },
       },
       candidates,
@@ -691,7 +735,7 @@ export class Orchestrator {
     const [a] = await this.ctx.db
       .select()
       .from(attempts)
-      .where(and(eq(attempts.taskId, t.id), eq(attempts.status, "succeeded")))
+      .where(and(eq(attempts.taskId, t.id), eq(attempts.status, "succeeded"), MADE))
       .orderBy(desc(attempts.endedAt))
       .limit(1);
     return a;
@@ -718,7 +762,7 @@ export class Orchestrator {
         agentId: a.agentId,
         status: a.status,
         checks: "none",
-        purpose: mode.purpose,
+        purpose: mode.purpose as ModeAttempt["purpose"],
         of: mode.of,
         step: mode.step,
         costUsd: a.costUsd ?? 0,
@@ -770,7 +814,7 @@ export class Orchestrator {
 
   /** A made result's hard checks, summarised for the engine. People's checks wait until a result is chosen. */
   private async modeChecks(m: Mission, t: Task, a: Attempt): Promise<ModeAttempt["checks"]> {
-    const checks = (a.checks as AttemptChecks | null) ?? (await this.startChecks(m, t, a, false));
+    const checks = (a.checks as AttemptChecks | null) ?? (await this.verifier.start(m, t, a, false));
     const auto = checks.items.filter((i) => i.hard && i.status !== "needs_human");
     if (auto.some((i) => i.status === "failed")) return "failed";
     if (auto.some((i) => i.status === "pending" || i.status === "running")) return "pending";
@@ -943,23 +987,20 @@ export class Orchestrator {
       .where(and(eq(tasks.id, t.id), eq(tasks.status, "running")))
       .returning();
     if (!claimed) return;
-    const checks = a.checks as AttemptChecks | null;
-    const human = checks?.items.filter((i) => i.status === "needs_human") ?? [];
-    if (human.length)
-      await this.emit(
-        this.ctx.db,
-        m,
-        "approval.requested",
-        { taskKey: t.key, what: "accept this task's result", checks: human.map((i) => i.kind), note },
-        { taskId: t.id, attemptId: a.id },
-      );
+    // People are asked once, for the chosen result only.
+    await this.verifier.announceHuman(m, t, a, (a.checks as AttemptChecks | null)?.items ?? [], note);
     this.schedule(m.id);
   }
 
   private async failModeTask(m: Mission, t: Task, reason: string): Promise<void> {
     const [f] = await this.ctx.db
       .update(tasks)
-      .set({ status: "failed", revisions: MAX_REVISIONS, blockedReason: reason })
+      .set({
+        status: "failed",
+        revisions: MAX_REVISIONS,
+        blockedReason: reason,
+        modeParams: { ...paramsOf(t), final: true },
+      })
       .where(and(eq(tasks.id, t.id), eq(tasks.status, "running")))
       .returning();
     if (!f) return;
@@ -1123,149 +1164,116 @@ export class Orchestrator {
     }));
   }
 
-  // ---- Verification (the M3 verifier: command checks, diff scope, people; ROUTING §4 in full arrives in M5) ------
+  // ---- Verification (ROUTING §4): the verifier fills the checklist; the verdict logic decides ----------------------
 
   private async verify(m: Mission, t: Task): Promise<void> {
     const a = await this.resultAttempt(t);
     if (!a) return;
-    let checks = a.checks as AttemptChecks | null;
-    if (!checks) checks = await this.startChecks(m, t, a);
-    const hard = checks.items.filter((i) => i.hard);
-    const failed = hard.filter((i) => i.status === "failed");
-    if (failed.length) return this.sendBack(m, t, a, failed);
-    if (hard.some((i) => i.status === "pending" || i.status === "running" || i.status === "needs_human"))
-      return;
-    return this.completeTask(m, t, a, checks);
+    if (!a.checks) await this.verifier.start(m, t, a);
+    const checks = await this.verifier.advance(m, t, a);
+    if (!checks) return;
+    const p = paramsOf(t);
+    const v = verdict({ items: checks.items, revisions: t.revisions, reroutes: p.reroutes ?? 0 });
+    if (v.kind === "wait") return;
+    if (v.kind === "pass") return this.completeTask(m, t, a, checks, v.softFailures);
+    await this.verifier.cancelOpen(a);
+    return this.sendBack(m, t, a, v.kind, v.reasons);
   }
 
-  /** Starts an attempt's acceptance checks; `announce` asks people for theirs (modes ask once a result is chosen). */
-  private async startChecks(m: Mission, t: Task, a: Attempt, announce = true): Promise<AttemptChecks> {
-    const contract = TaskContract.parse(t.contract);
-    const diff = (
-      await this.ctx.db
-        .select()
-        .from(artifacts)
-        .where(and(eq(artifacts.attemptId, a.id), eq(artifacts.kind, "diff")))
-    )[0];
-    const changed = ((diff?.meta as { files?: { path: string }[] } | undefined)?.files ?? []).map(
-      (f) => f.path,
-    );
-    const items: CheckItem[] = contract.acceptance.map((c, index) => {
-      const base = { index, kind: c.kind, hard: c.hard, ...(c.command ? { command: c.command } : {}) };
-      if (c.kind === "diff_scope") {
-        const r = diffScope(changed, contract.expectedFootprint?.paths);
-        return { ...base, status: r.passed ? "passed" : "failed", summary: r.summary };
-      }
-      if (COMMAND_CHECKS.has(c.kind))
-        return a.worktreeRef
-          ? { ...base, status: "pending" }
-          : { ...base, status: "failed", summary: `${c.kind} needs files to check; this task produced none` };
-      // Human checks, and the kinds the M5 verifier will run, wait for a person until then.
-      return {
-        ...base,
-        status: "needs_human",
-        summary:
-          c.kind === "human"
-            ? "waiting for a person"
-            : `${c.kind} is reviewed by a person until the verifier (M5)`,
-      };
-    });
-    const checks: AttemptChecks = { requestedAt: new Date().toISOString(), items };
-    const [claimed] = await this.ctx.db
-      .update(attempts)
-      .set({ checks: checks as unknown as Record<string, unknown> })
-      .where(and(eq(attempts.id, a.id), isNull(attempts.checks)))
-      .returning();
-    if (!claimed)
-      return ((await this.ctx.db.select().from(attempts).where(eq(attempts.id, a.id)))[0]?.checks ??
-        checks) as AttemptChecks;
-    for (const i of items.filter((x) => x.status === "passed" || x.status === "failed"))
-      await this.emit(
-        this.ctx.db,
-        m,
-        "check.result",
-        { index: i.index, kind: i.kind, passed: i.status === "passed", summary: i.summary ?? "" },
-        { taskId: t.id, attemptId: a.id },
-      );
-    if (announce && items.some((i) => i.status === "needs_human"))
-      await this.emit(
-        this.ctx.db,
-        m,
-        "approval.requested",
-        {
-          taskKey: t.key,
-          what: "accept this task's result",
-          checks: items.filter((i) => i.status === "needs_human").map((i) => i.kind),
-        },
-        { taskId: t.id, attemptId: a.id },
-      );
-    if (items.some((i) => i.status === "pending")) await enqueueChecks(this.ctx.queue, a.id);
-    return checks;
-  }
-
-  /** Revise (same agent, with the failures) while revisions remain; otherwise the task fails. */
-  private async sendBack(m: Mission, t: Task, a: Attempt, failed: CheckItem[]): Promise<void> {
-    const reasons = failed.map((f) => `${f.kind}: ${f.summary ?? "failed"}`);
-    if (t.revisions < MAX_REVISIONS) {
+  /**
+   * revise: back to the same agent with the failures. reroute: to the next-best agent (the ones that failed are
+   * excluded). fail: the task fails for good, and the planner is asked for a revised plan.
+   */
+  private async sendBack(
+    m: Mission,
+    t: Task,
+    a: Attempt,
+    kind: "revise" | "reroute" | "fail",
+    reasons: string[],
+  ) {
+    const from = ["verifying", "failed", "revise"] as Task["status"][];
+    if (kind === "revise") {
       const [r] = await this.ctx.db
         .update(tasks)
         .set({ status: "revise", revisions: t.revisions + 1 })
-        .where(and(eq(tasks.id, t.id), eq(tasks.status, "verifying")))
+        .where(and(eq(tasks.id, t.id), inArray(tasks.status, from), eq(tasks.revisions, t.revisions)))
         .returning();
-      if (r) await this.scores.outcome(a.id, "revise", t.type);
-      if (r)
-        await this.emit(
-          this.ctx.db,
-          m,
-          "review.verdict",
-          { taskKey: t.key, verdict: "revise", reasons, revision: r.revisions },
-          { taskId: t.id, attemptId: a.id },
-        );
+      if (!r) return;
+      await this.scores.outcome(a.id, a.status === "succeeded" ? "revise" : "fail", t.type);
+      await this.emit(
+        this.ctx.db,
+        m,
+        "review.verdict",
+        { taskKey: t.key, verdict: "revise", reasons, revision: r.revisions },
+        { taskId: t.id, attemptId: a.id },
+      );
+      return;
+    }
+    if (kind === "reroute") {
+      const tried = await this.ctx.db
+        .select({ agentId: attempts.agentId, dispatch: attempts.dispatch })
+        .from(attempts)
+        .where(eq(attempts.taskId, t.id));
+      const makers = [...new Set(tried.filter((x) => Verifier.purpose(x) !== "check").map((x) => x.agentId))];
+      const p = paramsOf(t);
+      const [r] = await this.ctx.db
+        .update(tasks)
+        .set({
+          status: "revise",
+          revisions: 0,
+          pinnedAgentId: null,
+          modeParams: { ...p, reroutes: (p.reroutes ?? 0) + 1, reroute: { exclude: makers, reasons } },
+        })
+        .where(and(eq(tasks.id, t.id), inArray(tasks.status, from), eq(tasks.revisions, t.revisions)))
+        .returning();
+      if (!r) return;
+      await this.scores.outcome(a.id, "fail", t.type);
+      await this.emit(
+        this.ctx.db,
+        m,
+        "review.verdict",
+        { taskKey: t.key, verdict: "reroute", reasons, excluded: makers.length },
+        { taskId: t.id, attemptId: a.id },
+      );
       return;
     }
     const [f] = await this.ctx.db
       .update(tasks)
-      .set({ status: "failed", blockedReason: reasons.join("; ") })
-      .where(and(eq(tasks.id, t.id), eq(tasks.status, "verifying")))
+      .set({
+        status: "failed",
+        blockedReason: reasons.join("; ").slice(0, 2000),
+        modeParams: { ...paramsOf(t), final: true },
+      })
+      .where(and(eq(tasks.id, t.id), inArray(tasks.status, from)))
       .returning();
-    if (f) {
-      await this.scores.outcome(a.id, "fail", t.type);
-      await this.scoreAttempts(f, null);
-      await this.emit(
-        this.ctx.db,
-        m,
-        "review.verdict",
-        { taskKey: t.key, verdict: "fail", reasons },
-        { taskId: t.id, attemptId: a.id },
-      );
-      await this.releaseLeases(m, t, "task failed");
-      await this.emit(this.ctx.db, m, "task.failed", { taskKey: t.key, reasons }, { taskId: t.id });
-    }
+    if (!f) return;
+    await this.scores.outcome(a.id, "fail", t.type);
+    await this.scoreAttempts(f, null);
+    await this.emit(
+      this.ctx.db,
+      m,
+      "review.verdict",
+      { taskKey: t.key, verdict: "fail", reasons },
+      { taskId: t.id, attemptId: a.id },
+    );
+    await this.releaseLeases(m, t, "task failed");
+    await this.emit(this.ctx.db, m, "task.failed", { taskKey: t.key, reasons }, { taskId: t.id });
   }
 
-  /** An attempt that failed outright (vendor error, limit) gets the same revise budget as a failed check. */
+  /** An attempt that failed outright (vendor error, limit) follows the same path as a failed check. */
   private async reviseAfterFailedAttempt(m: Mission, t: Task): Promise<void> {
+    if (paramsOf(t).final) return;
     const a = await this.latestAttempt(t.id);
     if (!a || a.status === "running" || a.status === "queued") return;
-    const [r] = await this.ctx.db
-      .update(tasks)
-      .set({ status: "revise", revisions: t.revisions + 1 })
-      .where(and(eq(tasks.id, t.id), eq(tasks.status, "failed"), eq(tasks.revisions, t.revisions)))
-      .returning();
-    if (r) await this.scores.outcome(a.id, "fail", t.type);
-    if (r)
-      await this.emit(
-        this.ctx.db,
-        m,
-        "review.verdict",
-        {
-          taskKey: t.key,
-          verdict: "revise",
-          reasons: [a.exitReason ?? "the attempt failed"],
-          revision: r.revisions,
-        },
-        { taskId: t.id, attemptId: a.id },
-      );
+    const v = verdict({
+      items: [
+        { kind: "attempt", hard: true, status: "failed", summary: a.exitReason ?? "the attempt failed" },
+      ],
+      revisions: t.revisions,
+      reroutes: paramsOf(t).reroutes ?? 0,
+    });
+    if (v.kind === "revise" || v.kind === "reroute" || v.kind === "fail")
+      await this.sendBack(m, t, a, v.kind, v.reasons);
   }
 
   /** A person's verdict on a task waiting for review (human checks, and M5 kinds until then). */
@@ -1319,13 +1327,23 @@ export class Orchestrator {
         { taskKey: t.key, decision: verdict === "pass" ? "approved" : "rejected" },
         base,
       );
+      // A person's "fail" is final: no more revisions or other agents.
       if (verdict === "fail")
-        await tx.update(tasks).set({ revisions: MAX_REVISIONS }).where(eq(tasks.id, t.id));
+        await tx
+          .update(tasks)
+          .set({ revisions: MAX_REVISIONS, modeParams: { ...paramsOf(t), reroutes: MAX_REROUTES } })
+          .where(eq(tasks.id, t.id));
     });
     this.schedule(m.id);
   }
 
-  private async completeTask(m: Mission, t: Task, a: Attempt, checks: AttemptChecks): Promise<void> {
+  private async completeTask(
+    m: Mission,
+    t: Task,
+    a: Attempt,
+    checks: AttemptChecks,
+    softFailures: string[] = [],
+  ): Promise<void> {
     const [done] = await this.ctx.db
       .update(tasks)
       .set({ status: "done", blockedReason: null })
@@ -1426,6 +1444,7 @@ export class Orchestrator {
         costUsd: cost[0]?.usd ?? 0,
         contract,
         mode: paramsOf(t).route?.mode ?? "single",
+        ...(softFailures.length ? { softFailures } : {}),
         ...(paramsOf(t).result ? { note: paramsOf(t).result?.note } : {}),
       },
       { taskId: t.id },

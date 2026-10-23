@@ -88,7 +88,10 @@ export class AttemptRunner {
     if (mission.status === "cancelled" || mission.status === "done")
       throw new HttpError(409, `the mission is ${mission.status}`, "mission_closed");
     const concurrent = Boolean(input.mode);
-    if (concurrent ? task.status !== "running" : !(RUNNABLE_TASK as readonly string[]).includes(task.status))
+    // Mode attempts join a running task; a verifier's agent checks join a task being verified.
+    const joinable =
+      task.status === "running" || (task.status === "verifying" && input.mode?.purpose === "check");
+    if (concurrent ? !joinable : !(RUNNABLE_TASK as readonly string[]).includes(task.status))
       throw new HttpError(409, `the task is ${task.status}`, "task_busy");
 
     const [agent] = await ctx.db
@@ -303,6 +306,7 @@ export class AttemptRunner {
    * sandbox and records the result. Resolves once the attempt is no longer running (or after `waitMs`).
    */
   async cancel(attemptId: string, workspaceId: string, userId: string, waitMs = 15_000): Promise<boolean> {
+    const actor: Actor = userId === "system" ? "system" : `user:${userId}`;
     const { ctx } = this;
     const [row] = await ctx.db
       .select({ attempt: attempts, missionId: tasks.missionId })
@@ -319,17 +323,19 @@ export class AttemptRunner {
           .where(and(eq(attempts.id, attemptId), eq(attempts.status, "queued")))
           .returning({ id: attempts.id });
         if (!c) return false;
-        await tx
-          .update(tasks)
-          .set({ status: "ready" })
-          .where(and(eq(tasks.id, attempt.taskId), eq(tasks.status, "running")));
+        // A concurrent attempt (a mode's or a verifier's) leaves the task to the orchestrator.
+        if ((attempt.dispatch as Dispatch | null)?.manageTask !== false)
+          await tx
+            .update(tasks)
+            .set({ status: "ready" })
+            .where(and(eq(tasks.id, attempt.taskId), eq(tasks.status, "running")));
         await ctx.events.append(tx, {
           workspaceId,
           missionId,
           taskId: attempt.taskId,
           attemptId,
           type: "attempt.finished",
-          actor: `user:${userId}`,
+          actor,
           payload: { status: "cancelled", exitReason: "cancelled before it started" },
         });
         return true;
