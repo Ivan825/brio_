@@ -38,17 +38,15 @@ describe("HostSandbox", () => {
 
   it("passes a CLI only what it needs from the environment, and /work as the worktree", async () => {
     const s = await make();
-    const p = s.spawn(
-      ["sh", "-c", 'echo "home=$HOME secret=${SECRET_TOKEN:-none} key=$KEY"; ls "$1"', "sh", "/work"],
-      {
-        env: { KEY: "given" },
-      },
-    );
+    const script = 'echo "home=$HOME secret=$SECRET_TOKEN. key=$KEY"; ls "$1"';
+    const p = s.spawn(["sh", "-c", script, "sh", "/work"], {
+      env: { KEY: "given" },
+    });
     await s.writeFile("x.txt", "1");
     const out: string[] = [];
     for await (const line of p.lines) out.push(line);
     expect((await p.exit).code).toBe(0);
-    expect(out[0]).toBe("home=/home/someone secret=none key=given");
+    expect(out[0]).toBe("home=/home/someone secret=. key=given");
   });
 
   it("stops everything it started when killed", async () => {
