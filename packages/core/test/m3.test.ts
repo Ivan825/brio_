@@ -170,6 +170,21 @@ describe("plan edits", () => {
     expect(() => applyPlanEdit(g, { op: "add", task: task("a") })).toThrow(/already exists/);
   });
 
+  it("reorders without breaking dependencies", () => {
+    const free = plan(task("a"), task("b"), task("c", {}, ["a"]));
+    expect(applyPlanEdit(free, { op: "move", key: "b", before: "a" }).tasks.map((t) => t.key)).toEqual([
+      "b",
+      "a",
+      "c",
+    ]);
+    expect(applyPlanEdit(free, { op: "move", key: "a", before: null }).tasks.map((t) => t.key)).toEqual([
+      "b",
+      "c",
+      "a",
+    ]);
+    expect(() => applyPlanEdit(free, { op: "move", key: "c", before: "a" })).toThrow(/depends on a/);
+  });
+
   it("chooses a task's mode on purpose, with its parameters", () => {
     const steps = ["0192f000-0000-7000-8000-000000000001", "0192f000-0000-7000-8000-000000000002"];
     const piped = applyPlanEdit(g, { op: "mode", key: "a", mode: "pipeline", steps }).tasks[0];

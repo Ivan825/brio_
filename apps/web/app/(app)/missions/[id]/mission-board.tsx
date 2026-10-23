@@ -10,6 +10,7 @@ import { usd } from "@/lib/format";
 import type { AgentSummary, AttemptSummary } from "@/lib/types";
 import { type Delivery, DeliveryPanel } from "./delivery-panel";
 import { MessagesPanel, type MissionMessage } from "./messages-panel";
+import { PlanGraph } from "./plan-graph";
 import { PlanPanel, type PlanView } from "./plan-panel";
 import { SaveTemplate } from "./save-template";
 import { TaskList } from "./task-list";
@@ -173,6 +174,7 @@ export function MissionBoard({
   messages: MissionMessage[];
 }) {
   const router = useRouter();
+  const [graph, setGraph] = useState(false);
   const { mission, plan, tasks } = initial;
   const [events, setEvents] = useState<BoardEvent[]>([]);
   const [connection, setConnection] = useState<Connection>("connecting");
@@ -299,9 +301,33 @@ export function MissionBoard({
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
         <section aria-labelledby="tasks-title" className="flex min-w-0 flex-col gap-3">
-          <h2 id="tasks-title" className="font-mono text-2xs uppercase tracking-[0.08em] text-fg-muted">
-            {work.length ? `Tasks · plan v${work[0]?.planVersion}` : "Planning"}
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 id="tasks-title" className="font-mono text-2xs uppercase tracking-[0.08em] text-fg-muted">
+              {work.length ? `Tasks · plan v${work[0]?.planVersion}` : "Planning"}
+            </h2>
+            {work.length > 1 && (
+              <button
+                type="button"
+                className="font-mono text-2xs text-fg-muted hover:text-fg"
+                aria-pressed={graph}
+                onClick={() => setGraph(!graph)}
+              >
+                {graph ? "list" : "graph"}
+              </button>
+            )}
+          </div>
+          {graph && work.length > 1 && (
+            <PlanGraph
+              label="Task graph"
+              tasks={work.map((t) => ({
+                key: t.key,
+                type: t.type,
+                title: t.title,
+                dependsOn: t.dependsOn,
+                status: t.status,
+              }))}
+            />
+          )}
           <TaskList tasks={work.length ? work : planning} agents={agents} liveCost={liveCost} />
         </section>
 

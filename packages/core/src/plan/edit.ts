@@ -31,6 +31,11 @@ export const PlanEdit = z.discriminatedUnion("op", [
   }),
   /** Require a person to accept this task's result (an approval gate). */
   z.object({ op: z.literal("gate"), key: TaskKey, on: z.boolean() }),
+  /**
+   * Reorder: move a task before another (null: to the end). Among tasks that are ready together, earlier ones are
+   * dispatched first; a move never places a task before one it depends on.
+   */
+  z.object({ op: z.literal("move"), key: TaskKey, before: TaskKey.nullable() }),
 ]);
 export type PlanEdit = z.infer<typeof PlanEdit>;
 
@@ -128,6 +133,18 @@ export function applyPlanEdit(input: PlanGraph, edit: PlanEdit): PlanGraph {
         ...(edit.n ? { n: edit.n } : {}),
         ...(edit.steps ? { steps: edit.steps.map((agentId) => ({ agentId })) } : {}),
       };
+      break;
+    }
+    case "move": {
+      const t = find(g, edit.key);
+      const rest = g.tasks.filter((x) => x !== t);
+      const at = edit.before === null ? rest.length : rest.indexOf(find(g, edit.before));
+      if (edit.before === edit.key) break;
+      const ahead = new Set(rest.slice(at).map((x) => x.key));
+      const blocker = t.dependsOn.find((d) => ahead.has(d));
+      if (blocker) throw new PlanEditError(`${edit.key} depends on ${blocker}, so it cannot go before it`);
+      rest.splice(at, 0, t);
+      g.tasks = rest;
       break;
     }
     case "gate": {
