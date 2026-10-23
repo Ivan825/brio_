@@ -108,7 +108,14 @@ export async function agentRoutes(app: FastifyInstance, ctx: AppContext) {
     const workspaceId = workspaceFor(req, s);
     await requireMember(ctx, workspaceId, s.userId, ["owner", "admin", "member"]);
     const body = AgentBody.parse(req.body);
-    await connectorFor(workspaceId, body.connectorId);
+    const connector = await connectorFor(workspaceId, body.connectorId);
+    const kind = connectorConfig(connector).service?.kind;
+    if (kind === "search" || kind === "fetch")
+      throw new HttpError(
+        422,
+        `${connector.displayName} is a ${kind} tool every agent uses, not an agent`,
+        "tool_connector",
+      );
     const row = one(
       await ctx.db
         .insert(agents)

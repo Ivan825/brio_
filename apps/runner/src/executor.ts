@@ -10,11 +10,14 @@ import {
   adapterFor,
   type Dispatch,
   type FetchLike,
+  fetchProvider,
   LimitExceeded,
   type Logger,
   NO_SANDBOX,
   type RunResult,
   type SandboxHandle,
+  searchProvider,
+  type ToolProviders,
 } from "@brio/adapters";
 import { probeMedia } from "@brio/core";
 import { type Db, type DbOrTx, type EventWriter, schema } from "@brio/db";
@@ -152,7 +155,9 @@ export class AttemptExecutor {
       dispatch.route === "cli" && dispatch.sandbox?.network.mode === "allowlist" && deps.mailboxServer
         ? deps.mailboxServer
         : null;
-    const mailboxToken = cliMailbox?.register(mailbox) ?? null;
+    // The workspace's search and fetch tools, filled in once the run can meter them; CLIs see them over MCP too.
+    const research: Pick<ToolProviders, "search" | "fetch"> = {};
+    const mailboxToken = cliMailbox?.register(mailbox, research) ?? null;
     if (mailboxToken) deps.redactor.register(mailboxToken);
     let worktree: PreparedWorktree | null = null;
     let sandbox: DockerSandbox | null = null;
@@ -252,6 +257,30 @@ export class AttemptExecutor {
             return append("message.sent", { kind: "question", to: "user", body: e.question });
         }
       };
+      for (const kind of ["search", "fetch"] as const) {
+        const ref = dispatch.tools?.[kind];
+        if (!ref) continue;
+        const toolCredential = ref.credentialRef
+          ? await deps.vault.reveal(deps.db, attempt.workspaceId, ref.credentialRef)
+          : null;
+        const binding = { connector: ref.connector, usdPerUnit: ref.usdPerUnit };
+        const toolCtx = {
+          credential: toolCredential,
+          fetch: deps.fetch,
+          // A tool call is spend like any other: metered on the attempt and held to its limit.
+          meter: (usd: number, note: string) => {
+            emit({ kind: "cost", usd, model: note, priceSource: "vendor" });
+            if (spent > dispatch.input.limits.maxCostUsd && !abort.signal.aborted)
+              abort.abort(
+                new LimitExceeded(
+                  `spent $${spent.toFixed(2)}, over the $${dispatch.input.limits.maxCostUsd} limit`,
+                ),
+              );
+          },
+        };
+        if (kind === "search") research.search = searchProvider(binding, toolCtx);
+        else research.fetch = fetchProvider(binding, toolCtx);
+      }
       if (mailboxToken)
         input.mcpServers = [
           ...input.mcpServers,
@@ -269,7 +298,7 @@ export class AttemptExecutor {
         sandbox: handle,
         logger: deps.log,
         fetch: deps.fetch,
-        tools: { mailbox },
+        tools: { mailbox, ...research },
       });
     } catch (err) {
       const reason = abort.signal.aborted

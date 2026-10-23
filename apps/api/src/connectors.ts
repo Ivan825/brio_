@@ -6,9 +6,10 @@ import {
   type CliSpec,
   type ConnectorConfig,
   type SecretHandle,
+  type ToolRef,
 } from "@brio/adapters";
 import type { ModelPrice } from "@brio/core";
-import type { schema } from "@brio/db";
+import { schema } from "@brio/db";
 import {
   type ApiStyle,
   type ConnectorEntry,
@@ -17,6 +18,7 @@ import {
   registry,
   type Service,
 } from "@brio/registry";
+import { and, asc, eq, isNull, ne } from "drizzle-orm";
 import type { AppContext } from "./context";
 import { HttpError } from "./http";
 
@@ -86,6 +88,7 @@ export const vendorOf = (cc: ConnectorConfig): string => cc.service?.vendor ?? c
 const SERVICE_ESTIMATE_USD: Record<string, number> = {
   hosted: 1,
   media: 0.2,
+  research: 0.3,
   search: 0.02,
   fetch: 0.01,
   browser: 0.5,
@@ -208,4 +211,43 @@ export function installablePresets(
     return preset ? [{ key: cli.spec.vendorPreset, preset, adapter: cli.adapter.key }] : [];
   }
   return registry().presetsFor(entry.id);
+}
+
+/**
+ * The workspace's search and fetch tools for an attempt (ADAPTER_SPEC §2.9): the oldest active, healthy connector of
+ * each kind. A confidential task gets none, so nothing of it goes to a third-party search engine.
+ */
+export async function toolsFor(
+  ctx: AppContext,
+  workspaceId: string,
+  sensitivity: string,
+): Promise<{ search?: ToolRef; fetch?: ToolRef } | undefined> {
+  if (sensitivity === "confidential") return undefined;
+  const rows = await ctx.db
+    .select()
+    .from(schema.connectors)
+    .where(
+      and(
+        eq(schema.connectors.workspaceId, workspaceId),
+        isNull(schema.connectors.deletedAt),
+        ne(schema.connectors.status, "disabled"),
+      ),
+    )
+    .orderBy(asc(schema.connectors.createdAt));
+  const out: { search?: ToolRef; fetch?: ToolRef } = {};
+  for (const row of rows) {
+    const stored = row.config as unknown as StoredConnectorConfig;
+    if (!stored.service) continue;
+    const sv = registry().service(stored.service);
+    if (!sv || (sv.kind !== "search" && sv.kind !== "fetch") || out[sv.kind]) continue;
+    if ((row.health as { ok?: boolean }).ok === false) continue;
+    out[sv.kind] = {
+      connectorId: row.id,
+      credentialRef: row.credentialRef,
+      connector: connectorConfig(row),
+      usdPerUnit:
+        sv.pricing.unit === "usd" || sv.pricing.unit === "unmetered" ? null : (sv.pricing.usdPerUnit ?? null),
+    };
+  }
+  return out.search || out.fetch ? out : undefined;
 }

@@ -5,7 +5,7 @@
 import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import type { Mailbox } from "@brio/adapters";
+import type { Mailbox, ToolProviders } from "@brio/adapters";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
@@ -16,8 +16,41 @@ export const SANDBOX_MAILBOX_URL = "http://brio-mailbox:8080/mcp";
 type Text = { content: Array<{ type: "text"; text: string }> };
 const text = (t: string): Text => ({ content: [{ type: "text", text: t }] });
 
-function build(mailbox: Mailbox): McpServer {
+type Research = Pick<ToolProviders, "search" | "fetch">;
+
+const clip = (t: string, max = 20_000) => (t.length <= max ? t : `${t.slice(0, max)}\n…[truncated]`);
+
+function build(mailbox: Mailbox, research: Research): McpServer {
   const s = new McpServer({ name: "brio-mailbox", version: "1.0.0" });
+  // The workspace's search and fetch connectors (ADAPTER_SPEC §2.9): the same tools model-API agents get, metered on
+  // the attempt. Offered only when the workspace has them.
+  const { search, fetch } = research;
+  if (search)
+    s.registerTool(
+      "web_search",
+      {
+        description: "Search the web. Returns titles, URLs and snippets; cite URLs you rely on.",
+        inputSchema: { query: z.string(), limit: z.number().int().min(1).max(10).optional() },
+      },
+      async ({ query, limit }, extra) => {
+        const results = await search.search(query, { limit: limit ?? 5, signal: extra.signal });
+        return text(
+          results.length
+            ? clip(results.map((r, i) => `${i + 1}. ${r.title}\n   ${r.url}\n   ${r.snippet}`).join("\n"))
+            : "no results",
+        );
+      },
+    );
+  if (fetch)
+    s.registerTool(
+      "fetch_url",
+      { description: "Read a public web page as Markdown.", inputSchema: { url: z.string().url() } },
+      async ({ url }, extra) => {
+        if (!/^https?:\/\//i.test(url)) return text("only http(s) URLs can be fetched");
+        const page = await fetch.fetch(url, { signal: extra.signal });
+        return text(clip(`# ${page.title || page.url}\n${page.url}\n\n${page.content}`));
+      },
+    );
   s.registerTool(
     "ask_agent",
     {
@@ -92,7 +125,7 @@ function build(mailbox: Mailbox): McpServer {
 
 export class MailboxMcpServer {
   private server: Server | null = null;
-  private readonly byToken = new Map<string, Mailbox>();
+  private readonly byToken = new Map<string, { mailbox: Mailbox; research: Research }>();
 
   get port(): number {
     return (this.server?.address() as AddressInfo | null)?.port ?? 0;
@@ -113,10 +146,10 @@ export class MailboxMcpServer {
     this.server = null;
   }
 
-  /** A token for one attempt's mailbox; revoke it when the attempt ends. */
-  register(mailbox: Mailbox): string {
+  /** A token for one attempt's mailbox (and its research tools, read at call time); revoke it when the attempt ends. */
+  register(mailbox: Mailbox, research: Research = {}): string {
     const token = randomBytes(24).toString("base64url");
-    this.byToken.set(token, mailbox);
+    this.byToken.set(token, { mailbox, research });
     return token;
   }
 
@@ -127,11 +160,11 @@ export class MailboxMcpServer {
   private async handle(req: IncomingMessage, res: import("node:http").ServerResponse) {
     if (new URL(req.url ?? "/", "http://x").pathname !== "/mcp") return void res.writeHead(404).end();
     const token = /^Bearer (.+)$/.exec(req.headers.authorization ?? "")?.[1];
-    const mailbox = token ? this.byToken.get(token) : undefined;
-    if (!mailbox)
+    const bound = token ? this.byToken.get(token) : undefined;
+    if (!bound)
       return void res.writeHead(401, { "content-type": "application/json" }).end('{"error":"unknown token"}');
     // Stateless: a fresh server and transport per request, bound to this attempt's mailbox.
-    const server = build(mailbox);
+    const server = build(bound.mailbox, bound.research);
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
       enableJsonResponse: true,

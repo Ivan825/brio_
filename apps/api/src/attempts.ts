@@ -7,7 +7,7 @@ import { schema } from "@brio/db";
 import { enqueueAttempt, requestCancel } from "@brio/runner";
 import { type Actor, type HandoffPacket, TaskContract, TaskType } from "@brio/schema";
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import { adapterOf, connectorConfig, meteringOf } from "./connectors";
+import { adapterOf, connectorConfig, meteringOf, toolsFor } from "./connectors";
 import type { AppContext } from "./context";
 import { HttpError, one } from "./http";
 
@@ -191,6 +191,7 @@ export class AttemptRunner {
         (Boolean(contract.expectedFootprint?.paths.length) ||
           contract.outputs.some((o) => o.kind === "diff" || o.kind === "file")),
     });
+    const tools = await toolsFor(ctx, input.workspaceId, contract.sensitivity);
     let repo: Dispatch["repo"] = null;
     if (mission.projectId) {
       const [project] = await ctx.db.select().from(projects).where(eq(projects.id, mission.projectId));
@@ -245,6 +246,7 @@ export class AttemptRunner {
         repo,
         ...(input.bases?.length ? { bases: input.bases } : {}),
         ...(input.files?.length ? { files: input.files } : {}),
+        ...(tools ? { tools } : {}),
         ...(input.repoMap ? { repoMap: true } : {}),
         ...(input.keepConflicts ? { keepConflicts: true } : {}),
         ...(concurrent ? { manageTask: false, mode: input.mode } : {}),
@@ -286,6 +288,10 @@ export class AttemptRunner {
           purpose: input.mode?.purpose ?? null,
           revision: input.feedback ? true : undefined,
           repo: repo ? { url: repo.url, branch: repo.branch } : null,
+          tools: {
+            search: tools?.search?.connector.serviceKey ?? null,
+            fetch: tools?.fetch?.connector.serviceKey ?? null,
+          },
         },
       });
       await ctx.ledger.append(tx, {

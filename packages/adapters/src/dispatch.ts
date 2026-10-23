@@ -1,7 +1,16 @@
 // What the API resolves and the runner executes for one attempt (stored on attempts.dispatch). Everything the run
 // needs except the credential itself, which the runner reveals from the vault just in time.
 import type { SandboxSpec } from "@brio/core";
-import type { AgentConfig, Route, RunInput } from "./types";
+import type { AgentConfig, ConnectorConfig, Route, RunInput } from "./types";
+
+/** A search or fetch connector of the workspace, as a tool for the attempt's agent (ADAPTER_SPEC §2.9). */
+export interface ToolRef {
+  connectorId: string;
+  credentialRef: string | null;
+  connector: ConnectorConfig;
+  /** USD per billing unit; null when the vendor reports dollars or the service is unmetered. */
+  usdPerUnit: number | null;
+}
 
 export interface Dispatch {
   version: 1;
@@ -29,6 +38,8 @@ export interface Dispatch {
   bases?: string[];
   /** Files written into the worktree's .brio/ before the run (handoff packets, the contract), never part of the diff. */
   files?: Array<{ path: string; content: string }>;
+  /** The workspace's web search and page fetch tools; absent when it has none, or for confidential tasks. */
+  tools?: { search?: ToolRef; fetch?: ToolRef };
   /** Attach the repository's file list (the planner's repo map). */
   repoMap?: boolean;
   /**
