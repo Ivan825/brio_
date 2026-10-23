@@ -18,6 +18,9 @@ const config: NextConfig = {
     return [
       { source: "/api/auth/:path*", destination: `${apiUrl}/api/auth/:path*` },
       { source: "/v1/:path*", destination: `${apiUrl}/v1/:path*` },
+      // Brio's MCP server and the OAuth discovery documents MCP clients look for at the origin's root (M7).
+      { source: "/mcp", destination: `${apiUrl}/mcp` },
+      { source: "/.well-known/:path*", destination: `${apiUrl}/.well-known/:path*` },
     ];
   },
 };

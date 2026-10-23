@@ -13,8 +13,10 @@
     "e2e": "playwright test"
   },
   "dependencies": {
+    "@better-auth/oauth-provider": "1.7.12",
     "@better-auth/passkey": "1.7.12",
     "@brio/brand": "workspace:*",
+    "@brio/schema": "workspace:*",
     "better-auth": "1.7.12",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
@@ -25,17 +27,16 @@
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "server-only": "0.0.1",
-    "tailwind-merge": "2.6.1",
-    "@brio/schema": "workspace:*"
+    "tailwind-merge": "2.6.1"
   },
   "devDependencies": {
+    "@brio/db": "workspace:*",
     "@playwright/test": "1.64.1",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "autoprefixer": "10.6.1",
+    "drizzle-orm": "0.45.4",
     "postcss": "8.5.31",
-    "tailwindcss": "3.4.19",
-    "@brio/db": "workspace:*",
-    "drizzle-orm": "0.45.4"
+    "tailwindcss": "3.4.19"
   }
 }
