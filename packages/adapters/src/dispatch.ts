@@ -37,7 +37,14 @@ export interface Dispatch {
    */
   manageTask?: boolean;
   /** For attempts of a multi-agent mode: what this one is for, and which attempts it reviews, judges or builds on. */
-  mode?: { purpose: "make" | "revise" | "review" | "judge" | "merge"; of: string[]; step: number };
+  mode?: {
+    /** make, revise, review, judge and merge belong to multi-agent modes; check is a verifier's agent check. */
+    purpose: "make" | "revise" | "review" | "judge" | "merge" | "check";
+    of: string[];
+    step: number;
+    /** For purpose check: the index of the check item this attempt decides. */
+    checkIndex?: number;
+  };
 }
 
 export type CheckStatus = "pending" | "running" | "passed" | "failed" | "needs_human";
@@ -54,6 +61,21 @@ export interface CheckItem {
   output?: string;
   exitCode?: number | null;
   durationMs?: number;
+  /** The check's parameters from the contract (criteria, threshold, contract name, media spec, audit target…). */
+  criteria?: string[];
+  threshold?: number;
+  contract?: string;
+  params?: Record<string, unknown>;
+  /** fact_check runs in two stages: the runner fetches the cited sources, then an agent judges the claims. */
+  stage?: "sources" | "review";
+  sources?: Array<{ url: string; ok: boolean; text: string; claims: string[] }>;
+  /** The agent attempt deciding this check (rubric_review, fact_check, contract_conformance by review). */
+  reviewAttemptId?: string;
+  reviewerAgentId?: string;
+  /** rubric_review: score per criterion. */
+  scores?: Record<string, number>;
+  /** Findings worth showing: broken links, schema errors, unsupported claims, audit violations. */
+  details?: string[];
 }
 
 /** attempts.checks: the verifier's working state for one attempt. */

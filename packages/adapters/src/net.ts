@@ -77,7 +77,10 @@ export async function assertSafeUrl(
   return url;
 }
 
-/** Wraps fetch so every request URL passes assertSafeUrl and redirects are not followed blindly. */
+/**
+ * Wraps fetch so every request URL passes assertSafeUrl and redirects are not followed blindly: they are an error,
+ * unless the caller asks for "manual" and checks each hop itself (followRedirects does).
+ */
 export function guardedFetch(
   inner: FetchLike,
   policy: UrlPolicy,
@@ -85,6 +88,24 @@ export function guardedFetch(
 ): FetchLike {
   return async (input, init) => {
     await assertSafeUrl(input, policy, resolve);
-    return inner(input, { ...init, redirect: "error" });
+    return inner(input, { ...init, redirect: init?.redirect === "manual" ? "manual" : "error" });
   };
+}
+
+/** Follows up to `maxHops` redirects through a guarded fetch, so every hop passes the URL guard again. */
+export async function followRedirects(
+  fetch: FetchLike,
+  url: string,
+  init: RequestInit = {},
+  maxHops = 5,
+): Promise<{ response: Response; url: string }> {
+  let current = url;
+  for (let hop = 0; ; hop++) {
+    const response = await fetch(current, { ...init, redirect: "manual" });
+    const location = response.headers.get("location");
+    if (response.status < 300 || response.status >= 400 || !location) return { response, url: current };
+    if (hop >= maxHops) throw new AdapterError("network", `too many redirects from ${url}`);
+    await response.body?.cancel().catch(() => {});
+    current = new URL(location, current).toString();
+  }
 }

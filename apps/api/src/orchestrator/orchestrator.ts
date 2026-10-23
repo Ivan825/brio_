@@ -710,7 +710,8 @@ export class Orchestrator {
     const state: ModeAttempt[] = [];
     for (const a of rows) {
       const mode = (a.dispatch as Dispatch | null)?.mode;
-      if (!mode) continue;
+      // The verifier's agent checks are not part of the mode.
+      if (!mode || mode.purpose === "check") continue;
       const item: ModeAttempt = {
         id: a.id,
         role: a.role,
