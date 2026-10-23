@@ -74,6 +74,7 @@ All tables have `id` (uuid v7), `workspace_id`, `created_at`, `updated_at` unles
 **Tenancy & identity**
 - `workspaces` (name, plan, settings jsonb)
 - `members` (user_id, workspace_id, role)
+- `a2a_tasks` (id, workspace_id, user_id, mission_id, context_id, task jsonb): tasks other agents sent Brio over A2A, each a mission, kept in the SDK's JSON form and refreshed from the mission when read (M7)
 - `api_tokens` (workspace_id, user_id, name, prefix, token_hash, last_used_at, expires_at, revoked_at): workspace-bound tokens for the CLI, the stdio MCP server and A2A clients; only the sha256 is stored (M7)
 - `users`, `sessions`, `accounts` (Better Auth tables); `jwks` and `oauth_*` (clients, resources, client resources, access and refresh tokens, consents, client assertions): Better Auth's OAuth 2.1 provider, which remote MCP clients sign in with (M7)
 

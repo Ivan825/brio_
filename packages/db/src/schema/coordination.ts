@@ -96,3 +96,21 @@ export const handoffs = pgTable(
   },
   (t) => [index().on(t.toTaskId)],
 );
+
+/**
+ * Tasks other agents sent Brio over A2A (M7): each one a mission, kept as the A2A task the caller sees (the SDK's JSON
+ * form) so it survives restarts; its state is read back from the mission whenever it is asked for.
+ */
+export const a2aTasks = pgTable(
+  "a2a_tasks",
+  {
+    id: text().primaryKey(),
+    workspaceId: ws(),
+    userId: uuid().notNull(),
+    missionId: uuid().references(() => missions.id),
+    contextId: text().notNull(),
+    task: jsonb().$type<Record<string, unknown>>().notNull(),
+    ...timestamps(),
+  },
+  (t) => [index().on(t.workspaceId), index().on(t.missionId)],
+);

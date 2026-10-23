@@ -8,6 +8,7 @@ import { createTestDb, hasTestDatabase, type TestDb } from "../src/testing";
 if (!hasTestDatabase) console.warn("TEST_DATABASE_URL not set: skipping @brio/db integration tests");
 
 const EXPECTED_TABLES = [
+  "a2a_tasks",
   "accounts",
   "agents",
   "api_tokens",
