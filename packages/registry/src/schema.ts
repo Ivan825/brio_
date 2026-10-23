@@ -59,6 +59,12 @@ export const ConnectorEntry = z.object({
     .nullable(),
   buildMilestone: Milestone.nullable(),
   subscriptionUse: z.string().nullable(),
+  /**
+   * Whether a local runner may run the vendor's CLI under the person's own sign-in on their own machine (M8), from the
+   * vendor's terms (SECURITY_GOVERNANCE §1): "allowed", or "own-use" (only for the person's own work, opted into).
+   * Absent: not verified, so not offered.
+   */
+  localLogin: z.enum(["allowed", "own-use"]).optional(),
   supported: z.boolean(),
   /** Overrides the category's task types. */
   taskTypes: z.array(TaskTypePattern).optional(),

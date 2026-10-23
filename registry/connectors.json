@@ -715,6 +715,7 @@
       "plannedAdapter": "claude-code",
       "buildMilestone": "M2",
       "subscriptionUse": "Not allowed for third-party agents (claude.ai login/subscription limits); use API keys. Subscription claude -p usage draws from a separate Agent SDK credit for the user's own use.",
+      "localLogin": "own-use",
       "supported": true
     },
     {
@@ -774,6 +775,7 @@
       "plannedAdapter": "antigravity",
       "buildMilestone": "M2",
       "subscriptionUse": "Reusing agy login tokens in other software forbidden; official agy binary headless allowed (local runner only). Antigravity SDK needs API key or Vertex.",
+      "localLogin": "allowed",
       "supported": true
     },
     {

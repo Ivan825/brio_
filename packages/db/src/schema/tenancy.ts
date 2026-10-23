@@ -79,3 +79,42 @@ export const apiTokens = pgTable(
   },
   (t) => [index().on(t.workspaceId), index().on(t.userId)],
 );
+
+/**
+ * Local runners (BUILD_PLAN M8): a person's machine that runs work for the workspace — attempts of the agents bound to
+ * it, on the projects that live on it — connected to the API over an outbound WebSocket. Its token is stored hashed.
+ */
+export const runners = pgTable(
+  "runners",
+  {
+    id: id(),
+    workspaceId: uuid()
+      .notNull()
+      .references(() => workspaces.id),
+    /** The person whose machine it is; only their consent covers host mode. */
+    ownerId: uuid()
+      .notNull()
+      .references(() => users.id),
+    name: text().notNull(),
+    tokenHash: text().notNull().unique(),
+    tokenPrefix: text().notNull(),
+    /** docker: a container per attempt, as in the cloud; host: no container, with the owner's consent. */
+    mode: text().notNull().default("docker"),
+    /** What the owner agreed to for host mode, and when. */
+    consent: jsonb().$type<{ host: { by: string; at: string; text: string } } | null>(),
+    /** What the runner found on the machine when it last connected. */
+    capabilities: jsonb()
+      .$type<{
+        clis?: Array<{ key: string; version: string }>;
+        docker?: boolean;
+        os?: string;
+        version?: string;
+      }>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    lastSeenAt: timestamp({ withTimezone: true }),
+    revokedAt: timestamp({ withTimezone: true }),
+    ...timestamps(),
+  },
+  (t) => [index().on(t.workspaceId)],
+);

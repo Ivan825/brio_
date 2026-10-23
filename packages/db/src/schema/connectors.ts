@@ -4,7 +4,7 @@ import { index, integer, jsonb, numeric, pgTable, text, timestamp, unique, uuid 
 import { deletedAt, id, timestamps } from "./columns";
 import { connectorRoute, connectorStatus, priceSource, sandboxProfile } from "./enums";
 import { vaultSecrets } from "./governance";
-import { workspaces } from "./tenancy";
+import { runners, workspaces } from "./tenancy";
 
 const ws = () =>
   uuid()
@@ -48,6 +48,8 @@ export const agents = pgTable(
     tags: text().array().notNull().default(sql`'{}'::text[]`),
     priceOverride: jsonb().$type<ModelPrice>(),
     options: jsonb().$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+    /** A local runner that runs this agent's attempts (M8); null: the cloud runner. */
+    runnerId: uuid().references(() => runners.id),
     ...timestamps(),
     deletedAt: deletedAt(),
   },

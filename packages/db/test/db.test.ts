@@ -50,6 +50,7 @@ const EXPECTED_TABLES = [
   "projects",
   "ratings",
   "reviews",
+  "runners",
   "score_history",
   "scores",
   "sessions",

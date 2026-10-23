@@ -3,7 +3,7 @@ import { index, jsonb, pgTable, text, uuid, vector } from "drizzle-orm/pg-core";
 import { deletedAt, id, timestamps } from "./columns";
 import { memoryEdgeKind, memoryNodeKind, projectKind } from "./enums";
 import { vaultSecrets } from "./governance";
-import { workspaces } from "./tenancy";
+import { runners, workspaces } from "./tenancy";
 
 export const EMBEDDING_DIMENSIONS = 1536;
 
@@ -20,6 +20,8 @@ export const projects = pgTable(
     defaultBranch: text(),
     /** A git token for the repository (in the vault): the runner fetches and pushes with it; nothing else sees it. */
     credentialRef: uuid().references(() => vaultSecrets.id),
+    /** The local runner whose machine holds the repository (M8): its path is on that machine; work on it runs there. */
+    runnerId: uuid().references(() => runners.id),
     settings: jsonb().$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
     ...timestamps(),
     deletedAt: deletedAt(),
