@@ -62,6 +62,8 @@ export default defineConfig({
         BRIO_VAULT_LOCAL_KEK: E2E_KEK,
         BRIO_RUNNER_HEALTH_PORT: RUNNER_HEALTH_PORT,
         BRIO_RUNNER_DIR: join(tmpdir(), "brio-e2e-runner"),
+        // Pull requests go to the fake vendor's GitHub routes.
+        BRIO_GITHUB_API_URL: `http://127.0.0.1:${FAKE_VENDOR_PORT}`,
         LOG_LEVEL: "warn",
       },
     },
