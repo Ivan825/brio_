@@ -10,11 +10,21 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "evals": "node -e \"console.error('TODO(milestone-5): golden-mission evals land in M5'); process.exit(1)\""
+    "evals": "tsx --env-file-if-exists=../../.env src/cli.ts"
   },
   "dependencies": {
+    "@brio/adapters": "workspace:*",
+    "@brio/api": "workspace:*",
     "@brio/core": "workspace:*",
+    "@brio/db": "workspace:*",
+    "@brio/governance": "workspace:*",
+    "@brio/runner": "workspace:*",
     "@brio/schema": "workspace:*",
+    "@brio/vault": "workspace:*",
+    "drizzle-orm": "0.45.4",
     "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "tsx": "4.23.15"
   }
 }

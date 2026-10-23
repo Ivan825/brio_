@@ -17,6 +17,9 @@
       "!**/*.svg",
       "!pnpm-lock.yaml",
       "!registry/connectors.json",
+      "!apps/evals/golden/*/repo",
+      "!apps/evals/golden/*/hidden",
+      "!apps/evals/golden/*/sim",
       "!brand",
       "!packages/brand/tokens.css",
       "!packages/brand/tailwind.preset.ts"
