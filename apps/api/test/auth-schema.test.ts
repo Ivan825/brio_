@@ -17,6 +17,14 @@ const TABLES = {
   organization: schema.workspaces,
   member: schema.members,
   invitation: schema.invitations,
+  jwks: schema.jwks,
+  oauthClient: schema.oauthClients,
+  oauthResource: schema.oauthResources,
+  oauthClientResource: schema.oauthClientResources,
+  oauthRefreshToken: schema.oauthRefreshTokens,
+  oauthAccessToken: schema.oauthAccessTokens,
+  oauthConsent: schema.oauthConsents,
+  oauthClientAssertion: schema.oauthClientAssertions,
 } as const;
 
 describe("Better Auth schema", () => {

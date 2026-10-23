@@ -15,6 +15,9 @@
     "test:live": "vitest run --config vitest.live.config.ts"
   },
   "dependencies": {
+    "@better-auth/cimd": "1.7.12",
+    "@better-auth/mcp": "1.7.12",
+    "@better-auth/oauth-provider": "1.7.12",
     "@better-auth/passkey": "1.7.12",
     "@brio/adapters": "workspace:*",
     "@brio/core": "workspace:*",
@@ -29,6 +32,7 @@
     "better-auth": "1.7.12",
     "drizzle-orm": "0.45.4",
     "fastify": "5.12.7",
+    "jose": "6.2.13",
     "pg-boss": "12.38.0",
     "uuidv7": "1.2.1",
     "zod": "4.6.7"

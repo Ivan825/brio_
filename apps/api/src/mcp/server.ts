@@ -8,7 +8,8 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import type { AppContext } from "../context";
-import { HttpError, requireSession } from "../http";
+import { HttpError } from "../http";
+import { mcpAuthenticator, mcpChallenge } from "./auth";
 import { BrioTools, type Caller } from "./tools";
 
 type Text = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
@@ -144,15 +145,7 @@ export function buildBrioMcp(ctx: AppContext, caller: Caller, opts: { pollMs?: n
 export type Authenticate = (req: FastifyRequest) => Promise<Caller>;
 
 export async function mcpRoutes(app: FastifyInstance, ctx: AppContext, authenticate?: Authenticate) {
-  const callerOf: Authenticate =
-    authenticate ??
-    (async (req) => {
-      const session = await requireSession(ctx, req);
-      if (!session.tokenWorkspaceId)
-        throw new HttpError(401, "use an API token (Authorization: Bearer brio_pat_…)", "token_required");
-      const client = String(req.headers["user-agent"] ?? "mcp client").slice(0, 80);
-      return { session, workspaceId: session.tokenWorkspaceId, client };
-    });
+  const callerOf: Authenticate = authenticate ?? mcpAuthenticator(ctx);
 
   const handle = async (req: FastifyRequest, raw: { req: IncomingMessage; res: ServerResponse }) => {
     const caller = await callerOf(req);
@@ -186,7 +179,7 @@ export async function mcpRoutes(app: FastifyInstance, ctx: AppContext, authentic
           const status = e instanceof HttpError ? e.statusCode : 500;
           reply.raw.writeHead(status, {
             "content-type": "application/json",
-            ...(status === 401 ? { "www-authenticate": 'Bearer realm="brio"' } : {}),
+            ...(status === 401 ? { "www-authenticate": mcpChallenge(ctx.config.APP_URL) } : {}),
           });
           reply.raw.end(
             JSON.stringify({

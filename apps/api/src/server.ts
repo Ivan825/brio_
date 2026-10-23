@@ -32,6 +32,7 @@ import { healthRoutes } from "./routes/health";
 import { hookRoutes } from "./routes/hooks";
 import { messageRoutes } from "./routes/messages";
 import { missionRoutes } from "./routes/missions";
+import { oauthRoutes } from "./routes/oauth";
 import { planRoutes } from "./routes/plans";
 import { pricingRoutes } from "./routes/pricing";
 import { projectRoutes } from "./routes/projects";
@@ -171,6 +172,7 @@ export async function buildServer({
   await evalRoutes(app, ctx);
   await hookRoutes(app, ctx);
   await tokenRoutes(app, ctx);
+  await oauthRoutes(app, ctx);
   await mcpRoutes(app, ctx);
   if (config.BRIO_DEV_OUTBOX && config.NODE_ENV !== "production") await devRoutes(app, ctx);
   ctx.orchestrator.start();
