@@ -14,15 +14,18 @@ function str(args: Record<string, unknown>, key: string): string {
 }
 
 /**
- * Sandbox without a container. Model-API attempts in M1 run outside any sandbox, so file and shell tools are not
- * offered; calling one anyway fails closed. TODO(milestone-2): the runner provides a Docker-backed SandboxHandle.
+ * No sandbox: for API-model attempts that do not touch files (the runner gives code tasks a container). File and shell
+ * tools are not offered; calling one anyway fails closed.
  */
 export const NO_SANDBOX: SandboxHandle = {
   available: false,
-  readFile: () => Promise.reject(new Error("no sandbox: file tools arrive with the runner in M2")),
-  writeFile: () => Promise.reject(new Error("no sandbox: file tools arrive with the runner in M2")),
-  listFiles: () => Promise.reject(new Error("no sandbox: file tools arrive with the runner in M2")),
-  exec: () => Promise.reject(new Error("no sandbox: running commands arrives with the runner in M2")),
+  readFile: () => Promise.reject(new Error("no sandbox for this attempt")),
+  writeFile: () => Promise.reject(new Error("no sandbox for this attempt")),
+  listFiles: () => Promise.reject(new Error("no sandbox for this attempt")),
+  exec: () => Promise.reject(new Error("no sandbox for this attempt")),
+  spawn: () => {
+    throw new Error("no sandbox: CLI agents need the runner");
+  },
 };
 
 export function fileTools(

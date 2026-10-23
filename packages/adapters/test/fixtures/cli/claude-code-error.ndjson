@@ -1,0 +1,2 @@
+{"type":"system","subtype":"init","cwd":"/work","session_id":"6f0d2477-aaaa-bbbb-cccc-000000000002","model":"claude-sonnet-5-5","claude_code_version":"2.1.309"}
+{"type":"result","subtype":"success","is_error":true,"api_error_status":401,"duration_ms":426,"num_turns":1,"result":"Invalid API key · Fix external API key","stop_reason":"stop_sequence","session_id":"6f0d2477-aaaa-bbbb-cccc-000000000002","total_cost_usd":0,"usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0},"terminal_reason":"api_error"}

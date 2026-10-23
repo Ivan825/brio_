@@ -1,26 +1,27 @@
 // AgentAdapter implementations, one folder per connector family (docs/ADAPTER_SPEC.md).
-import { anthropic } from "./families/anthropic/index";
-import { gemini } from "./families/gemini/index";
-import { openaiCompatible } from "./families/openai-compatible/index";
+import { ADAPTERS_BY_FAMILY } from "./api-family-registry";
+import { CLI_ADAPTERS } from "./cli/index";
 import type { AgentAdapter } from "./types";
 
-/** Registration: family key → adapter. packages/registry checks every planned connector resolves here. */
+/** Registration: adapter key → adapter. packages/registry checks every planned connector resolves here. */
 export const ADAPTERS: Readonly<Record<string, AgentAdapter>> = {
-  [openaiCompatible.key]: openaiCompatible,
-  [anthropic.key]: anthropic,
-  [gemini.key]: gemini,
+  ...ADAPTERS_BY_FAMILY,
+  ...Object.fromEntries(CLI_ADAPTERS.map((a) => [a.key, a])),
 };
 
 export const IMPLEMENTED_FAMILIES: ReadonlySet<string> = new Set(Object.keys(ADAPTERS));
 
 /** The milestone whose adapters must all exist (the registry coverage check runs through it). */
-export const ADAPTERS_THROUGH_MILESTONE = "M1";
+export const ADAPTERS_THROUGH_MILESTONE = "M2";
 
 export function adapterFor(family: string): AgentAdapter | undefined {
   return ADAPTERS[family];
 }
 
 export * from "./api-adapter";
+export * from "./cli/base";
+export { CLI_ADAPTERS } from "./cli/index";
+export * from "./dispatch";
 export * from "./errors";
 export { anthropicUsage, parseMessage } from "./families/anthropic/index";
 export { geminiUsage, parseGenerateContent } from "./families/gemini/index";

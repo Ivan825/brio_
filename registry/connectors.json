@@ -809,7 +809,7 @@
       "tier": "P1",
       "notes": "Async issue-to-PR agent; GitHub only. Good for background backlog work.",
       "plannedAdapter": "jules",
-      "buildMilestone": "M2",
+      "buildMilestone": "M6",
       "subscriptionUse": null,
       "supported": true
     },
@@ -865,7 +865,7 @@
       "tier": "P1",
       "notes": "Long autonomous tasks in its own VM. Cognition also owns Windsurf.",
       "plannedAdapter": "devin",
-      "buildMilestone": "M2",
+      "buildMilestone": "M6",
       "subscriptionUse": null,
       "supported": true
     },

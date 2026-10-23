@@ -51,9 +51,9 @@ export function createApiAdapter(family: ApiFamily): AgentAdapter {
     capabilities(config: AgentConfig): AdapterCapabilities {
       return {
         taskTypes: registry().taskTypesOf(config.connector.registryKey),
-        // File editing and code execution need a sandbox (M2); until then API models answer in text.
-        editsFiles: false,
-        runsCode: false,
+        // Through the internal tool loop, when the runner gives the attempt a sandbox (code and data tasks).
+        editsFiles: true,
+        runsCode: true,
         browses: false,
         producesMedia: [],
         streaming: false,

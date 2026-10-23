@@ -95,7 +95,20 @@ export interface SecretHandle {
   reveal(): string;
 }
 
-/** Sandbox access for file-editing agents. M1 has none; file tools fail closed until M2. */
+/** A process running inside the sandbox. */
+export interface SandboxProcess {
+  /** stdout, line by line, as the process writes it. */
+  lines: AsyncIterable<string>;
+  /** Resolves when the process ends; stderr is the last 64 KB. */
+  exit: Promise<{ code: number | null; stderr: string }>;
+  /** Kills the process. Idempotent. */
+  kill(): Promise<void>;
+}
+
+/**
+ * The sandbox an attempt runs in (one container per attempt, ARCHITECTURE §4.3). Paths are relative to the worktree;
+ * anything resolving outside it is refused. Without a sandbox (NO_SANDBOX) every method fails closed.
+ */
 export interface SandboxHandle {
   readonly available: boolean;
   readFile(path: string): Promise<string>;
@@ -105,6 +118,8 @@ export interface SandboxHandle {
     command: string,
     opts?: { timeoutMs?: number },
   ): Promise<{ exitCode: number; stdout: string; stderr: string }>;
+  /** Starts a long-running process (a coding CLI) with its own environment; secrets go only in `env`. */
+  spawn(argv: string[], opts: { env: Record<string, string>; stdin?: string }): SandboxProcess;
 }
 
 /** A logger whose output has already been through the redactor. */

@@ -1,0 +1,2 @@
+{"event":"init","conversation_id":"807f876c-0000-0000-0000-000000000002","init":{"cwd":"/work"}}
+{"event":"result","result":{"conversation_id":"807f876c-0000-0000-0000-000000000002","status":"ERROR","response":"","error":"agent executor error: API key not valid"}}

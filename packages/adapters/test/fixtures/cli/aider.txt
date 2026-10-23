@@ -1,0 +1,6 @@
+Aider v0.86.2
+Main model: anthropic/claude-sonnet-5-5 with diff edit format
+Git repo: .git with 3 files
+I'll add sub() to math.js and a test.
+Applied edit to math.js
+Tokens: 2.4k sent, 312 received. Cost: $0.0119 message, $0.0119 session.

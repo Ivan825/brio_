@@ -11,7 +11,7 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "test:live": "vitest run test/live.test.ts"
+    "test:live": "vitest run --config vitest.live.config.ts"
   },
   "dependencies": {
     "@brio/core": "workspace:*",

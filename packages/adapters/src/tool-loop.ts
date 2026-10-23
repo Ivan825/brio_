@@ -56,7 +56,7 @@ function summarise(text: string): string {
   return firstPara.length <= 600 ? firstPara : `${firstPara.slice(0, 597).trimEnd()}…`;
 }
 
-function systemPrompt(config: AgentConfig): string {
+export function systemPrompt(config: AgentConfig): string {
   const role = config.rolePrompt.trim();
   const rules = [
     "You are an agent working on one task of a Brio mission.",
@@ -66,7 +66,7 @@ function systemPrompt(config: AgentConfig): string {
   return role ? `${role}\n\n${rules}` : rules;
 }
 
-function userPrompt(input: RunInput): string {
+export function userPrompt(input: RunInput): string {
   const parts = [input.instructions];
   if (input.brief.summary) parts.push(`## Project memory\n${input.brief.summary}`);
   for (const h of input.handoffs)
