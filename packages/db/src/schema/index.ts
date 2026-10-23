@@ -6,5 +6,6 @@ export * from "./events";
 export * from "./governance";
 export * from "./learning";
 export * from "./missions";
+export * from "./notifications";
 export * from "./projects";
 export * from "./tenancy";

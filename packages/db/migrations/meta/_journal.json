@@ -141,6 +141,13 @@
       "when": 1792797442417,
       "tag": "0019_budget_live",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792799089699,
+      "tag": "0020_notifications",
+      "breakpoints": true
     }
   ]
 }
