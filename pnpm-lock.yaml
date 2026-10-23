@@ -44,6 +44,9 @@ importers:
       '@brio/registry':
         specifier: workspace:*
         version: link:../../packages/registry
+      '@brio/runner':
+        specifier: workspace:*
+        version: link:../runner
       '@brio/schema':
         specifier: workspace:*
         version: link:../../packages/schema
@@ -62,6 +65,9 @@ importers:
       fastify:
         specifier: 5.12.7
         version: 5.12.7
+      pg-boss:
+        specifier: 12.38.0
+        version: 12.38.0(@opentelemetry/api@1.10.0)
       uuidv7:
         specifier: 1.2.1
         version: 1.2.1

@@ -1,26 +1,17 @@
-// Direct runs of one task by one pinned agent (D-29). Until the scheduler and runner arrive (M2/M3), model-API attempts
-// run here, in-process, with no sandbox: they answer in text and get no file or shell tools. Every step is an event,
-// every dispatch and spend is on the ledger, and the answer is stored as a content-addressed artifact.
-import { createHash } from "node:crypto";
-import {
-  type AdapterEvent,
-  type AgentConfig,
-  EMPTY_BRIEF,
-  LimitExceeded,
-  NO_SANDBOX,
-  pinoSink,
-  type RunInput,
-  type RunResult,
-  redactingLogger,
-} from "@brio/adapters";
-import { type DbOrTx, schema } from "@brio/db";
-import { type Actor, type EventType, TaskContract, TaskType } from "@brio/schema";
+// Direct runs of one task by one chosen agent (D-29), until the scheduler (M3). The API resolves everything the run
+// needs into a dispatch plan (attempts.dispatch), records it as an event and on the ledger, and queues it; a runner
+// (apps/runner) claims it, sandboxes it when it touches files or is a CLI, and records the result.
+import { type AgentConfig, type CliSpec, type Dispatch, EMPTY_BRIEF, type RunInput } from "@brio/adapters";
+import { type AgentSandboxSetting, chooseSandbox } from "@brio/core";
+import { schema } from "@brio/db";
+import { enqueueAttempt, requestCancel } from "@brio/runner";
+import { type Actor, TaskContract, TaskType } from "@brio/schema";
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import { adapterOf, connectorConfig, credentialOf } from "./connectors";
+import { adapterOf, connectorConfig } from "./connectors";
 import type { AppContext } from "./context";
 import { HttpError, one } from "./http";
 
-const { agents, attempts, artifacts, blobs, connectors, missions, tasks } = schema;
+const { agents, attempts, connectors, missions, projects, tasks } = schema;
 
 /** Per-attempt defaults when neither the agent nor the task sets a limit. */
 export const DEFAULT_LIMITS = { maxCostUsd: 1, maxMinutes: 10, maxOutputTokens: 8192, maxTurns: 12 } as const;
@@ -60,15 +51,9 @@ export function renderInstructions(
 }
 
 export class AttemptRunner {
-  private readonly running = new Map<string, { abort: AbortController; done: Promise<void> }>();
-
   constructor(private readonly ctx: AppContext) {}
 
-  get activeCount(): number {
-    return this.running.size;
-  }
-
-  /** Validates, records the dispatch and starts the run in the background. Returns the attempt row immediately. */
+  /** Validates, resolves and records the dispatch, then queues it. Returns the queued attempt. */
   async start(input: {
     workspaceId: string;
     taskId: string;
@@ -109,12 +94,8 @@ export class AttemptRunner {
       throw new HttpError(409, "the connector is disabled", "connector_disabled");
 
     const adapter = adapterOf(connector);
-    if (adapter.route !== "api")
-      throw new HttpError(
-        422,
-        "only model-API agents can run before the runner arrives (M2)",
-        "route_unavailable",
-      );
+    if (adapter.route !== "api" && adapter.route !== "cli")
+      throw new HttpError(422, `${adapter.route} agents arrive in a later milestone`, "route_unavailable");
     const contract = TaskContract.parse(task.contract);
     const taskType = TaskType.parse(task.type);
     const cc = connectorConfig(connector);
@@ -126,12 +107,13 @@ export class AttemptRunner {
         "policy_denied",
       );
 
+    const cli = (adapter as { spec?: CliSpec }).spec;
     const resolved = await ctx.pricing.lookup({
       presetKey: cc.presetKey,
       model: agent.model,
       override: agent.priceOverride ?? null,
     });
-    if (resolved.kind === "unknown" && !cc.preset.reportsCost)
+    if (resolved.kind === "unknown" && !cc.preset.reportsCost && !cli?.reportsCost && !cli?.unmetered)
       throw new HttpError(422, `no price is known for ${agent.model}; set one on the agent`, "price_unknown");
 
     const agentLimits = agent.limits as { maxCostUsd?: number; maxMinutes?: number; maxTokens?: number };
@@ -169,9 +151,27 @@ export class AttemptRunner {
       limits,
       mcpServers: [],
     };
+    const sandbox = chooseSandbox({
+      route: adapter.route,
+      taskType,
+      agentSetting: agent.sandboxProfile as AgentSandboxSetting,
+      vendorHosts: cli?.egressHosts ?? [],
+      maxMinutes: limits.maxMinutes,
+    });
+    let repo: Dispatch["repo"] = null;
+    if (mission.projectId) {
+      const [project] = await ctx.db.select().from(projects).where(eq(projects.id, mission.projectId));
+      if (project?.repoUrl) repo = { url: project.repoUrl, branch: project.defaultBranch };
+    }
     const estimate = await adapter
       .estimate({ ...runInput, attemptId: "estimate" }, agentConfig)
       .catch(() => null);
+    if (estimate && estimate.usd > limits.maxCostUsd * 10)
+      throw new HttpError(
+        422,
+        `estimated $${estimate.usd} is far over the $${limits.maxCostUsd} limit`,
+        "over_budget",
+      );
 
     const attempt = await ctx.db.transaction(async (tx) => {
       // Lock the task so two clicks cannot start two attempts.
@@ -189,24 +189,42 @@ export class AttemptRunner {
             taskId: task.id,
             agentId: agent.id,
             role: "maker",
-            status: "running",
-            sandboxId: null,
-            startedAt: new Date(),
+            status: "queued",
           })
           .returning(),
         "attempt",
       );
+      const dispatch: Dispatch = {
+        version: 1,
+        adapterKey: adapter.key,
+        route: adapter.route,
+        missionId: mission.id,
+        taskId: task.id,
+        taskKey: task.key,
+        connectorId: connector.id,
+        credentialRef: connector.credentialRef,
+        input: runInput,
+        agent: agentConfig,
+        sandbox,
+        image: adapter.route === "cli" ? "cli" : "base",
+        repo,
+      };
+      await tx
+        .update(attempts)
+        .set({ dispatch: dispatch as unknown as Record<string, unknown> })
+        .where(eq(attempts.id, row.id));
       await ctx.events.append(tx, {
         workspaceId: input.workspaceId,
         missionId: mission.id,
         taskId: task.id,
         attemptId: row.id,
-        type: "attempt.started",
+        type: "attempt.queued",
         actor,
         payload: {
           taskKey: task.key,
           agent: { id: agent.id, name: agent.name, model: agent.model },
           connector: { id: connector.id, registryKey: connector.registryKey, preset: cc.presetKey },
+          adapter: adapter.key,
           route: adapter.route,
           price:
             resolved.kind === "unknown"
@@ -214,6 +232,8 @@ export class AttemptRunner {
               : { kind: resolved.kind, ...resolved.price },
           estimate,
           limits,
+          sandbox: sandbox ? { profile: sandbox.profile, network: sandbox.network } : null,
+          repo: repo ? { url: repo.url, branch: repo.branch } : null,
         },
       });
       await ctx.ledger.append(tx, {
@@ -226,6 +246,7 @@ export class AttemptRunner {
           agentId: agent.id,
           model: agent.model,
           connector: connector.registryKey,
+          adapter: adapter.key,
           estimateUsd: estimate?.usd ?? null,
           limitUsd: limits.maxCostUsd,
           by: actor,
@@ -233,267 +254,67 @@ export class AttemptRunner {
       });
       return row;
     });
-
-    const abort = new AbortController();
-    const done = this.execute(attempt, {
-      missionId: mission.id,
-      task,
-      agentConfig,
-      runInput,
-      connector,
-      adapter,
-      abort,
-    })
-      .catch((err) => ctx.log.error({ err, attemptId: attempt.id }, "attempt bookkeeping failed"))
-      .finally(() => this.running.delete(attempt.id));
-    this.running.set(attempt.id, { abort, done });
+    // After commit; the runners' reaper re-queues anything whose job is lost.
+    await enqueueAttempt(ctx.queue, attempt.id).catch((err) =>
+      ctx.log.warn(
+        { err: (err as Error).message, attemptId: attempt.id },
+        "enqueue failed; the reaper will retry",
+      ),
+    );
     return attempt;
   }
 
-  /** Cancels a running attempt. Resolves once the attempt is recorded as finished. */
-  async cancel(attemptId: string, workspaceId: string): Promise<boolean> {
-    const [row] = await this.ctx.db
-      .select({ id: attempts.id })
-      .from(attempts)
-      .where(and(eq(attempts.id, attemptId), eq(attempts.workspaceId, workspaceId)));
-    if (!row) throw new HttpError(404, "attempt not found", "not_found");
-    const r = this.running.get(attemptId);
-    if (!r) return false;
-    r.abort.abort();
-    await r.done;
-    return true;
-  }
-
-  /** Waits for an attempt to finish (tests, shutdown). */
-  async settled(attemptId: string): Promise<void> {
-    await this.running.get(attemptId)?.done;
-  }
-
-  /** On shutdown: cancel everything and wait for the bookkeeping. */
-  async drain(): Promise<void> {
-    for (const r of this.running.values()) r.abort.abort();
-    await Promise.all([...this.running.values()].map((r) => r.done));
-  }
-
   /**
-   * On startup: attempts left running by a crashed process can never finish (their process is gone). Mark them failed
-   * with an event, so the board and budgets see the truth. The scheduler (M3) resumes instead.
+   * Cancels an attempt. A queued one is cancelled here; a running one is signalled to its runner, which stops the
+   * sandbox and records the result. Resolves once the attempt is no longer running (or after `waitMs`).
    */
-  async recoverInterrupted(): Promise<number> {
-    const stale = await this.ctx.db
+  async cancel(attemptId: string, workspaceId: string, userId: string, waitMs = 15_000): Promise<boolean> {
+    const { ctx } = this;
+    const [row] = await ctx.db
       .select({ attempt: attempts, missionId: tasks.missionId })
       .from(attempts)
       .innerJoin(tasks, eq(tasks.id, attempts.taskId))
-      .where(eq(attempts.status, "running"));
-    for (const { attempt, missionId } of stale) {
-      if (this.running.has(attempt.id)) continue;
-      await this.ctx.db.transaction(async (tx) => {
-        await tx
+      .where(and(eq(attempts.id, attemptId), eq(attempts.workspaceId, workspaceId)));
+    if (!row) throw new HttpError(404, "attempt not found", "not_found");
+    const { attempt, missionId } = row;
+    if (attempt.status === "queued") {
+      const done = await ctx.db.transaction(async (tx) => {
+        const [c] = await tx
           .update(attempts)
-          .set({
-            status: "failed",
-            endedAt: new Date(),
-            exitReason: "interrupted: the API restarted mid-run",
-          })
-          .where(eq(attempts.id, attempt.id));
+          .set({ status: "cancelled", endedAt: new Date(), exitReason: "cancelled before it started" })
+          .where(and(eq(attempts.id, attemptId), eq(attempts.status, "queued")))
+          .returning({ id: attempts.id });
+        if (!c) return false;
         await tx
           .update(tasks)
-          .set({ status: "failed" })
+          .set({ status: "ready" })
           .where(and(eq(tasks.id, attempt.taskId), eq(tasks.status, "running")));
-        await this.ctx.events.append(tx, {
-          workspaceId: attempt.workspaceId,
+        await ctx.events.append(tx, {
+          workspaceId,
           missionId,
           taskId: attempt.taskId,
-          attemptId: attempt.id,
+          attemptId,
           type: "attempt.finished",
-          actor: "system",
-          payload: { status: "failed", exitReason: "interrupted: the API restarted mid-run" },
+          actor: `user:${userId}`,
+          payload: { status: "cancelled", exitReason: "cancelled before it started" },
         });
+        return true;
       });
+      if (done) return true;
     }
-    return stale.length;
+    if (attempt.status !== "running" && attempt.status !== "queued") return false;
+    await requestCancel(ctx.db, attemptId);
+    await this.settled(attemptId, waitMs);
+    return true;
   }
 
-  private async execute(
-    attempt: AttemptRow,
-    run: {
-      missionId: string;
-      task: typeof tasks.$inferSelect;
-      agentConfig: AgentConfig;
-      runInput: Omit<RunInput, "attemptId">;
-      connector: typeof connectors.$inferSelect;
-      adapter: ReturnType<typeof adapterOf>;
-      abort: AbortController;
-    },
-  ): Promise<void> {
-    const { ctx } = this;
-    const base = {
-      workspaceId: attempt.workspaceId,
-      missionId: run.missionId,
-      taskId: attempt.taskId,
-      attemptId: attempt.id,
-    };
-    // Adapter events arrive synchronously; append them in order without blocking the adapter.
-    let chain: Promise<unknown> = Promise.resolve();
-    let spent = 0;
-    const append = (
-      type: EventType,
-      payload: Record<string, unknown>,
-      actor: Actor = `agent:${run.agentConfig.agentId}`,
-    ) => {
-      chain = chain
-        .then(() => ctx.events.append(ctx.db, { ...base, type, actor, payload }))
-        .catch((err) => ctx.log.error({ err, attemptId: attempt.id, type }, "event append failed"));
-    };
-    const emit = (e: AdapterEvent) => {
-      switch (e.kind) {
-        case "message":
-          return append("attempt.message", { role: e.role, text: e.text });
-        case "tool_call":
-          return append("attempt.tool_call", { name: e.name, args: e.args });
-        case "file_edit":
-          return append("attempt.file_edit", { path: e.path, op: e.op });
-        case "cost":
-          spent += e.usd;
-          return append("attempt.cost", {
-            usd: e.usd,
-            totalUsd: Math.round(spent * 1e6) / 1e6,
-            tokensIn: e.tokensIn ?? 0,
-            tokensOut: e.tokensOut ?? 0,
-            usage: e.usage ?? null,
-            model: e.model ?? run.agentConfig.model,
-            priceSource: e.priceSource ?? null,
-            price: run.agentConfig.price,
-          });
-        case "progress":
-          return append("attempt.message", { role: "progress", text: e.note });
-        case "needs_input":
-          return append("message.sent", { kind: "question", to: "user", body: e.question });
-      }
-    };
-
-    const timer = setTimeout(
-      () => run.abort.abort(new LimitExceeded(`ran past the ${run.runInput.limits.maxMinutes}-minute limit`)),
-      run.runInput.limits.maxMinutes * 60_000,
-    );
-    let result: RunResult;
-    try {
-      const credential = await credentialOf(ctx, run.connector);
-      result = await run.adapter.run({ ...run.runInput, attemptId: attempt.id }, run.agentConfig, {
-        credential,
-        emit,
-        signal: run.abort.signal,
-        sandbox: NO_SANDBOX,
-        logger: redactingLogger(pinoSink(ctx.log), ctx.redactor, { attemptId: attempt.id }),
-        fetch: ctx.fetch,
-      });
-    } catch (err) {
-      result = {
-        status: "failed",
-        summary: "",
-        output: "",
-        artifacts: [],
-        usage: { usd: spent, tokensIn: 0, tokensOut: 0, seconds: 0 },
-        tokens: {
-          inputTokens: 0,
-          cachedInputTokens: 0,
-          cacheWriteTokens: 0,
-          outputTokens: 0,
-          reasoningTokens: 0,
-        },
-        error: ctx.redactor.redact((err as Error).message),
-      };
-    } finally {
-      clearTimeout(timer);
+  /** Waits until the attempt has left queued/running (tests, the cancel endpoint). */
+  async settled(attemptId: string, timeoutMs = 120_000): Promise<AttemptRow | null> {
+    const until = Date.now() + timeoutMs;
+    for (;;) {
+      const [a] = await this.ctx.db.select().from(attempts).where(eq(attempts.id, attemptId));
+      if (!a || (a.status !== "queued" && a.status !== "running") || Date.now() > until) return a ?? null;
+      await new Promise((r) => setTimeout(r, 100));
     }
-    await chain;
-
-    const status =
-      result.status === "completed" ? "succeeded" : result.status === "cancelled" ? "cancelled" : "failed";
-    const exitReason =
-      result.status === "completed"
-        ? "completed"
-        : `${result.status}${result.error ? `: ${result.error}` : ""}`;
-    await ctx.db.transaction(async (tx) => {
-      const artifactId = result.output ? await this.storeAnswer(tx, attempt, result.output) : null;
-      await tx
-        .update(attempts)
-        .set({
-          status,
-          endedAt: new Date(),
-          costUsd: result.usage.usd,
-          tokensIn: result.usage.tokensIn,
-          tokensOut: result.usage.tokensOut,
-          exitReason: exitReason.slice(0, 2000),
-          transcriptRef: result.vendorRunId ?? null,
-        })
-        .where(eq(attempts.id, attempt.id));
-      await tx
-        .update(tasks)
-        .set({
-          // Succeeded work waits for its acceptance checks (the verifier arrives in M5; until then a human checks).
-          status: status === "succeeded" ? "verifying" : "failed",
-          ...(artifactId ? { resultArtifactId: artifactId } : {}),
-        })
-        .where(eq(tasks.id, attempt.taskId));
-      await ctx.events.append(tx, {
-        ...base,
-        type: "attempt.finished",
-        actor: `agent:${run.agentConfig.agentId}`,
-        payload: {
-          status,
-          exitReason,
-          summary: result.summary,
-          usage: result.usage,
-          tokens: result.tokens,
-          artifactId,
-          vendorRunId: result.vendorRunId ?? null,
-        },
-      });
-      if (result.usage.usd > 0)
-        await ctx.ledger.append(tx, {
-          workspaceId: attempt.workspaceId,
-          kind: "spend",
-          payload: {
-            attemptId: attempt.id,
-            missionId: run.missionId,
-            agentId: run.agentConfig.agentId,
-            model: run.agentConfig.model,
-            usd: result.usage.usd,
-            tokensIn: result.usage.tokensIn,
-            tokensOut: result.usage.tokensOut,
-          },
-        });
-    });
-  }
-
-  private async storeAnswer(tx: DbOrTx, attempt: AttemptRow, text: string): Promise<string> {
-    const bytes = Buffer.from(text, "utf8");
-    const sha256 = createHash("sha256").update(bytes).digest("hex");
-    await tx
-      .insert(blobs)
-      .values({
-        workspaceId: attempt.workspaceId,
-        sha256,
-        contentType: "text/markdown; charset=utf-8",
-        size: bytes.length,
-        bytes,
-      })
-      .onConflictDoNothing();
-    const row = one(
-      await tx
-        .insert(artifacts)
-        .values({
-          workspaceId: attempt.workspaceId,
-          kind: "report",
-          storageRef: `blob:${sha256}`,
-          sha256,
-          meta: { contentType: "text/markdown", size: bytes.length, source: "agent answer" },
-          attemptId: attempt.id,
-        })
-        .returning({ id: artifacts.id }),
-      "artifact",
-    );
-    return row.id;
   }
 }

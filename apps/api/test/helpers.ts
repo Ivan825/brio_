@@ -1,7 +1,11 @@
 import { randomBytes } from "node:crypto";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Writable } from "node:stream";
-import type { FetchLike } from "@brio/adapters";
+import { type FetchLike, redactingLogger } from "@brio/adapters";
 import { createTestDb, type TestDb } from "@brio/db/testing";
+import { DEFAULT_IMAGES, Runner } from "@brio/runner";
 import { LocalKeyProvider, Redactor } from "@brio/vault";
 import { expect } from "vitest";
 import { loadConfig } from "../src/config";
@@ -11,6 +15,8 @@ export const APP_URL = "http://localhost:3000";
 
 export interface Harness {
   server: BrioServer;
+  /** An in-process runner on the same database and queue, as `pnpm dev` runs one beside the API. */
+  runner: Runner;
   db: TestDb;
   logs: string[];
   redactor: Redactor;
@@ -20,6 +26,8 @@ export interface Harness {
 export interface HarnessOptions {
   fetch?: FetchLike;
   env?: Record<string, string>;
+  /** Start an in-process runner (default true). Off, attempts stay queued so the dispatch can be inspected. */
+  runner?: boolean;
 }
 
 /** Every hostname resolves to a public documentation address, so the URL guard passes without real DNS. */
@@ -54,14 +62,34 @@ export async function startHarness(opts: HarnessOptions = {}): Promise<Harness> 
     resolve: publicResolver,
     ...(opts.fetch ? { fetch: opts.fetch } : {}),
   });
+  const runnerDir = await mkdtemp(join(tmpdir(), "brio-api-runner-"));
+  const runner = new Runner({
+    db: server.ctx.db,
+    databaseUrl: db.url,
+    boss: server.ctx.queue,
+    events: server.ctx.events,
+    ledger: server.ctx.ledger,
+    vault: server.ctx.vault,
+    redactor,
+    fetch: server.ctx.fetch,
+    log: redactingLogger((_level, obj, msg) => logs.push(JSON.stringify({ ...obj, msg })), redactor),
+    dir: runnerDir,
+    images: DEFAULT_IMAGES,
+    heartbeatMs: 500,
+    reapEveryMs: 3_600_000,
+  });
+  if (opts.runner !== false) await runner.start();
   return {
     server,
+    runner,
     db,
     logs,
     redactor,
     close: async () => {
+      await runner.stop();
       await server.close();
       await db.drop();
+      await rm(runnerDir, { recursive: true, force: true });
     },
   };
 }

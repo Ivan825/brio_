@@ -10,6 +10,7 @@ import {
   type ConnectorRow,
   connectorConfig,
   credentialOf,
+  installablePresets,
   type StoredConnectorConfig,
 } from "../connectors";
 import type { AppContext } from "../context";
@@ -49,6 +50,7 @@ function present(row: ConnectorRow) {
     route: row.route,
     preset: cfg.preset,
     presetName: preset?.name ?? cfg.preset,
+    adapter: cfg.adapter ?? preset?.family ?? null,
     baseUrl: cfg.baseUrl,
     region: cfg.region ?? null,
     apiStyle: cfg.apiStyle ?? preset?.apiStyles[0] ?? null,
@@ -134,11 +136,12 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
         `${entry.name} arrives in ${entry.buildMilestone ?? "a later milestone"}`,
         "not_implemented",
       );
-    const presets = r.presetsFor(entry.id);
+    const presets = installablePresets(entry);
     const chosen = body.preset ? presets.find((p) => p.key === body.preset) : presets[0];
     if (!chosen)
       throw new HttpError(422, `${body.preset} is not a preset of ${entry.name}`, "unknown_preset");
     const { key: presetKey, preset } = chosen;
+    const cliAdapter = "adapter" in chosen ? chosen.adapter : undefined;
 
     let baseUrl = preset.baseUrl;
     if (body.region) {
@@ -158,16 +161,17 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
     const needsKey = preset.auth !== "none" && preset.auth !== "optional-bearer";
     if (needsKey && !body.apiKey)
       throw new HttpError(422, `${preset.name} needs an API key`, "api_key_required");
-    if (body.apiStyle && !preset.apiStyles.includes(body.apiStyle))
+    if (body.apiStyle && (cliAdapter || !preset.apiStyles.includes(body.apiStyle)))
       throw new HttpError(
         422,
         `${preset.name} does not support the ${body.apiStyle} API`,
         "unsupported_api_style",
       );
-    const adapter = adapterFor(preset.family);
+    const adapter = adapterFor(cliAdapter ?? preset.family);
     if (!adapter) throw new HttpError(422, `no adapter for ${preset.family}`, "no_adapter");
 
     const config: StoredConnectorConfig = {
+      ...(cliAdapter ? { adapter: cliAdapter } : {}),
       preset: presetKey,
       baseUrl,
       ...(body.region ? { region: body.region } : {}),

@@ -3,6 +3,7 @@ import type { Db, EventFeed, EventWriter } from "@brio/db";
 import type { Ledger } from "@brio/governance";
 import type { Redactor, Vault } from "@brio/vault";
 import type { FastifyBaseLogger } from "fastify";
+import type { PgBoss } from "pg-boss";
 import type { AttemptRunner } from "./attempts";
 import type { Auth } from "./auth";
 import type { Config } from "./config";
@@ -26,5 +27,7 @@ export interface AppContext {
   checkUrl: (url: string) => Promise<URL>;
   pricing: PricingService;
   attempts: AttemptRunner;
+  /** The attempt queue (pg-boss); runners consume it. */
+  queue: PgBoss;
   log: FastifyBaseLogger;
 }

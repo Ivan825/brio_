@@ -1,6 +1,7 @@
 import { IMPLEMENTED_FAMILIES } from "@brio/adapters";
 import { registry } from "@brio/registry";
 import type { FastifyInstance } from "fastify";
+import { cliFor, installablePresets } from "../connectors";
 import type { AppContext } from "../context";
 import { requireSession } from "../http";
 
@@ -32,7 +33,8 @@ export async function registryRoutes(app: FastifyInstance, ctx: AppContext) {
             implemented: r.isImplemented(c.id, IMPLEMENTED_FAMILIES),
             regionLimited: c.regionLimited ?? null,
             taskTypes: r.taskTypesOf(c.id),
-            presets: r.presetsFor(c.id).map(({ key, preset: p }) => ({
+            cli: cliFor(c)?.adapter.key ?? null,
+            presets: installablePresets(c).map(({ key, preset: p }) => ({
               key,
               name: p.name,
               family: p.family,

@@ -1,3 +1,5 @@
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 
 export const WEB_PORT = Number(process.env.E2E_WEB_PORT ?? 3100);
@@ -7,6 +9,9 @@ export const E2E_DATABASE_URL =
 const APP_URL = `http://localhost:${WEB_PORT}`;
 const API_URL = `http://localhost:${API_PORT}`;
 const FAKE_VENDOR_PORT = process.env.FAKE_VENDOR_PORT ?? "4300";
+const RUNNER_HEALTH_PORT = process.env.E2E_RUNNER_HEALTH_PORT ?? "4110";
+// a throwaway vault key (base64 of 32 bytes) shared by the API and the runner; never use outside tests
+const E2E_KEK = Buffer.alloc(32, 7).toString("base64");
 
 export default defineConfig({
   testDir: "./e2e",
@@ -40,9 +45,23 @@ export default defineConfig({
         BRIO_DEV_OUTBOX: "true",
         // rotate SSE connections quickly so the reconnect/resume path is exercised
         BRIO_SSE_MAX_CONNECTION_MS: "2000",
-        // a throwaway key for the vault (base64 of 32 bytes); never use outside tests
-        BRIO_VAULT_LOCAL_KEK: Buffer.alloc(32, 7).toString("base64"),
+        BRIO_VAULT_LOCAL_KEK: E2E_KEK,
         BRIO_PRICING_REFRESH_HOURS: "0",
+        LOG_LEVEL: "warn",
+      },
+    },
+    {
+      // a runner beside the API, as `pnpm dev` runs one
+      command: "pnpm --filter @brio/runner start",
+      url: `http://127.0.0.1:${RUNNER_HEALTH_PORT}/health`,
+      reuseExistingServer: false,
+      timeout: 120_000,
+      env: {
+        NODE_ENV: "test",
+        DATABASE_URL: E2E_DATABASE_URL,
+        BRIO_VAULT_LOCAL_KEK: E2E_KEK,
+        BRIO_RUNNER_HEALTH_PORT: RUNNER_HEALTH_PORT,
+        BRIO_RUNNER_DIR: join(tmpdir(), "brio-e2e-runner"),
         LOG_LEVEL: "warn",
       },
     },

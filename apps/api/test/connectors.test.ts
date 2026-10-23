@@ -254,7 +254,13 @@ describe.skipIf(!hasTestDatabase)("M1 acceptance: connectors, agents, metered ru
 
     const types = (await readEventsSince(h.db.db, missionId, 0)).map((e) => e.type);
     expect(types).toEqual(
-      expect.arrayContaining(["attempt.started", "attempt.message", "attempt.cost", "attempt.finished"]),
+      expect.arrayContaining([
+        "attempt.queued",
+        "attempt.started",
+        "attempt.message",
+        "attempt.cost",
+        "attempt.finished",
+      ]),
     );
     const cost = (await readEventsSince(h.db.db, missionId, 0)).find((e) => e.type === "attempt.cost")!;
     expect(cost.payload).toMatchObject({
@@ -330,25 +336,8 @@ describe.skipIf(!hasTestDatabase)("M1 acceptance: connectors, agents, metered ru
     expect(Date.now() - started).toBeLessThan(5000);
     const [a] = await h.db.db.select().from(attempts).where(eq(attempts.id, run.json().attempt.id));
     expect(a?.status).toBe("cancelled");
-  });
-
-  it("marks attempts orphaned by a restart as failed, with an event", async () => {
-    const [orphan] = await h.db.db
-      .insert(attempts)
-      .values({
-        workspaceId,
-        taskId: missionTaskId,
-        agentId: (await h.db.db.select().from(schema.agents).limit(1))[0]!.id,
-        role: "maker",
-        status: "running",
-        startedAt: new Date(),
-      })
-      .returning();
-    expect(await h.server.ctx.attempts.recoverInterrupted()).toBe(1);
-    const [a] = await h.db.db.select().from(attempts).where(eq(attempts.id, orphan!.id));
-    expect(a).toMatchObject({ status: "failed", exitReason: "interrupted: the API restarted mid-run" });
-    const last = (await readEventsSince(h.db.db, missionId, 0)).at(-1)!;
-    expect(last).toMatchObject({ type: "attempt.finished", attemptId: orphan!.id });
+    const task = (await member.request("GET", `/v1/missions/${missionId}`)).json().tasks[0];
+    expect(task.status).toBe("ready");
   });
 
   it("never lets a key reach logs, events or the ledger", async () => {

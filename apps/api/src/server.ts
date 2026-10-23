@@ -1,6 +1,7 @@
 import { assertSafeUrl, type FetchLike, guardedFetch, type Resolver } from "@brio/adapters";
 import { createDb, type DbHandle, EventFeed, EventWriter } from "@brio/db";
 import { Ledger } from "@brio/governance";
+import { startQueue } from "@brio/runner";
 import {
   redactor as defaultRedactor,
   type KeyProvider,
@@ -106,12 +107,11 @@ export async function buildServer({
     checkUrl: (url: string) => assertSafeUrl(url, urlPolicy, resolve),
     pricing: new PricingService(handle.db, fetch, parseFx(config.BRIO_FX_USD_PER)),
     log: app.log,
+    queue: await startQueue(config.DATABASE_URL),
   } as AppContext;
   ctx.attempts = new AttemptRunner(ctx);
 
   await ctx.pricing.seed();
-  const interrupted = await ctx.attempts.recoverInterrupted();
-  if (interrupted) app.log.warn({ interrupted }, "marked attempts interrupted by a restart as failed");
   let pricingTimer: NodeJS.Timeout | undefined;
   if (config.BRIO_PRICING_REFRESH_HOURS > 0) {
     const refresh = () =>
@@ -158,8 +158,8 @@ export async function buildServer({
     ctx,
     close: async () => {
       if (pricingTimer) clearInterval(pricingTimer);
-      await ctx.attempts.drain();
       await app.close();
+      await ctx.queue.stop({ graceful: false }).catch(() => {});
       await feed.stop();
       if (ownsDb) await handle.close();
     },
