@@ -553,16 +553,7 @@ export class Orchestrator {
           break;
         case "mission_failed": {
           if (await this.proposeReplan(m, fresh, a.reason)) break;
-          const [done] = await this.ctx.db
-            .update(missions)
-            .set({ status: "failed", blockedReason: a.reason })
-            .where(and(eq(missions.id, m.id), eq(missions.status, "running")))
-            .returning();
-          if (done) {
-            await this.releaseMissionLeases(m);
-            await this.emit(this.ctx.db, m, "mission.failed", { reason: a.reason });
-            await this.saveReport(m);
-          }
+          await this.endMission(m, "failed", { reason: a.reason });
           break;
         }
       }
@@ -1726,16 +1717,7 @@ export class Orchestrator {
     const round = (latest?.round ?? 0) + 1;
     if (round > MAX_INTEGRATION_ROUNDS) {
       const reason = `the integrated work still fails after ${MAX_INTEGRATION_ROUNDS} rounds`;
-      const [failed] = await this.ctx.db
-        .update(missions)
-        .set({ status: "failed", blockedReason: reason })
-        .where(and(eq(missions.id, m.id), eq(missions.status, "running")))
-        .returning();
-      if (failed) {
-        await this.releaseMissionLeases(m);
-        await this.emit(this.ctx.db, m, "mission.failed", { reason });
-        await this.saveReport(m);
-      }
+      await this.endMission(m, "failed", { reason });
       return;
     }
     let repo: { url: string; branch: string | null } | null = null;
@@ -1926,24 +1908,39 @@ export class Orchestrator {
     return made;
   }
 
-  /** The final mission report (best effort: a report failure never changes the mission's outcome). */
-  private async saveReport(m: Mission): Promise<void> {
-    await saveMissionReport(this.ctx, m.id).catch((err: Error) =>
-      this.ctx.log.error({ err: err.message, missionId: m.id }, "mission report failed"),
-    );
+  /**
+   * Ends a running mission: its status, its event and its final report in one transaction, so anyone who sees the
+   * mission ended also sees why and the report (a report that cannot be built never undoes the ending).
+   */
+  private async endMission(
+    m: Mission,
+    status: "done" | "failed",
+    payload: Record<string, unknown>,
+  ): Promise<boolean> {
+    const ended = await this.ctx.db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(missions)
+        .set({ status, blockedReason: status === "failed" ? String(payload.reason ?? "failed") : null })
+        .where(and(eq(missions.id, m.id), eq(missions.status, "running")))
+        .returning();
+      if (!row) return false;
+      await this.emit(tx, m, status === "done" ? "mission.done" : "mission.failed", payload);
+      await tx
+        .transaction((savepoint) => saveMissionReport(savepoint, m.id))
+        .catch((err: Error) =>
+          this.ctx.log.error({ err: err.message, missionId: m.id }, "mission report failed"),
+        );
+      return true;
+    });
+    if (ended) await this.releaseMissionLeases(m);
+    return ended;
   }
 
   private async finishMission(
     m: Mission,
     integration: typeof integrations.$inferSelect | null,
   ): Promise<void> {
-    const [done] = await this.ctx.db
-      .update(missions)
-      .set({ status: "done", blockedReason: null })
-      .where(and(eq(missions.id, m.id), eq(missions.status, "running")))
-      .returning();
-    if (!done) return;
-    const totals = await this.ctx.db
+    const [totals] = await this.ctx.db
       .select({
         usd: sql<number>`coalesce(sum(${attempts.costUsd}), 0)::float`,
         attempts: sql<number>`count(*)::int`,
@@ -1951,10 +1948,9 @@ export class Orchestrator {
       .from(attempts)
       .innerJoin(tasks, eq(tasks.id, attempts.taskId))
       .where(eq(tasks.missionId, m.id));
-    await this.releaseMissionLeases(m);
-    await this.emit(this.ctx.db, m, "mission.done", {
-      costUsd: totals[0]?.usd ?? 0,
-      attempts: totals[0]?.attempts ?? 0,
+    await this.endMission(m, "done", {
+      costUsd: totals?.usd ?? 0,
+      attempts: totals?.attempts ?? 0,
       minutes: Math.round((Date.now() - m.createdAt.getTime()) / 6000) / 10,
       ...(integration
         ? {
@@ -1962,7 +1958,6 @@ export class Orchestrator {
           }
         : {}),
     });
-    await this.saveReport(m);
   }
 }
 

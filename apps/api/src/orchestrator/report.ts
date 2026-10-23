@@ -11,7 +11,6 @@ import {
 } from "@brio/core";
 import { type DbOrTx, schema } from "@brio/db";
 import { and, desc, eq, inArray } from "drizzle-orm";
-import type { AppContext } from "../context";
 
 const { artifacts, attempts, blobs, integrations, messages, missions, plans, tasks } = schema;
 
@@ -137,39 +136,37 @@ export async function missionReport(db: DbOrTx, missionId: string): Promise<Miss
   });
 }
 
-/** Snapshots the final report on the mission (report.final) and as a Markdown artifact. */
-export async function saveMissionReport(ctx: AppContext, missionId: string): Promise<MissionReport | null> {
-  const report = await missionReport(ctx.db, missionId);
+/** Snapshots the final report on the mission (report.final) and as a Markdown artifact, in the caller's transaction. */
+export async function saveMissionReport(db: DbOrTx, missionId: string): Promise<MissionReport | null> {
+  const report = await missionReport(db, missionId);
   if (!report) return null;
-  const [m] = await ctx.db.select().from(missions).where(eq(missions.id, missionId));
+  const [m] = await db.select().from(missions).where(eq(missions.id, missionId));
   if (!m) return null;
   const md = Buffer.from(renderMissionReport(report), "utf8");
   const sha256 = createHash("sha256").update(md).digest("hex");
-  await ctx.db.transaction(async (tx) => {
-    await tx
-      .insert(blobs)
-      .values({
-        workspaceId: m.workspaceId,
-        sha256,
-        contentType: "text/markdown; charset=utf-8",
-        size: md.length,
-        bytes: md,
-      })
-      .onConflictDoNothing();
-    const [artifact] = await tx
-      .insert(artifacts)
-      .values({
-        workspaceId: m.workspaceId,
-        kind: "report",
-        storageRef: `blob:${sha256}`,
-        sha256,
-        meta: { missionId, missionReport: true, status: report.status },
-      })
-      .returning({ id: artifacts.id });
-    await tx
-      .update(missions)
-      .set({ report: { ...(m.report ?? {}), final: report, reportArtifactId: artifact?.id ?? null } })
-      .where(eq(missions.id, missionId));
-  });
+  await db
+    .insert(blobs)
+    .values({
+      workspaceId: m.workspaceId,
+      sha256,
+      contentType: "text/markdown; charset=utf-8",
+      size: md.length,
+      bytes: md,
+    })
+    .onConflictDoNothing();
+  const [artifact] = await db
+    .insert(artifacts)
+    .values({
+      workspaceId: m.workspaceId,
+      kind: "report",
+      storageRef: `blob:${sha256}`,
+      sha256,
+      meta: { missionId, missionReport: true, status: report.status },
+    })
+    .returning({ id: artifacts.id });
+  await db
+    .update(missions)
+    .set({ report: { ...(m.report ?? {}), final: report, reportArtifactId: artifact?.id ?? null } })
+    .where(eq(missions.id, missionId));
   return report;
 }
