@@ -211,21 +211,51 @@ export class ServiceClient {
   }
 
   /**
-   * Downloads a result. `auth` sends the service's credentials (its own file endpoints); presigned URLs from the
-   * vendor get none. At most `maxBytes`.
+   * Downloads a result, or makes a request whose answer is a file (speech, an image). `auth` sends the service's
+   * credentials (its own endpoints); presigned URLs from the vendor get none. At most `maxBytes`.
    */
   async bytes(
     pathOrUrl: string,
-    opts: { auth?: boolean; maxBytes?: number } = {},
-  ): Promise<{ bytes: Uint8Array; contentType: string }> {
-    const url = this.url(pathOrUrl);
-    const headers = opts.auth === false ? {} : await this.headers("GET", url, "");
-    const res = await this.ctx.fetch(url, {
-      headers,
-      ...(this.ctx.signal ? { signal: this.ctx.signal } : {}),
-    });
-    if (!res.ok)
-      throw new AdapterError(errorCodeForStatus(res.status), `download failed: ${res.status}`, res.status);
+    opts: {
+      auth?: boolean;
+      maxBytes?: number;
+      method?: Method;
+      body?: unknown;
+      query?: Record<string, string | number | boolean | undefined>;
+      timeoutMs?: number;
+    } = {},
+  ): Promise<{ bytes: Uint8Array; contentType: string; headers: Headers }> {
+    const url = this.url(pathOrUrl, opts.query);
+    const method = opts.method ?? "GET";
+    const payload = opts.body === undefined ? "" : JSON.stringify(opts.body);
+    const headers = {
+      ...(opts.body === undefined ? {} : { "content-type": "application/json" }),
+      ...(opts.auth === false ? {} : await this.headers(method, url, payload)),
+    };
+    const signal = AbortSignal.any([
+      ...(this.ctx.signal ? [this.ctx.signal] : []),
+      AbortSignal.timeout(opts.timeoutMs ?? 10 * 60_000),
+    ]);
+    let res: Response;
+    try {
+      res = await this.ctx.fetch(url, {
+        method,
+        headers,
+        ...(opts.body === undefined ? {} : { body: payload }),
+        signal,
+      });
+    } catch (e) {
+      if (this.ctx.signal?.aborted) throw new AdapterError("cancelled", "cancelled");
+      throw new AdapterError("network", `cannot reach the vendor: ${(e as Error).message}`);
+    }
+    if (!res.ok) {
+      const detail = method === "GET" ? "" : `: ${(await res.text().catch(() => "")).slice(0, 300)}`;
+      throw new AdapterError(
+        errorCodeForStatus(res.status),
+        `${method === "GET" ? "download failed" : "request failed"}: ${res.status}${detail}`,
+        res.status,
+      );
+    }
     const max = opts.maxBytes ?? 50 * 1024 * 1024;
     const length = Number(res.headers.get("content-length") ?? 0);
     if (length > max)
@@ -235,7 +265,11 @@ export class ServiceClient {
       );
     const buf = new Uint8Array(await res.arrayBuffer());
     if (buf.length > max) throw new AdapterError("bad_request", `the result is over ${max / 1e6} MB`);
-    return { bytes: buf, contentType: res.headers.get("content-type") ?? "application/octet-stream" };
+    return {
+      bytes: buf,
+      contentType: res.headers.get("content-type") ?? "application/octet-stream",
+      headers: res.headers,
+    };
   }
 
   /** The service's free key check (registry `health`): a bad key is an auth failure, anything else answered is fine. */
