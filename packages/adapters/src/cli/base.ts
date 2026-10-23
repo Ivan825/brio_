@@ -18,6 +18,7 @@ import type {
   RunInput,
   RunResult,
 } from "../types";
+import { type AcpSpec, processStream, runAcp } from "./acp";
 
 /** What a CLI's parser keeps between lines. */
 export interface CliState {
@@ -76,6 +77,11 @@ export interface CliSpec {
    * How this CLI is given MCP servers (the Brio mailbox): extra argv, environment and files. CLIs without MCP support
    * leave it out and run without the mailbox.
    */
+  /**
+   * ACP (Agent Client Protocol) mode, for CLIs that speak it: used when the agent's options say protocol = "acp"
+   * (D-74). Only for CLIs whose runs need no token metering (unmetered, or cost reported over ACP).
+   */
+  acp?: AcpSpec;
   mcp?(servers: McpServerConfig[]): {
     argv?: (argv: string[]) => string[];
     env?: Record<string, string>;
@@ -207,6 +213,57 @@ export function createCliAdapter(spec: CliSpec): AgentAdapter & { spec: CliSpec 
       }
       const env: Record<string, string> = { ...spec.env, ...mcp.env };
       if (secret) for (const name of spec.credentialEnv) env[name] = secret;
+
+      if (config.options?.protocol === "acp") {
+        if (!spec.acp)
+          return finish("failed", `${spec.key} does not speak ACP here; remove the protocol option`);
+        const proc = outer.sandbox.spawn(spec.acp.argv, { env, interactive: true });
+        try {
+          const r = await runAcp({
+            target: processStream(proc),
+            cwd: "/work",
+            prompt,
+            mcpServers: input.mcpServers,
+            ...(spec.acp.authMethods ? { authMethods: spec.acp.authMethods } : {}),
+            emit,
+            signal: outer.signal,
+          });
+          state.text = r.text;
+          state.result = r.text;
+          state.sessionId = r.sessionId;
+          state.finished = true;
+          if (r.usd !== undefined && r.usd > usd) {
+            emit({ kind: "cost", usd: roundUsd(r.usd - usd), model: config.model, priceSource: "vendor" });
+            usd = r.usd;
+          }
+          if (outer.signal.aborted || r.stopReason === "cancelled")
+            return isLimitAbort(outer.signal)
+              ? finish("limit_exceeded", (outer.signal.reason as Error).message)
+              : finish("cancelled", "cancelled");
+          if (r.stopReason === "refusal") return finish("failed", `${spec.key} refused the task`);
+          if (r.stopReason !== "end_turn")
+            return finish("failed", `${spec.key} stopped early (${r.stopReason})`);
+          if (usd > input.limits.maxCostUsd)
+            return finish(
+              "limit_exceeded",
+              `cost $${roundUsd(usd)} passed the limit of $${input.limits.maxCostUsd}`,
+            );
+          return finish("completed");
+        } catch (e) {
+          if (outer.signal.aborted) return finish("cancelled", "cancelled");
+          const { stderr } = await Promise.race([
+            proc.exit,
+            new Promise<{ stderr: string }>((r) => setTimeout(() => r({ stderr: "" }), 1000)),
+          ]);
+          return finish(
+            "failed",
+            `${spec.key} (ACP): ${(e as Error).message}${stderr ? ` | ${stderr.trim().split("\n").slice(-3).join(" | ")}` : ""}`,
+          );
+        } finally {
+          proc.stdin?.end();
+          await proc.kill();
+        }
+      }
       let proc: ReturnType<RunContext["sandbox"]["spawn"]>;
       try {
         const argv = spec.argv(prompt, config, input);

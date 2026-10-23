@@ -23,6 +23,18 @@ export const cursorAgent = createCliAdapter({
   image: "cli",
   promptVia: "arg",
   unmetered: true,
+  // ACP mode (agents with protocol: "acp", D-74): `cursor-agent acp` with the same config files and MCP servers; the
+  // key comes from CURSOR_API_KEY and is used through the cursor_login method (docs/vendors/protocols.md §3).
+  acp: {
+    argv: [
+      "sh",
+      "-c",
+      'mkdir -p "$HOME/.cursor" && printf "%s" "$1" > "$HOME/.cursor/cli-config.json" && if [ -n "$BRIO_MCP_JSON" ]; then printf "%s" "$BRIO_MCP_JSON" > "$HOME/.cursor/mcp.json"; fi && exec cursor-agent acp',
+      "sh",
+      CLI_CONFIG,
+    ],
+    authMethods: ["cursor_login"],
+  },
   argv: (prompt, config) => [
     "sh",
     "-c",

@@ -270,6 +270,9 @@ importers:
       '@a2a-js/sdk':
         specifier: 1.3.0
         version: 1.3.0(express@5.3.0)(kysely@0.29.7)(pg@8.23.1)
+      '@agentclientprotocol/sdk':
+        specifier: 2.0.1
+        version: 2.0.1(zod@4.6.7)
       '@brio/core':
         specifier: workspace:*
         version: link:../core
@@ -401,6 +404,11 @@ packages:
         optional: true
       pg:
         optional: true
+
+  '@agentclientprotocol/sdk@2.0.1':
+    resolution: {integrity: sha512-v4E/NcBTGFEKmorGso8ysAjJTkNh5UMJPP4aDznyMNmnP9t10g/aCCo/Djy7RYaYZy5ZROFK3G5cEj9tDgGOTQ==}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.0.0
 
   '@alloc/quick-lru@5.3.0':
     resolution: {integrity: sha512-U4+70Pc5ZS9osnCBCE5Jha/ciHM+Yp+CNMNC/7HvYbNRk1Ldd+f7qO65W5qfhu/TCv+/ozljlXXe9Nj8419DMA==}
@@ -3076,6 +3084,10 @@ snapshots:
       express: 5.3.0
       kysely: 0.29.7
       pg: 8.23.1
+
+  '@agentclientprotocol/sdk@2.0.1(zod@4.6.7)':
+    dependencies:
+      zod: 4.6.7
 
   '@alloc/quick-lru@5.3.0': {}
 
