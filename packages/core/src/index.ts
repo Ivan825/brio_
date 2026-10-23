@@ -7,4 +7,5 @@ export * from "./pricing/index";
 export * from "./router/index";
 export * from "./sandbox/index";
 export * from "./scheduler/index";
+export * from "./score/index";
 export * from "./verify/index";
