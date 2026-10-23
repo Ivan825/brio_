@@ -423,6 +423,8 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
         );
       }
       listedLive = true;
+      // Services without a list endpoint offer the ids their docs name (registry data, D-62).
+      if (!live.length && cfg.service) live = cfg.service.models.static.map((id) => ({ id }));
       await ctx.db.transaction(async (tx) => {
         await tx.delete(connectorModels).where(eq(connectorModels.connectorId, row.id));
         if (live.length)

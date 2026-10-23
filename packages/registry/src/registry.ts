@@ -152,6 +152,17 @@ export class Registry {
       if (!c) problems.push(`preset ${key}: unknown connector ${p.connector}`);
       else if (!c.supported) problems.push(`preset ${key}: connector ${c.id} is unsupported`);
     }
+    for (const c of this.connectors) {
+      if (c.supported && c.alternatives?.length)
+        problems.push(`connector ${c.id}: only unsupported entries list alternatives`);
+      if (!c.supported && !c.alternatives?.length)
+        problems.push(`connector ${c.id}: an unsupported entry needs alternatives`);
+      for (const a of c.alternatives ?? []) {
+        const alt = this.byId.get(a);
+        if (!alt?.supported)
+          problems.push(`connector ${c.id}: alternative ${a} is not a supported connector`);
+      }
+    }
     for (const [key, sv] of Object.entries(this.services)) {
       const c = this.byId.get(sv.connector);
       if (!c) problems.push(`service ${key}: unknown connector ${sv.connector}`);

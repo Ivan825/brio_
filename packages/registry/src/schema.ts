@@ -66,6 +66,8 @@ export const ConnectorEntry = z.object({
   regionLimited: z.string().optional(),
   /** The day the entry's vendor facts were last checked against the vendor's docs. */
   verifiedOn: z.iso.date().optional(),
+  /** For unsupported entries: supported connectors that do the same job legitimately (ADAPTER_SPEC §3). */
+  alternatives: z.array(z.string()).optional(),
 });
 export type ConnectorEntry = z.infer<typeof ConnectorEntry>;
 

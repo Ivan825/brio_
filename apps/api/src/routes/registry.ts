@@ -5,6 +5,17 @@ import { cliFor, installablePresets } from "../connectors";
 import type { AppContext } from "../context";
 import { requireSession } from "../http";
 
+/** What a service's credential is, for the install form. */
+const CREDENTIAL: Record<string, { kind: "key" | "json"; hint: string }> = {
+  bearer: { kind: "key", hint: "API key" },
+  header: { kind: "key", hint: "API key" },
+  "aws-sigv4": {
+    kind: "json",
+    hint: '{"accessKeyId":"…","secretAccessKey":"…","sessionToken":"…"} (session token optional)',
+  },
+  entra: { kind: "json", hint: '{"tenantId":"…","clientId":"…","clientSecret":"…"} (a service principal)' },
+};
+
 /** The connector catalogue: every registry entry grouped by category, with what Brio can actually reach today. */
 export async function registryRoutes(app: FastifyInstance, ctx: AppContext) {
   app.get("/v1/registry", async (req) => {
@@ -33,8 +44,21 @@ export async function registryRoutes(app: FastifyInstance, ctx: AppContext) {
             plannedAdapter: c.plannedAdapter,
             implemented: r.isImplemented(c.id, IMPLEMENTED_FAMILIES),
             regionLimited: c.regionLimited ?? null,
+            alternatives: (c.alternatives ?? []).map((id) => ({ id, name: r.connector(id)?.name ?? id })),
             taskTypes: r.taskTypesOf(c.id),
             cli: cliFor(c)?.adapter.key ?? null,
+            services: r.servicesFor(c.id).map(({ key, service: sv }) => ({
+              key,
+              name: sv.name,
+              kind: sv.kind,
+              credential: CREDENTIAL[sv.auth.scheme],
+              settings: sv.settings,
+              pricing: sv.pricing,
+              keyCheck: sv.health !== null,
+              docsUrl: sv.docsUrl,
+              verifiedOn: sv.verifiedOn,
+              notes: sv.notes ?? null,
+            })),
             presets: installablePresets(c).map(({ key, preset: p }) => ({
               key,
               name: p.name,

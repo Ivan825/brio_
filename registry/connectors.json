@@ -1206,7 +1206,12 @@
       "plannedAdapter": null,
       "buildMilestone": null,
       "subscriptionUse": null,
-      "supported": false
+      "supported": false,
+      "alternatives": [
+        "perplexity-agent-api",
+        "claude-computer-use",
+        "browser-use"
+      ]
     },
     {
       "id": "chatgpt-agent-atlas",
@@ -1224,7 +1229,11 @@
       "plannedAdapter": null,
       "buildMilestone": null,
       "subscriptionUse": null,
-      "supported": false
+      "supported": false,
+      "alternatives": [
+        "openai-agents-api",
+        "claude-computer-use"
+      ]
     },
     {
       "id": "claude-in-chrome-gemini-in-chrome",
@@ -1242,7 +1251,11 @@
       "plannedAdapter": null,
       "buildMilestone": null,
       "subscriptionUse": null,
-      "supported": false
+      "supported": false,
+      "alternatives": [
+        "claude-computer-use",
+        "browser-use"
+      ]
     },
     {
       "id": "perplexity-agent-api",
@@ -1407,7 +1420,12 @@
       "plannedAdapter": null,
       "buildMilestone": null,
       "subscriptionUse": null,
-      "supported": false
+      "supported": false,
+      "alternatives": [
+        "manus",
+        "claude-managed-agents",
+        "perplexity-agent-api"
+      ]
     },
     {
       "id": "kimi-agent-minimax-agent",
@@ -1425,7 +1443,11 @@
       "plannedAdapter": null,
       "buildMilestone": null,
       "subscriptionUse": null,
-      "supported": false
+      "supported": false,
+      "alternatives": [
+        "kimi-api",
+        "minimax-api"
+      ]
     },
     {
       "id": "openclaw-openmanus",
@@ -1589,7 +1611,13 @@
       "plannedAdapter": null,
       "buildMilestone": null,
       "subscriptionUse": null,
-      "supported": false
+      "supported": false,
+      "alternatives": [
+        "black-forest-labs-flux",
+        "ideogram-recraft",
+        "openai-image-voice",
+        "google-veo-nano-banana"
+      ]
     },
     {
       "id": "suno-udio",
@@ -1607,7 +1635,10 @@
       "plannedAdapter": null,
       "buildMilestone": null,
       "subscriptionUse": null,
-      "supported": false
+      "supported": false,
+      "alternatives": [
+        "elevenlabs"
+      ]
     },
     {
       "id": "muse-image",
@@ -1625,7 +1656,12 @@
       "plannedAdapter": null,
       "buildMilestone": null,
       "subscriptionUse": null,
-      "supported": false
+      "supported": false,
+      "alternatives": [
+        "black-forest-labs-flux",
+        "openai-image-voice",
+        "google-veo-nano-banana"
+      ]
     },
     {
       "id": "figma",
@@ -1681,7 +1717,11 @@
       "plannedAdapter": null,
       "buildMilestone": null,
       "subscriptionUse": null,
-      "supported": false
+      "supported": false,
+      "alternatives": [
+        "claude-api",
+        "figma"
+      ]
     },
     {
       "id": "notion",
