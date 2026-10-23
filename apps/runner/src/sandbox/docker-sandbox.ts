@@ -239,6 +239,7 @@ export class DockerSandbox implements SandboxHandle {
         void rm(envFile, { force: true });
         resolveExit({ code: null, stderr: e.message });
       });
+      c.stdin.on("error", () => {});
       c.stdin.end(opts.stdin ?? "");
       return c;
     });

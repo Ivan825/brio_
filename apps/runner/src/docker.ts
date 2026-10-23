@@ -46,6 +46,8 @@ export function docker(
         );
       resolve({ code, stdout, stderr });
     });
+    // A container that exits before reading its input closes the pipe; that shows in the exit code, not as a crash.
+    child.stdin.on("error", () => {});
     child.stdin.end(opts.input ?? "");
   });
 }
