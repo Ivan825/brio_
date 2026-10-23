@@ -121,15 +121,49 @@ export class Worktrees {
     return (await this.git(args, opts)).stdout.toString("utf8").trim();
   }
 
-  /** The runner's own copy of a repository: a mirror of a project repo, or an empty repo for project-less missions. */
+  /**
+   * The runner's own copy of a repository: a mirror of a project repo, or an empty repo for project-less missions.
+   * Creation is serialised per path (attempts of one mission start together), and a concurrent creator in another
+   * process is tolerated.
+   */
   async cache(key: { repo: RepoSource } | { missionId: string }): Promise<string> {
+    const path =
+      "missionId" in key
+        ? join(this.root, "repos", `mission-${key.missionId}.git`)
+        : join(
+            this.root,
+            "repos",
+            `${createHash("sha256").update(key.repo.url).digest("hex").slice(0, 16)}.git`,
+          );
+    const prev = Worktrees.locks.get(path) ?? Promise.resolve();
+    const next = prev.catch(() => {}).then(() => this.ensureCache(key, path));
+    Worktrees.locks.set(path, next);
+    try {
+      return await next;
+    } finally {
+      if (Worktrees.locks.get(path) === next) Worktrees.locks.delete(path);
+    }
+  }
+
+  private static readonly locks = new Map<string, Promise<string>>();
+
+  private async ensureCache(
+    key: { repo: RepoSource } | { missionId: string },
+    path: string,
+  ): Promise<string> {
     await mkdir(join(this.root, "repos"), { recursive: true });
     if ("missionId" in key) {
-      const path = join(this.root, "repos", `mission-${key.missionId}.git`);
       try {
         await this.text(["--git-dir", path, "rev-parse", "--verify", "refs/heads/main"]);
       } catch {
-        await this.git(["init", "--bare", "-q", "-b", "main", path]);
+        await this.git(["init", "--bare", "-q", "-b", "main", path]).catch(async (e: Error) => {
+          // Another runner process created it a moment ago.
+          await this.text(["--git-dir", path, "rev-parse", "--git-dir"]).catch(() => {
+            throw e;
+          });
+        });
+        if (await this.text(["--git-dir", path, "rev-parse", "--verify", "refs/heads/main"]).catch(() => ""))
+          return path;
         const tree = await this.text(["--git-dir", path, "hash-object", "-t", "tree", "-w", "--stdin"], {
           input: "",
         });
@@ -145,8 +179,6 @@ export class Worktrees {
       }
       return path;
     }
-    const id = createHash("sha256").update(key.repo.url).digest("hex").slice(0, 16);
-    const path = join(this.root, "repos", `${id}.git`);
     try {
       await this.text(["--git-dir", path, "rev-parse", "--git-dir"]);
       // No --prune: brio/* attempt branches live here too and must survive a fetch.
@@ -164,13 +196,22 @@ export class Worktrees {
     missionId: string;
     taskKey: string;
     repo?: RepoSource | null;
+    /** Branches in the cache to start from (upstream attempts); several are merged. */
+    bases?: string[];
+    /** Use an existing cache (check runs on a branch the cache already holds). */
+    cacheOverride?: string;
   }): Promise<PreparedWorktree> {
-    const cache = await this.cache(i.repo ? { repo: i.repo } : { missionId: i.missionId });
-    const ref = i.repo?.branch
-      ? `refs/heads/${i.repo.branch}`
-      : (await this.text(["--git-dir", cache, "symbolic-ref", "HEAD"]).catch(() => "refs/heads/main")) ||
-        "refs/heads/main";
-    const base = await this.text(["--git-dir", cache, "rev-parse", "--verify", `${ref}^{commit}`]);
+    const cache =
+      i.cacheOverride ?? (await this.cache(i.repo ? { repo: i.repo } : { missionId: i.missionId }));
+    let base: string;
+    if (i.bases?.length) base = await this.mergeBases(cache, i.bases);
+    else {
+      const ref = i.repo?.branch
+        ? `refs/heads/${i.repo.branch}`
+        : (await this.text(["--git-dir", cache, "symbolic-ref", "HEAD"]).catch(() => "refs/heads/main")) ||
+          "refs/heads/main";
+      base = await this.text(["--git-dir", cache, "rev-parse", "--verify", `${ref}^{commit}`]);
+    }
     const branch = `brio/${i.missionId.slice(0, 8)}/${i.taskKey}/${i.attemptId.slice(0, 8)}`;
     const path = join(this.root, "worktrees", i.attemptId);
     await rm(path, { recursive: true, force: true });
@@ -178,6 +219,55 @@ export class Worktrees {
     await this.git(["clone", "-q", "--no-hardlinks", "--no-checkout", "--", cache, path]);
     await this.git(["-C", path, "checkout", "-q", "-B", branch, base]);
     return { path, branch, base, cache };
+  }
+
+  /**
+   * One commit holding all the given branches: the branch itself for one, else their merge, computed in the trusted
+   * cache without a worktree. Throws on a conflict.
+   */
+  async mergeBases(cache: string, branches: string[]): Promise<string> {
+    const heads = await Promise.all(
+      branches.map((b) =>
+        this.text(["--git-dir", cache, "rev-parse", "--verify", `refs/heads/${b}^{commit}`]),
+      ),
+    );
+    let commit = heads[0] as string;
+    for (let k = 1; k < heads.length; k++) {
+      const other = heads[k] as string;
+      const merged = await this.git([
+        "--git-dir",
+        cache,
+        "merge-tree",
+        "--write-tree",
+        "--no-messages",
+        commit,
+        other,
+      ]).catch((e: Error) => {
+        throw new GitError(
+          `the upstream changes conflict (${branches[0]} and ${branches[k]}); a merge task is needed: ${e.message}`,
+        );
+      });
+      const tree = merged.stdout.toString("utf8").trim().split("\n")[0] as string;
+      commit = await this.text([
+        "--git-dir",
+        cache,
+        "commit-tree",
+        tree,
+        "-p",
+        commit,
+        "-p",
+        other,
+        "-m",
+        `Merge upstream: ${branches.join(", ")}`,
+      ]);
+    }
+    return commit;
+  }
+
+  /** The repository's files at a commit (the planner's repo map). */
+  async listFiles(cache: string, ref: string): Promise<string[]> {
+    const out = await this.text(["--git-dir", cache, "ls-tree", "-r", "--name-only", ref]);
+    return out ? out.split("\n") : [];
   }
 
   /** Commits whatever the agent left in the worktree to its branch in the runner's cache, and returns the diff. */

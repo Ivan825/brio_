@@ -127,3 +127,43 @@ describe("worktree hand-over files", () => {
     expect(r.files.map((f) => f.path)).toEqual(["out.txt"]);
   });
 });
+
+describe("upstream bases", () => {
+  it("starts from one upstream branch, merges several, and refuses a conflict", async () => {
+    const wt = new Worktrees(join(root, "runner"));
+    const mission = "0192b3c4-5d6e-7f80-9a1b-0000000000dd";
+    const mk = async (n: number, file: string, content: string, bases?: string[]) => {
+      const w = await wt.prepare({
+        attemptId: `0192b3c4-5d6e-7f80-9a1b-00000000010${n}`,
+        missionId: mission,
+        taskKey: `t${n}`,
+        ...(bases ? { bases } : {}),
+      });
+      await writeFile(join(w.path, file), content);
+      await wt.collect(w, `x${n}`, `t${n}`);
+      return w;
+    };
+    const a = await mk(1, "a.txt", "a\n");
+    const b = await mk(2, "b.txt", "b\n");
+    const merged = await wt.prepare({
+      attemptId: "0192b3c4-5d6e-7f80-9a1b-000000000103",
+      missionId: mission,
+      taskKey: "t3",
+      bases: [a.branch, b.branch],
+    });
+    expect(
+      (await readFile(join(merged.path, "a.txt"), "utf8")) +
+        (await readFile(join(merged.path, "b.txt"), "utf8")),
+    ).toBe("a\nb\n");
+    const c = await mk(4, "a.txt", "conflict\n");
+    await expect(
+      wt.prepare({
+        attemptId: "0192b3c4-5d6e-7f80-9a1b-000000000105",
+        missionId: mission,
+        taskKey: "t5",
+        bases: [a.branch, c.branch],
+      }),
+    ).rejects.toThrow(/conflict/);
+    expect(await wt.listFiles(a.cache, a.branch)).toEqual(["a.txt"]);
+  });
+});

@@ -8,6 +8,24 @@ const prompt = readFileSync(0, "utf8");
 const out = (o) => process.stdout.write(`${JSON.stringify(o)}\n`);
 
 out({ type: "start", session: "fake-session-1", promptChars: prompt.length });
+if (mode === "mailbox") {
+  // Reach the Brio mailbox over MCP the way a real CLI would: streamable HTTP with the attempt's bearer token.
+  const r = await fetch(process.env.MAILBOX_URL, {
+    method: "POST",
+    headers: {
+      authorization: process.env.MAILBOX_AUTH,
+      "content-type": "application/json",
+      accept: "application/json, text/event-stream",
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: "report_progress", arguments: { note: "hello from inside the sandbox" } },
+    }),
+  }).catch((e) => ({ status: `error ${e.message}`, text: async () => "" }));
+  out({ type: "text", text: `mailbox answered ${r.status}: ${(await r.text()).slice(0, 200)}` });
+}
 if (mode === "leaky") out({ type: "text", text: `my key is ${process.env.FAKE_CLI_KEY}` });
 out({ type: "tool", name: "edit", args: { path: "math.js" } });
 writeFileSync("math.js", `${readFileSync("math.js", "utf8")}export const sub = (a, b) => a - b;\n`);

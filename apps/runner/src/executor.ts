@@ -2,7 +2,8 @@
 // one, reveal the credential just in time, run the adapter, turn its events into Brio events, collect the diff and
 // files as content-addressed artifacts, and record the result. Every step leaves an event; every spend a ledger entry.
 import { createHash } from "node:crypto";
-import { join } from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import {
   type AdapterEvent,
   type AgentAdapter,
@@ -21,6 +22,8 @@ import type { Actor, EventType } from "@brio/schema";
 import type { Redactor, Vault } from "@brio/vault";
 import { and, eq } from "drizzle-orm";
 import { ensureImage, type ImageSet } from "./images";
+import { RunnerMailbox } from "./mailbox";
+import { type MailboxMcpServer, SANDBOX_MAILBOX_URL } from "./mailbox-mcp";
 import { DockerSandbox } from "./sandbox/docker-sandbox";
 import { type CollectedResult, type PreparedWorktree, Worktrees } from "./worktree";
 
@@ -40,6 +43,10 @@ export interface ExecutorDeps {
   images: ImageSet;
   /** Test-only: lets sandbox proxies reach private addresses. */
   proxyAllowPrivate?: boolean;
+  /** Serves the mailbox to CLI agents over MCP (through each sandbox's proxy). */
+  mailboxServer?: MailboxMcpServer;
+  /** How long ask_agent waits for an answer (default 3 minutes). */
+  answerWaitMs?: number;
   /** Resolves adapter keys; defaults to the registered adapters (tests add fakes). */
   resolveAdapter?: (key: string) => AgentAdapter | undefined;
 }
@@ -81,7 +88,7 @@ export class AttemptExecutor {
   async execute(attempt: AttemptRow, abort: AbortController): Promise<void> {
     const { deps } = this;
     const dispatch = attempt.dispatch as unknown as Dispatch | null;
-    if (!dispatch || dispatch.version !== 1) {
+    if (dispatch?.version !== 1) {
       await this.finish(attempt, null, ZERO_RESULT("the attempt has no dispatch plan"), null, null);
       return;
     }
@@ -125,6 +132,26 @@ export class AttemptExecutor {
     );
 
     const adapter = (deps.resolveAdapter ?? adapterFor)(dispatch.adapterKey);
+    const mailbox = new RunnerMailbox(
+      deps.db,
+      deps.events,
+      {
+        workspaceId: attempt.workspaceId,
+        missionId: dispatch.missionId,
+        taskId: attempt.taskId,
+        taskKey: dispatch.taskKey,
+        attemptId: attempt.id,
+        agentId: dispatch.agent.agentId,
+      },
+      { answerWaitMs: deps.answerWaitMs ?? 180_000, signal: abort.signal },
+    );
+    // CLI agents reach the mailbox over MCP through their sandbox's proxy, with a token only this attempt holds.
+    const cliMailbox =
+      dispatch.route === "cli" && dispatch.sandbox?.network.mode === "allowlist" && deps.mailboxServer
+        ? deps.mailboxServer
+        : null;
+    const mailboxToken = cliMailbox?.register(mailbox) ?? null;
+    if (mailboxToken) deps.redactor.register(mailboxToken);
     let worktree: PreparedWorktree | null = null;
     let sandbox: DockerSandbox | null = null;
     let result: RunResult;
@@ -143,7 +170,15 @@ export class AttemptExecutor {
           missionId: dispatch.missionId,
           taskKey: dispatch.taskKey,
           repo: dispatch.repo,
+          ...(dispatch.bases?.length ? { bases: dispatch.bases } : {}),
         });
+        // What Brio hands the agent (handoff packets, the contract) goes in .brio/, which never enters the diff.
+        for (const f of dispatch.files ?? []) {
+          const target = join(worktree.path, ".brio", f.path.replace(/^\.brio\//, ""));
+          if (!target.startsWith(join(worktree.path, ".brio"))) continue;
+          await mkdir(dirname(target), { recursive: true });
+          await writeFile(target, f.content);
+        }
         const image = await ensureImage(deps.images, dispatch.image);
         await ensureImage(deps.images, "proxy");
         if (abort.signal.aborted) throw abort.signal.reason;
@@ -156,6 +191,7 @@ export class AttemptExecutor {
           worktree: worktree.path,
           scratchDir: join(deps.dir, "scratch"),
           ...(deps.proxyAllowPrivate ? { proxyAllowPrivate: true } : {}),
+          ...(cliMailbox ? { mailboxPort: cliMailbox.port } : {}),
         });
         handle = sandbox;
         await deps.db
@@ -166,6 +202,23 @@ export class AttemptExecutor {
         abort.signal.addEventListener("abort", () => void sandbox?.kill(), { once: true });
       }
 
+      const input = { ...dispatch.input, attemptId: attempt.id };
+      if (dispatch.repoMap) {
+        // The planner's repo map: the repository's file list, read from the runner's trusted cache.
+        const cache = await this.worktrees.cache(
+          dispatch.repo ? { repo: dispatch.repo } : { missionId: dispatch.missionId },
+        );
+        const ref = dispatch.repo?.branch ? `refs/heads/${dispatch.repo.branch}` : "HEAD";
+        const files = await this.worktrees.listFiles(cache, ref).catch(() => []);
+        input.attachments = [
+          ...input.attachments,
+          {
+            kind: "repo-map",
+            ref: `repository files (${files.length})`,
+            text: files.length ? files.join("\n") : "(empty repository)",
+          },
+        ];
+      }
       const credential = dispatch.credentialRef
         ? await deps.vault.reveal(deps.db, attempt.workspaceId, dispatch.credentialRef)
         : null;
@@ -195,13 +248,24 @@ export class AttemptExecutor {
             return append("message.sent", { kind: "question", to: "user", body: e.question });
         }
       };
-      result = await adapter.run({ ...dispatch.input, attemptId: attempt.id }, dispatch.agent, {
+      if (mailboxToken)
+        input.mcpServers = [
+          ...input.mcpServers,
+          {
+            name: "brio-mailbox",
+            transport: "http",
+            url: SANDBOX_MAILBOX_URL,
+            headers: { Authorization: `Bearer ${mailboxToken}` },
+          },
+        ];
+      result = await adapter.run(input, dispatch.agent, {
         credential,
         emit,
         signal: abort.signal,
         sandbox: handle,
         logger: deps.log,
         fetch: deps.fetch,
+        tools: { mailbox },
       });
     } catch (err) {
       const reason = abort.signal.aborted
@@ -215,6 +279,7 @@ export class AttemptExecutor {
       };
     } finally {
       clearTimeout(timer);
+      if (mailboxToken) cliMailbox?.revoke(mailboxToken);
     }
 
     if (sandbox) await sandbox.destroy().catch(() => {});

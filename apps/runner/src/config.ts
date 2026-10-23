@@ -13,6 +13,8 @@ const Env = z.object({
   /** Worktrees, repository caches and scratch files. */
   BRIO_RUNNER_DIR: z.string().default(join(homedir(), ".brio", "runner")),
   BRIO_RUNNER_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(2),
+  /** Port of the mailbox MCP server sandboxes reach through their proxy (0: any free port). */
+  BRIO_RUNNER_MAILBOX_PORT: z.coerce.number().int().min(0).default(0),
   /** Liveness endpoint (GET /health) for orchestrators; off when unset. */
   BRIO_RUNNER_HEALTH_PORT: z.coerce.number().int().positive().optional(),
   BRIO_IMAGE_BASE: z.string().optional(),

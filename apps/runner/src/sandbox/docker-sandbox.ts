@@ -29,6 +29,8 @@ export interface CreateSandboxInput {
   scratchDir: string;
   /** Lets the proxy reach private addresses (tests with a local upstream only). */
   proxyAllowPrivate?: boolean;
+  /** Port of the runner's mailbox server; the proxy relays brio-mailbox:8080 to it. */
+  mailboxPort?: number;
 }
 
 /** A relative path inside the worktree, or an error. Absolute paths and `..` escapes are refused. */
@@ -93,9 +95,17 @@ export class DockerSandbox implements SandboxHandle {
           `BRIO_PROXY_ALLOW=${i.spec.network.hosts.join(",")}`,
           "-e",
           `BRIO_PROXY_ALLOW_PRIVATE=${i.proxyAllowPrivate ? "true" : "false"}`,
+          ...(i.mailboxPort
+            ? [
+                "-e",
+                `BRIO_PROXY_MAILBOX_UPSTREAM=host.docker.internal:${i.mailboxPort}`,
+                "--add-host",
+                "host.docker.internal:host-gateway",
+              ]
+            : []),
           i.images.proxy,
         ]);
-        await docker(["network", "connect", "--alias", "egress", network, proxy]);
+        await docker(["network", "connect", "--alias", "egress", "--alias", "brio-mailbox", network, proxy]);
         await waitForProxy(proxy);
         netArgs.push("--network", network);
         const url = `http://egress:${PROXY_PORT}`;

@@ -50,6 +50,7 @@ const runner = new Runner({
     proxy: config.BRIO_IMAGE_PROXY ?? DEFAULT_IMAGES.proxy,
   },
   concurrency: config.BRIO_RUNNER_CONCURRENCY,
+  mailboxPort: config.BRIO_RUNNER_MAILBOX_PORT,
 });
 await runner.start();
 await runner.reap();

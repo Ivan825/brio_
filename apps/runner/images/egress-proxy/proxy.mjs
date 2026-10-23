@@ -126,3 +126,27 @@ server.on("connect", async (req, socket, head) => {
 server.on("clientError", (_err, socket) => socket.destroy());
 
 server.listen(PORT, "0.0.0.0", () => log({ listening: PORT, allow: ALLOW }));
+
+// The Brio mailbox: the only service on the runner host a sandbox may reach. Requests to this listener (the proxy's
+// alias brio-mailbox:8080) are relayed to the runner's mailbox server; the bearer token decides which attempt speaks.
+const MAILBOX = process.env.BRIO_PROXY_MAILBOX_UPSTREAM;
+if (MAILBOX) {
+  const [mhost, mport] = MAILBOX.split(":");
+  createServer((req, res) => {
+    req.on("error", () => res.destroy());
+    const up = request(
+      { host: mhost, port: Number(mport), method: req.method, path: req.url, headers: req.headers },
+      (r) => {
+        res.writeHead(r.statusCode ?? 502, r.headers);
+        r.pipe(res);
+      },
+    );
+    up.on("error", () => {
+      if (!res.headersSent) res.writeHead(502).end("mailbox unavailable");
+      else res.destroy();
+    });
+    req.pipe(up);
+  })
+    .on("clientError", (_e, socket) => socket.destroy())
+    .listen(8080, "0.0.0.0", () => log({ mailbox: MAILBOX }));
+}

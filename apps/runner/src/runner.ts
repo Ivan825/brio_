@@ -8,10 +8,12 @@ import type { Redactor, Vault } from "@brio/vault";
 import { and, eq, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import pg from "pg";
 import type { PgBoss } from "pg-boss";
+import { CheckExecutor } from "./checks";
 import { docker, removeByLabel } from "./docker";
 import { AttemptExecutor } from "./executor";
 import type { ImageSet } from "./images";
-import { ATTEMPT_QUEUE, type AttemptJob, CANCEL_CHANNEL, enqueueAttempt } from "./queue";
+import { MailboxMcpServer } from "./mailbox-mcp";
+import { ATTEMPT_QUEUE, type AttemptJob, CANCEL_CHANNEL, CHECK_QUEUE, enqueueAttempt } from "./queue";
 
 const { attempts, tasks } = schema;
 
@@ -35,11 +37,16 @@ export interface RunnerOptions {
   proxyAllowPrivate?: boolean;
   runnerId?: string;
   resolveAdapter?: (key: string) => AgentAdapter | undefined;
+  answerWaitMs?: number;
+  /** Port for the mailbox MCP server (0: any free port). */
+  mailboxPort?: number;
 }
 
 export class Runner {
   readonly id: string;
   private readonly executor: AttemptExecutor;
+  private readonly checks: CheckExecutor;
+  private readonly mailboxServer = new MailboxMcpServer();
   private readonly running = new Map<string, { abort: AbortController; done: Promise<void> }>();
   private listener: pg.Client | null = null;
   private timers: NodeJS.Timeout[] = [];
@@ -47,7 +54,8 @@ export class Runner {
 
   constructor(private readonly o: RunnerOptions) {
     this.id = o.runnerId ?? `runner-${randomBytes(4).toString("hex")}`;
-    this.executor = new AttemptExecutor({ ...o, runnerId: this.id });
+    this.executor = new AttemptExecutor({ ...o, runnerId: this.id, mailboxServer: this.mailboxServer });
+    this.checks = new CheckExecutor({ ...o, runnerId: this.id });
   }
 
   get active(): string[] {
@@ -55,11 +63,19 @@ export class Runner {
   }
 
   async start(): Promise<void> {
+    await this.mailboxServer.start(this.o.mailboxPort ?? 0);
     await this.o.boss.work<AttemptJob>(
       ATTEMPT_QUEUE,
       { localConcurrency: this.o.concurrency ?? 2, batchSize: 1, pollingIntervalSeconds: 0.5 },
       async ([job]) => {
         if (job) await this.run(job.data.attemptId);
+      },
+    );
+    await this.o.boss.work<AttemptJob>(
+      CHECK_QUEUE,
+      { localConcurrency: this.o.concurrency ?? 2, batchSize: 1, pollingIntervalSeconds: 0.5 },
+      async ([job]) => {
+        if (job && !this.stopped) await this.checks.run(job.data.attemptId, job.signal);
       },
     );
     this.listener = new pg.Client({ connectionString: this.o.databaseUrl });
@@ -201,9 +217,11 @@ export class Runner {
     this.stopped = true;
     for (const t of this.timers) clearInterval(t);
     await this.o.boss.offWork(ATTEMPT_QUEUE).catch(() => {});
+    await this.o.boss.offWork(CHECK_QUEUE).catch(() => {});
     for (const r of this.running.values()) r.abort.abort();
     await Promise.all([...this.running.values()].map((r) => r.done));
     await this.listener?.end().catch(() => {});
+    await this.mailboxServer.stop();
   }
 }
 

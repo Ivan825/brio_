@@ -61,6 +61,9 @@ const fakeCli = createCliAdapter({
     "node",
     ".fake-cli.mjs",
   ],
+  mcp: (servers) => ({
+    env: { MAILBOX_URL: servers[0]?.url ?? "", MAILBOX_AUTH: servers[0]?.headers?.Authorization ?? "" },
+  }),
   parse(e, state) {
     if (e.type === "start") state.sessionId = String(e.session);
     if (e.type === "text") return [{ kind: "message", role: "assistant", text: String(e.text) }];
@@ -424,6 +427,21 @@ describe.skipIf(!hasTestDatabase || !hasDocker)("runner on Docker (M2 acceptance
     expect(diff.meta).toMatchObject({ quarantined: true });
     const all = await db.db.select().from(blobs).where(eq(blobs.workspaceId, ws.id));
     expect(all.some((b) => b.bytes.toString("utf8").includes(KEY))).toBe(false);
+  });
+
+  it("a CLI in its sandbox reaches the Brio mailbox over MCP with its own token", async () => {
+    const id = await queue({ adapter: "fake-cli", key: "cli-mailbox", cliMode: "mailbox" });
+    await enqueueAttempt(boss, id);
+    const a = await waitFor(id);
+    expect(a.status, a.exitReason ?? "").toBe("succeeded");
+    const events = (await readEventsSince(db.db, missionId, 0)).filter((e) => e.attemptId === id);
+    expect(
+      events.map((e) => (e.payload as { text?: string }).text),
+      JSON.stringify(events.map((e) => e.payload)),
+    ).toContain("hello from inside the sandbox");
+    const answer = events.find((e) => (e.payload as { text?: string }).text?.startsWith("mailbox answered"));
+    expect((answer?.payload as { text?: string } | undefined)?.text).toMatch(/^mailbox answered 200/);
+    expect(JSON.stringify(events)).not.toMatch(/Bearer [A-Za-z0-9_-]{20,}/);
   });
 
   it("the reaper fails attempts whose runner stopped heartbeating", async () => {

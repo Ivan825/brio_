@@ -3,6 +3,8 @@
 import { PgBoss } from "pg-boss";
 
 export const ATTEMPT_QUEUE = "brio-attempts";
+/** Command checks (tests, typecheck, lint, build) on a finished attempt's branch. */
+export const CHECK_QUEUE = "brio-checks";
 /** NOTIFY channel the API uses to ask runners to cancel an attempt. */
 export const CANCEL_CHANNEL = "brio_attempt_cancel";
 
@@ -17,9 +19,14 @@ export async function startQueue(connectionString: string): Promise<PgBoss> {
   });
   await boss.start();
   await boss.createQueue(ATTEMPT_QUEUE, { retryLimit: 0, expireInSeconds: 4 * 3600 }).catch(() => {});
+  await boss.createQueue(CHECK_QUEUE, { retryLimit: 1, expireInSeconds: 3600 }).catch(() => {});
   return boss;
 }
 
 export function enqueueAttempt(boss: PgBoss, attemptId: string): Promise<string | null> {
   return boss.send(ATTEMPT_QUEUE, { attemptId } satisfies AttemptJob);
+}
+
+export function enqueueChecks(boss: PgBoss, attemptId: string): Promise<string | null> {
+  return boss.send(CHECK_QUEUE, { attemptId } satisfies AttemptJob);
 }
