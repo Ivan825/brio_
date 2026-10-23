@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import { ownCache } from "../../vitest.shared";
 
 try {
   process.loadEnvFile(new URL("../../.env", import.meta.url));
@@ -7,5 +8,9 @@ try {
 }
 
 export default defineConfig({
-  test: { testTimeout: 30_000, hookTimeout: 60_000 },
+  test: {
+    fsModuleCachePath: ownCache(import.meta.url),
+    testTimeout: 30_000,
+    hookTimeout: 60_000,
+  },
 });

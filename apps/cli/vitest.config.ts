@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import { ownCache } from "../../vitest.shared";
 
 // Own config so `vitest run` here never falls back to the repo-root workspace config.
-export default defineConfig({ test: {} });
+export default defineConfig({ test: { fsModuleCachePath: ownCache(import.meta.url) } });
