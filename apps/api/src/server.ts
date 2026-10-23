@@ -19,6 +19,7 @@ import type { Config } from "./config";
 import type { AppContext } from "./context";
 import { HttpError } from "./http";
 import { LogMailer } from "./mailer";
+import { mcpRoutes } from "./mcp/server";
 import { Orchestrator } from "./orchestrator/orchestrator";
 import { PricingService, parseFx } from "./pricing";
 import { agentRoutes } from "./routes/agents";
@@ -170,6 +171,7 @@ export async function buildServer({
   await evalRoutes(app, ctx);
   await hookRoutes(app, ctx);
   await tokenRoutes(app, ctx);
+  await mcpRoutes(app, ctx);
   if (config.BRIO_DEV_OUTBOX && config.NODE_ENV !== "production") await devRoutes(app, ctx);
   ctx.orchestrator.start();
 
