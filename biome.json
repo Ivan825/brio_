@@ -59,6 +59,16 @@
           }
         }
       }
+    },
+    {
+      "includes": ["**/test/**", "**/*.test.ts", "**/e2e/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noNonNullAssertion": "off"
+          }
+        }
+      }
     }
   ]
 }

@@ -1,0 +1,23 @@
+# Local infrastructure. `docker compose up -d` then `pnpm db:migrate`.
+name: brio
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: brio
+      POSTGRES_PASSWORD: brio
+      POSTGRES_DB: brio
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U brio -d brio"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  pgdata:

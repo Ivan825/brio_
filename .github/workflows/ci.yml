@@ -16,6 +16,19 @@ jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: brio
+          POSTGRES_PASSWORD: brio
+          POSTGRES_DB: brio
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U brio -d brio" --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      DATABASE_URL: postgres://brio:brio@localhost:5433/brio
+      TEST_DATABASE_URL: postgres://brio:brio@localhost:5433/postgres
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -26,6 +39,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm lint
+      - name: Migrations apply cleanly on an empty database
+        run: pnpm db:migrate
+      - name: Schema and migrations are in sync
+        run: |
+          pnpm --filter @brio/db db:check
+          pnpm --filter @brio/db exec drizzle-kit generate --name=ci_drift
+          test -z "$(git status --porcelain packages/db/migrations)" || { git status --porcelain packages/db/migrations; echo "schema changed without a migration: run pnpm db:generate"; exit 1; }
       - run: pnpm test
 
   e2e:
