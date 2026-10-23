@@ -285,6 +285,9 @@ importers:
       '@brio/vault':
         specifier: workspace:*
         version: link:../vault
+      '@modelcontextprotocol/sdk':
+        specifier: 1.32.1
+        version: 1.32.1(zod@4.6.7)
 
   packages/brand:
     devDependencies:

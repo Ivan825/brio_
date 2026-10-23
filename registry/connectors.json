@@ -3953,6 +3953,36 @@
       "docsUrl": "https://a2a-protocol.org/latest/specification/",
       "verifiedOn": "2026-10-24",
       "notes": "A2A v1.0 over JSON-RPC, through the official SDK. Its skills suggest the task types it takes; change them on the connector."
+    },
+    "mcp": {
+      "connector": "model-context-protocol",
+      "name": "MCP server",
+      "vendor": "mcp",
+      "kind": "mcp",
+      "adapter": "mcp",
+      "taskTypes": [],
+      "baseUrl": "{url}",
+      "auth": {
+        "scheme": "optional-bearer"
+      },
+      "settings": [
+        {
+          "key": "url",
+          "label": "Server URL",
+          "required": true,
+          "pattern": "^https?://",
+          "placeholder": "https://mcp.example.com/mcp",
+          "help": "A remote MCP server (streamable HTTP)."
+        }
+      ],
+      "health": null,
+      "pricing": {
+        "unit": "unmetered",
+        "note": "An MCP server's own costs are its owner's; Brio meters the agents that call it."
+      },
+      "docsUrl": "https://modelcontextprotocol.io/specification/latest",
+      "verifiedOn": "2026-10-24",
+      "notes": "A tool attached to agents: model-API agents call its tools in their tool loop; coding CLIs get it in their MCP configuration. Its key check lists its tools."
     }
   }
 }

@@ -42,6 +42,8 @@ export interface Dispatch {
    * The workspace's web search, page fetch and cloud browser; absent when it has none, or for confidential tasks.
    */
   tools?: { search?: ToolRef; fetch?: ToolRef; browser?: ToolRef };
+  /** The agent's MCP servers (no secrets: the runner adds each one's credential from the vault). */
+  mcp?: Array<{ connectorId: string; name: string; url: string; credentialRef: string | null }>;
   /** Attach the repository's file list (the planner's repo map). */
   repoMap?: boolean;
   /**

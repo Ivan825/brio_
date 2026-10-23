@@ -1,6 +1,7 @@
 // AgentAdapter implementations, one folder per connector family (docs/ADAPTER_SPEC.md).
 import { ADAPTERS_BY_FAMILY } from "./api-family-registry";
 import { CLI_ADAPTERS } from "./cli/index";
+import { mcpConnector } from "./mcp/tools";
 import {
   a2a,
   BROWSER_ADAPTERS,
@@ -18,6 +19,7 @@ export const ADAPTERS: Readonly<Record<string, AgentAdapter>> = {
   ...Object.fromEntries(HOSTED_ADAPTERS.map((a) => [a.key, a])),
   ...Object.fromEntries(BROWSER_ADAPTERS.map((a) => [a.key, a])),
   a2a,
+  mcp: mcpConnector,
   ...Object.fromEntries(MEDIA_ADAPTERS.map((a) => [a.key, a])),
   ...Object.fromEntries(RESEARCH_AGENT_ADAPTERS.map((a) => [a.key, a])),
   ...Object.fromEntries(RESEARCH_TOOL_ADAPTERS.map((a) => [a.key, a])),
@@ -48,6 +50,7 @@ export {
 } from "./families/openai-compatible/index";
 export * from "./http";
 export * from "./logger";
+export { checkMcpServer, mcpToolName, openMcpTools } from "./mcp/tools";
 export * from "./models";
 export * from "./net";
 export * from "./services/index";

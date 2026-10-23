@@ -173,7 +173,8 @@ export type Preset = z.infer<typeof Preset>;
 /** What a service connector is for (non-model APIs: hosted agents, media, search, page fetching, browsers). */
 /**
  * hosted agents, media models, research agents, search and fetch tools (every agent's), browser agents, cloud
- * browsers (infrastructure computer use can run on), and A2A agents (any agent by its URL).
+ * browsers (infrastructure computer use can run on), A2A agents (any agent by its URL), and MCP servers (tools attached
+ * to agents).
  */
 export const ServiceKind = z.enum([
   "hosted",
@@ -184,6 +185,7 @@ export const ServiceKind = z.enum([
   "browser",
   "cloud-browser",
   "a2a",
+  "mcp",
 ]);
 export type ServiceKind = z.infer<typeof ServiceKind>;
 

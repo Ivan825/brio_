@@ -19,6 +19,7 @@
     "@brio/core": "workspace:*",
     "@brio/registry": "workspace:*",
     "@brio/schema": "workspace:*",
-    "@brio/vault": "workspace:*"
+    "@brio/vault": "workspace:*",
+    "@modelcontextprotocol/sdk": "1.32.1"
   }
 }
