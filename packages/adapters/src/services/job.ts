@@ -201,6 +201,7 @@ export function createJobAdapter<J>(v: JobVendor<J>): AgentAdapter {
         return result(ctx.signal.aborted ? "cancelled" : "failed", { error: err.message });
       }
       const id = v.idOf(job);
+      ctx.emit({ kind: "vendor_run", id });
       ctx.emit({ kind: "progress", note: `started ${id}` });
 
       const declined = new Set<string>();

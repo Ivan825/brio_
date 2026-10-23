@@ -234,6 +234,13 @@ export class AttemptExecutor {
         : null;
       const emit = (e: AdapterEvent) => {
         switch (e.kind) {
+          case "vendor_run":
+            chain = chain
+              .then(() =>
+                deps.db.update(attempts).set({ transcriptRef: e.id }).where(eq(attempts.id, attempt.id)),
+              )
+              .catch(() => {});
+            return;
           case "message":
             return append("attempt.message", { role: e.role, text: e.text });
           case "tool_call":

@@ -156,6 +156,8 @@ export interface RunContext {
 }
 
 export type AdapterEvent =
+  /** The vendor's id for the run, as soon as it exists (webhooks and support tickets refer to it). */
+  | { kind: "vendor_run"; id: string }
   | { kind: "message"; role: "assistant" | "tool"; text: string }
   | { kind: "tool_call"; name: string; args: unknown }
   | { kind: "file_edit"; path: string; op: "create" | "modify" | "delete" }
