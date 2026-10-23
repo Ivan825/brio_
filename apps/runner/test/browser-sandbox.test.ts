@@ -4,7 +4,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { sandboxActuator } from "@brio/adapters";
+import { sandboxActuator, sandboxNovaBrowser } from "@brio/adapters";
 import { chooseSandbox } from "@brio/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { dockerAvailable } from "../src/docker";
@@ -91,5 +91,26 @@ describe.skipIf(!hasDocker)("browser sandbox", () => {
     expect(await titleMatches(/^ok/)).toBe(true);
     expect(await a.act("cursor_position", {})).toMatch(/^X=\d+, Y=\d+$/);
     await a.close();
+  }, 120_000);
+
+  it("serves Nova Act: the screen is the viewport, observations are JPEGs, actions land in page coordinates", async () => {
+    const b = sandboxNovaBrowser(sandbox);
+    await b.open(PAGE);
+    const obs = JSON.parse(await b.observe()) as {
+      activeURL: string;
+      screenshotBase64: string;
+      browserDimensions: { windowWidth: number; windowHeight: number };
+    };
+    expect(obs.activeURL).toMatch(/^data:text\/html,/);
+    expect(obs.screenshotBase64).toMatch(/^data:image\/jpeg;base64,\/9j\//);
+    // Within a pixel of Nova Act's 1600×813 (the SDK accepts ±20%).
+    expect(Math.abs(obs.browserDimensions.windowWidth - 1600)).toBeLessThanOrEqual(2);
+    expect(Math.abs(obs.browserDimensions.windowHeight - 813)).toBeLessThanOrEqual(2);
+    // Page coordinates: the button is at 200–400 px down the page, the input at the top.
+    await b.click(200, 300, "left");
+    expect(await titleMatches(/clicked/)).toBe(true);
+    await b.type(200, 30, "nova here", false);
+    expect(await titleMatches(/^nova here/)).toBe(true);
+    await b.close();
   }, 120_000);
 });

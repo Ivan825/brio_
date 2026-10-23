@@ -1,9 +1,11 @@
 #!/bin/sh
-# Starts the virtual display and Chromium for computer use: brio-browser <width> <height> [url]
+# Starts the virtual display and Chromium for computer use: brio-browser <width> <height> [url] [kiosk]
+# kiosk: the page fills the screen (no browser UI), so the viewport is exactly width × height (Nova Act).
+# DevTools listens on 127.0.0.1:9222 inside the container only (brio-cdp).
 # Chromium's own sandbox needs privileges the container drops; the container is the sandbox (--test-type hides the
 # warning bar about it, which would cover the page).
 set -eu
-W=${1:?width}; H=${2:?height}; URL=${3:-about:blank}
+W=${1:?width}; H=${2:?height}; URL=${3:-about:blank}; MODE=${4:-}
 export DISPLAY=:99
 if ! xdpyinfo >/dev/null 2>&1; then
   Xvfb :99 -screen 0 "${W}x${H}x24" -nolisten tcp >/tmp/xvfb.log 2>&1 &
@@ -11,8 +13,11 @@ if ! xdpyinfo >/dev/null 2>&1; then
 fi
 PROXY=""
 [ -n "${HTTPS_PROXY:-}" ] && PROXY="--proxy-server=${HTTPS_PROXY}"
+KIOSK=""
+[ "${MODE}" = "kiosk" ] && KIOSK="--kiosk"
 nohup chromium --no-sandbox --no-first-run --no-default-browser-check --disable-gpu --disable-dev-shm-usage \
   --disable-sync --disable-extensions --password-store=basic --test-type --user-data-dir=/tmp/brio-chrome \
-  --window-position=0,0 --window-size="${W},${H}" ${PROXY} "${URL}" >/tmp/chromium.log 2>&1 &
+  --remote-debugging-address=127.0.0.1 --remote-debugging-port=9222 \
+  --window-position=0,0 --window-size="${W},${H}" ${KIOSK} ${PROXY} "${URL}" >/tmp/chromium.log 2>&1 &
 i=0; until xdotool search --onlyvisible --class chromium >/dev/null 2>&1; do i=$((i+1)); [ "$i" -gt 200 ] && { tail -20 /tmp/chromium.log >&2; exit 1; }; sleep 0.1; done
 sleep 1

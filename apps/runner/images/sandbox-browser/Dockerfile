@@ -9,6 +9,9 @@ RUN apt-get update \
       fonts-liberation fonts-noto-color-emoji fonts-dejavu-core \
  && rm -rf /var/lib/apt/lists/*
 COPY brio-browser /usr/local/bin/brio-browser
-RUN chmod 755 /usr/local/bin/brio-browser
+COPY brio-cdp.mjs /opt/brio/brio-cdp.mjs
+RUN chmod 755 /usr/local/bin/brio-browser \
+ && printf '#!/bin/sh\nexec node /opt/brio/brio-cdp.mjs "$@"\n' > /usr/local/bin/brio-cdp \
+ && chmod 755 /usr/local/bin/brio-cdp
 USER 1000:1000
 CMD ["sleep", "infinity"]
