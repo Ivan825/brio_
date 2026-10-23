@@ -272,9 +272,23 @@ export interface SearchResult {
   snippet: string;
 }
 
-/** Web search for agents. Providers (Exa, Tavily, Brave, …) arrive with the research adapters in M6. */
+/** Web search for agents (ADAPTER_SPEC §2.9): the workspace's search connector (Exa, Tavily, Parallel, Brave). */
 export interface SearchProvider {
   search(query: string, opts: { limit: number; signal: AbortSignal }): Promise<SearchResult[]>;
+}
+
+export interface FetchedPage {
+  url: string;
+  title: string;
+  /** The page as Markdown (or plain text). */
+  content: string;
+  /** The page's own HTTP status, when the fetcher reports it. */
+  status?: number;
+}
+
+/** Reads a web page for agents: the workspace's fetch connector (Firecrawl, Jina Reader). */
+export interface FetchProvider {
+  fetch(url: string, opts: { signal: AbortSignal }): Promise<FetchedPage>;
 }
 
 export interface InboxMessage {
@@ -307,5 +321,6 @@ export interface Mailbox {
 
 export interface ToolProviders {
   search?: SearchProvider;
+  fetch?: FetchProvider;
   mailbox?: Mailbox;
 }

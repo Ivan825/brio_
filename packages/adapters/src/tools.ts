@@ -120,6 +120,31 @@ export function searchTools(ctx: Pick<RunContext, "tools">): Tool[] {
   ];
 }
 
+export function fetchTools(ctx: Pick<RunContext, "tools">): Tool[] {
+  const provider = ctx.tools?.fetch;
+  if (!provider) return [];
+  return [
+    {
+      name: "fetch_url",
+      description:
+        "Read a public web page as Markdown. Use it to check what a search result or a source says.",
+      parameters: {
+        type: "object",
+        properties: { url: { type: "string", description: "An http(s) URL" } },
+        required: ["url"],
+        additionalProperties: false,
+      },
+      run: async (args, { signal }) => {
+        const url = str(args, "url");
+        if (!/^https?:\/\//i.test(url)) throw new Error("only http(s) URLs can be fetched");
+        const page = await provider.fetch(url, { signal });
+        const status = page.status && page.status >= 400 ? ` (the site answered ${page.status})` : "";
+        return clip(`# ${page.title || page.url}\n${page.url}${status}\n\n${page.content}`);
+      },
+    },
+  ];
+}
+
 export function mailboxTools(ctx: Pick<RunContext, "tools">): Tool[] {
   const mailbox = ctx.tools?.mailbox;
   if (!mailbox) return [];
@@ -229,5 +254,5 @@ export function toolsFor(
   ctx: Pick<RunContext, "tools" | "sandbox">,
   onEdit: (path: string, op: "create" | "modify") => void,
 ) {
-  return [...fileTools(ctx.sandbox, onEdit), ...searchTools(ctx), ...mailboxTools(ctx)];
+  return [...fileTools(ctx.sandbox, onEdit), ...searchTools(ctx), ...fetchTools(ctx), ...mailboxTools(ctx)];
 }
