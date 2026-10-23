@@ -2,7 +2,13 @@
 // needs into a dispatch plan (attempts.dispatch), records it as an event and on the ledger, and queues it; a runner
 // (apps/runner) claims it, sandboxes it when it touches files or is a CLI, and records the result.
 import { type AgentConfig, type CliSpec, type Dispatch, EMPTY_BRIEF, type RunInput } from "@brio/adapters";
-import { type AgentSandboxSetting, browseHostsOf, chooseSandbox } from "@brio/core";
+import {
+  type AgentSandboxSetting,
+  applyNetworkPolicy,
+  browseHostsOf,
+  chooseSandbox,
+  routable,
+} from "@brio/core";
 import { schema } from "@brio/db";
 import { enqueueAttempt, requestCancel } from "@brio/runner";
 import { type Actor, type HandoffPacket, TaskContract, TaskType } from "@brio/schema";
@@ -12,6 +18,7 @@ import { adapterOf, connectorConfig, type Metering, meteringOf, toolsFor } from 
 import type { AppContext } from "./context";
 import { HttpError, one } from "./http";
 import { inputsForAttempt } from "./mission-inputs";
+import { loadPolicies } from "./policies";
 import { pokeRunner } from "./runners/hub";
 
 const { agents, attempts, connectors, missions, projects, runners, tasks } = schema;
@@ -149,13 +156,15 @@ export class AttemptRunner {
     const localLogin = Boolean((connector.config as { localLogin?: unknown }).localLogin);
     const taskType = TaskType.parse(task.type);
     const cc = connectorConfig(connector);
-    // Fail closed until the policy engine (M9): confidential work stays on the user's own machine.
-    if (contract.sensitivity === "confidential" && !cc.preset?.local)
-      throw new HttpError(
-        422,
-        "confidential tasks can only run on local models until data-routing policies arrive",
-        "policy_denied",
-      );
+    // The workspace's policies (M9), checked again at dispatch whatever chose the agent: data routing by sensitivity
+    // and the connector allow-list. Confidential work stays on local models unless a policy allows more.
+    const policies = await loadPolicies(ctx.db, input.workspaceId);
+    const allowed = routable(
+      { registryKey: connector.registryKey, connectorId: connector.id, local: Boolean(cc.preset?.local) },
+      contract.sensitivity,
+      policies,
+    );
+    if (!allowed.ok) throw new HttpError(422, `policy: ${allowed.reason}`, "policy_denied");
 
     const cli = (adapter as { spec?: CliSpec }).spec;
     // Under the person's own sign-in the vendor bills their plan: nothing to meter here.
@@ -247,7 +256,7 @@ export class AttemptRunner {
     });
     // A computer-use agent on a cloud browser needs no local one (the cloud session holds the site allowlist itself).
     const cloudBrowser = adapter.route === "browser" && agent.options?.browser === "cloud";
-    const sandbox = cloudBrowser
+    const chosen = cloudBrowser
       ? null
       : chooseSandbox({
           route: adapter.route,
@@ -263,6 +272,19 @@ export class AttemptRunner {
               // Generated media with a place in the repository (an output path) is part of the change too.
               contract.outputs.some((o) => o.kind === "diff" || o.kind === "file" || Boolean(o.path))),
         });
+    // Network policies (M9): denied hosts are never reachable; allowed ones join code sandboxes' allowlists.
+    const sandbox =
+      chosen && chosen.network.mode === "allowlist"
+        ? (() => {
+            const hosts = applyNetworkPolicy(chosen.network.hosts, policies, {
+              code: chosen.profile.startsWith("code"),
+            });
+            return {
+              ...chosen,
+              network: hosts.length ? { mode: "allowlist" as const, hosts } : { mode: "none" as const },
+            };
+          })()
+        : chosen;
     const tools = await toolsFor(ctx, input.workspaceId, contract.sensitivity);
     if (cloudBrowser && !tools?.browser)
       throw new HttpError(

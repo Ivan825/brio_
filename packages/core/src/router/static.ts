@@ -25,6 +25,11 @@ export interface RouteTask {
   sensitivity: "public" | "internal" | "confidential";
   pinnedAgentId: string | null;
   mode: string;
+  /**
+   * The candidates were already filtered by the workspace's policies (M9, policy/routable), which own data routing:
+   * the router's own fallback (confidential stays local) then steps aside.
+   */
+  policyChecked?: boolean;
 }
 
 export type RouteDecision =
@@ -49,7 +54,10 @@ function preference(task: RouteTask, a: RouteAgent): number {
 
 export function eligibleAgents(task: RouteTask, agents: readonly RouteAgent[]): RouteAgent[] {
   return agents.filter(
-    (a) => a.runnable && a.taskTypes.includes(task.type) && (task.sensitivity !== "confidential" || a.local),
+    (a) =>
+      a.runnable &&
+      a.taskTypes.includes(task.type) &&
+      (task.policyChecked || task.sensitivity !== "confidential" || a.local),
   );
 }
 
@@ -65,7 +73,7 @@ export function staticRoute(task: RouteTask, agents: readonly RouteAgent[]): Rou
     if (!pinned) return { ok: false, reason: "the pinned agent no longer exists" };
     if (!pinned.runnable)
       return { ok: false, reason: `${pinned.name} cannot run (no price or connector off)` };
-    if (task.sensitivity === "confidential" && !pinned.local)
+    if (!task.policyChecked && task.sensitivity === "confidential" && !pinned.local)
       return { ok: false, reason: `${pinned.name} is not local; confidential tasks stay on local models` };
     return {
       ok: true,
@@ -79,7 +87,7 @@ export function staticRoute(task: RouteTask, agents: readonly RouteAgent[]): Rou
   if (agents.length === 0) return { ok: false, reason: "no agents yet: add a connector and build an agent" };
   const eligible = eligibleAgents(task, agents);
   if (eligible.length === 0) {
-    if (task.sensitivity === "confidential")
+    if (!task.policyChecked && task.sensitivity === "confidential")
       return { ok: false, reason: "confidential: needs a local model agent" };
     return { ok: false, reason: `none of your ${agents.length} agent(s) can do ${task.type}` };
   }

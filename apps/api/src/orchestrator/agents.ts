@@ -15,6 +15,9 @@ export interface WorkspaceAgent extends RouteAgent {
   estUsd: number;
   /** The local runner it runs on (M8); null for the cloud. */
   runnerId: string | null;
+  /** For the policy engine (M9): its registry connector and installed connector. */
+  registryKey: string;
+  connectorId: string;
 }
 
 export async function routeAgents(ctx: AppContext, workspaceId: string): Promise<WorkspaceAgent[]> {
@@ -72,6 +75,8 @@ export async function routeAgents(ctx: AppContext, workspaceId: string): Promise
       local: cc.preset?.local ?? false,
       runnable: (metering.runnable || localLogin) && connector.status !== "disabled",
       runnerId: agent.runnerId ?? null,
+      registryKey: connector.registryKey,
+      connectorId: connector.id,
     });
   }
   return out;

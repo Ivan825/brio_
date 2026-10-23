@@ -88,9 +88,12 @@ describe.skipIf(!hasTestDatabase)("M9 acceptance: budgets", () => {
     }
     const done = await rows();
     expect(done).toHaveLength(2);
+    // Stopped by the guard, or by its own limit when that limit was what the budget had left: either way, the budget.
     for (const { a } of done) {
       expect(a.status).toBe("failed");
-      expect(a.exitReason).toMatch(/^limit_exceeded: budget: the mission's budget of \$0\.06 is spent/);
+      expect(a.exitReason).toMatch(
+        /^limit_exceeded: (budget: the mission's budget of \$0\.06 is spent|cost \$0\.0\d+ passed the limit of \$0\.06)/,
+      );
     }
 
     const events = await readEventsSince(h.db.db, id, 0, 10_000);
@@ -118,7 +121,8 @@ describe.skipIf(!hasTestDatabase)("M9 acceptance: budgets", () => {
     }
     const blocked = await rows();
     expect(blocked.map((x) => x.t.status)).toEqual(["blocked", "blocked"]);
-    expect(blocked[0]?.t.blockedReason).toMatch(/budget/);
+    for (const x of blocked)
+      expect(x.t.blockedReason).toMatch(/^budget: the mission's budget of \$0\.06 is spent/);
     const raised = await c.request("PUT", `/v1/missions/${id}/budget`, { usd: 0.07 });
     expect(raised.statusCode, raised.body).toBe(200);
     expect(raised.json().resumed.sort()).toEqual(["a", "b"]);

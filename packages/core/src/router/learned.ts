@@ -166,7 +166,7 @@ export function routeLearned(task: LearnedTask, candidates: Candidate[], o: Rout
     if (!pinned) return { ok: false, reason: "the pinned agent no longer exists" };
     if (!pinned.agent.runnable)
       return { ok: false, reason: `${pinned.agent.name} cannot run (no price or connector off)` };
-    if (task.sensitivity === "confidential" && !pinned.agent.local)
+    if (!task.policyChecked && task.sensitivity === "confidential" && !pinned.agent.local)
       return {
         ok: false,
         reason: `${pinned.agent.name} is not local; confidential tasks stay on local models`,
@@ -195,7 +195,7 @@ export function routeLearned(task: LearnedTask, candidates: Candidate[], o: Rout
   if (candidates.length === 0)
     return { ok: false, reason: "no agents yet: add a connector and build an agent" };
   if (pool.length === 0) {
-    if (task.sensitivity === "confidential")
+    if (!task.policyChecked && task.sensitivity === "confidential")
       return { ok: false, reason: "confidential: needs a local model agent" };
     const unhealthy = candidates.filter((c) => eligibleIds.has(c.agent.id) && !c.healthy).length;
     if (unhealthy)

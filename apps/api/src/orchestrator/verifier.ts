@@ -27,6 +27,7 @@ import { type Actor, type EventType, TaskContract } from "@brio/schema";
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { AppContext } from "../context";
 import { HttpError } from "../http";
+import { allowedAgents, loadPolicies } from "../policies";
 import { pokeRunner } from "../runners/hub";
 import { missionAgents } from "./agents";
 import type { Scoreboard } from "./scoreboard";
@@ -444,25 +445,27 @@ export class Verifier {
 
   /** Reviewers for this result, best first, never from the maker's vendor (pickReviewer). */
   private async reviewerPicker(m: Mission, t: Task, a: Attempt) {
-    const agents = await missionAgents(this.ctx, m);
-    const maker = agents.find((x) => x.id === a.agentId);
+    const contract = TaskContract.parse(t.contract);
+    const everyone = await missionAgents(this.ctx, m);
+    // A reviewer reads the work, so it must be allowed the work's data (policies, M9; confidential stays local by default).
+    const agents = allowedAgents(
+      everyone,
+      contract.sensitivity,
+      await loadPolicies(this.ctx.db, m.workspaceId),
+    ).allowed;
+    const maker = everyone.find((x) => x.id === a.agentId);
     const makerVendor =
       maker?.vendor ??
       (a.dispatch as { agent?: { connector?: { presetKey?: string } } } | null)?.agent?.connector
         ?.presetKey ??
       "unknown";
-    const contract = TaskContract.parse(t.contract);
     const keys = [...new Set(agents.map((x) => x.scoreKey))];
     const scored = await this.scores.get(m.workspaceId, keys, "review.rubric");
     const ranked = [...agents].sort(
       (x, y) => (scored.get(y.scoreKey)?.elo ?? 1200) - (scored.get(x.scoreKey)?.elo ?? 1200),
     );
     return async (_kind: string) =>
-      pickReviewer(
-        ranked,
-        { agentId: a.agentId, vendor: makerVendor },
-        { kind: "review.rubric", confidential: contract.sensitivity === "confidential" },
-      );
+      pickReviewer(ranked, { agentId: a.agentId, vendor: makerVendor }, { kind: "review.rubric" });
   }
 
   private async instructionsFor(m: Mission, t: Task, a: Attempt, item: CheckItem): Promise<string> {

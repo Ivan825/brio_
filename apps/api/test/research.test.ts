@@ -174,7 +174,7 @@ describe.skipIf(!hasTestDatabase)("research through the API", () => {
       if (task?.blockedReason || Date.now() > until) break;
       await new Promise((r) => setTimeout(r, 200));
     }
-    expect(task?.blockedReason).toMatch(/confidential tasks stay on local models/);
+    expect(task?.blockedReason).toMatch(/^policy: .*confidential work goes only to local models/);
     const tried = await h.db.db.select().from(schema.attempts).where(eq(schema.attempts.taskId, task!.id));
     expect(tried).toEqual([]);
   });

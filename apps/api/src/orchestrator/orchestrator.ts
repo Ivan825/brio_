@@ -25,7 +25,9 @@ import {
   parseVerdict,
   passRate,
   plannerInstructions,
+  quickStartLimits,
   reviewInstructions,
+  routable,
   routeLearned,
   type SchedTask,
   seeded,
@@ -38,9 +40,11 @@ import { enqueueIntegration } from "@brio/runner";
 import { type Actor, type EventType, type HandoffPacket, TaskContract } from "@brio/schema";
 import { and, asc, desc, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { RUNNABLE_TASK, renderInstructions } from "../attempts";
+import { checkBudgets, stopReason } from "../budgets";
 import type { AppContext } from "../context";
 import { proposeDelivery } from "../deliveries";
 import { HttpError } from "../http";
+import { allowedAgents, loadPolicies } from "../policies";
 import { pokeRunner } from "../runners/hub";
 import { crewPin, missionAgents, projectRunnerOf, type WorkspaceAgent, worksOnFiles } from "./agents";
 import { approvePlan, latestPlan, quickStarts, storePlan } from "./plans";
@@ -322,7 +326,14 @@ export class Orchestrator {
             .where(eq(missions.id, m.id));
           return stored;
         });
-        if (done && quickStarts(m, { graph: done.plan.graph, lint: done.lint }))
+        if (
+          done &&
+          quickStarts(
+            m,
+            { graph: done.plan.graph, lint: done.lint },
+            quickStartLimits(await loadPolicies(this.ctx.db, m.workspaceId)),
+          )
+        )
           await approvePlan(
             this.ctx,
             { ...m, status: "awaiting_approval" },
@@ -376,7 +387,12 @@ export class Orchestrator {
   }
 
   private async dispatchPlanner(m: Mission, task: Task): Promise<void> {
-    const agents = await missionAgents(this.ctx, m);
+    // The planner reads the goal: the connector allow-list applies to it as to internal work.
+    const agents = allowedAgents(
+      await missionAgents(this.ctx, m),
+      "internal",
+      await loadPolicies(this.ctx.db, m.workspaceId),
+    ).allowed;
     const route = choosePlanner(agents, m.plannerAgentId);
     if (!route.ok) return this.block(m, `planning: ${route.reason}`);
     let repo = false;
@@ -594,7 +610,33 @@ export class Orchestrator {
     const contract = TaskContract.parse(fresh.contract);
     // Work on the files of a project that lives on a local runner goes to that runner's agents only.
     const onRunner = worksOnFiles(fresh, contract) ? await projectRunnerOf(this.ctx, m.projectId) : null;
-    const agents = (await missionAgents(this.ctx, m)).filter((a) => !onRunner || a.runnerId === onRunner);
+    const placed = (await missionAgents(this.ctx, m)).filter((a) => !onRunner || a.runnerId === onRunner);
+    // The workspace's policies (M9) filter candidates before any scoring: a violation is impossible, not warned.
+    const { allowed: agents, refused } = allowedAgents(
+      placed,
+      contract.sensitivity,
+      await loadPolicies(this.ctx.db, m.workspaceId),
+    );
+    if (placed.length && !agents.length) {
+      await this.blockTask(m, fresh, `policy: no agent the workspace's policies allow (${refused[0]})`);
+      return;
+    }
+    // A pinned agent (the mission's one agent, the plan's or the crew's pick) the policies refuse is not replaced.
+    const pin =
+      m.routing.strategy === "single"
+        ? m.routing.agentId
+        : (fresh.pinnedAgentId ?? (await crewPin(this.ctx, m, fresh.type)));
+    if (pin && placed.some((a) => a.id === pin) && !agents.some((a) => a.id === pin)) {
+      const why = placed.find((a) => a.id === pin);
+      const policies = await loadPolicies(this.ctx.db, m.workspaceId);
+      const verdict = why ? routable(why, contract.sensitivity, policies) : null;
+      await this.blockTask(
+        m,
+        fresh,
+        `policy: ${why?.name ?? "the pinned agent"} may not take this task (${verdict && !verdict.ok ? verdict.reason : "refused"})`,
+      );
+      return;
+    }
     const decision = await this.route(
       m,
       fresh,
@@ -698,7 +740,14 @@ export class Orchestrator {
     // The mission's routing strategy: the static router (no learning, no modes), or one agent alone.
     if (m.routing.strategy === "static") {
       const r = staticRoute(
-        { key: t.key, type: t.type, sensitivity: contractSensitivity, pinnedAgentId, mode: "single" },
+        {
+          key: t.key,
+          type: t.type,
+          sensitivity: contractSensitivity,
+          pinnedAgentId,
+          mode: "single",
+          policyChecked: true,
+        },
         agents,
       );
       if (!r.ok) return r;
@@ -743,6 +792,8 @@ export class Orchestrator {
         key: t.key,
         type: t.type,
         sensitivity: contract.sensitivity,
+        // dispatch() filtered the candidates by the workspace's policies already.
+        policyChecked: true,
         pinnedAgentId,
         mode: single ? "single" : t.mode,
         hasTests: contract.acceptance.some((c) => c.hard && COMMAND_CHECKS.has(c.kind)),
@@ -1368,10 +1419,22 @@ export class Orchestrator {
     const a = await this.latestAttempt(t.id);
     if (!a || a.status === "running" || a.status === "queued") return;
     if (await this.mergeBeforeTask(m, t, a).catch(() => false)) return;
-    // A budget reached stops the work; it waits for a person to raise the budget instead of trying again (M9).
+    // A budget reached stops the work; it waits for a person to raise the budget instead of trying again (M9). That
+    // includes an attempt that hit its own limit when the limit was what a budget had left.
     if ((a.cancelReason ?? "").startsWith("budget") || /^limit_exceeded: budget/.test(a.exitReason ?? "")) {
       await this.blockTask(m, t, a.cancelReason ?? a.exitReason ?? "a budget is spent");
       return;
+    }
+    if (/^limit_exceeded/.test(a.exitReason ?? "")) {
+      const left = await checkBudgets(
+        this.ctx.db,
+        { workspaceId: m.workspaceId, agentId: a.agentId, missionId: m.id, taskId: t.id },
+        0,
+      );
+      if (!left.ok) {
+        await this.blockTask(m, t, stopReason(left.scope));
+        return;
+      }
     }
     const v = verdict({
       items: [
