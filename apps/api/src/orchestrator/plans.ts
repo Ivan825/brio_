@@ -144,6 +144,7 @@ export async function approvePlan(
           title: t.title,
           contract: t.contract,
           mode: t.suggestedMode,
+          modeParams: t.modeParams ?? {},
           pinnedAgentId: t.pinnedAgentId ?? null,
           budget: t.contract.budget ?? {},
         })),

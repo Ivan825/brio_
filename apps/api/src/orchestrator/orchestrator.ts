@@ -2,27 +2,43 @@
 // database, asks the pure scheduler what to do, and applies each action with a conditional update. So it can crash,
 // run twice, or restart mid-mission, and the mission carries on from where the database says it is.
 import { randomUUID } from "node:crypto";
-import type { AttemptChecks, CheckItem } from "@brio/adapters";
+import type { AttemptChecks, CheckItem, Dispatch } from "@brio/adapters";
 import {
+  type Assignment,
   buildHandoff,
+  type Candidate,
   choosePlanner,
   decide,
   diffScope,
+  freshScore,
+  judgeInstructions,
   LEASE_BLOCK,
+  type LearnedDecision,
+  type Mode,
+  type ModeAction,
+  type ModeAttempt,
+  mergeInstructions,
+  nextStep,
+  parseJudgment,
   parsePlan,
+  parseVerdict,
   plannerInstructions,
+  reviewInstructions,
+  routeLearned,
   type SchedTask,
-  staticRoute,
+  seeded,
+  stepInstructions,
 } from "@brio/core";
 import { type DbOrTx, schema } from "@brio/db";
 import { enqueueChecks } from "@brio/runner";
 import { type Actor, type EventType, type HandoffPacket, TaskContract } from "@brio/schema";
-import { and, asc, desc, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm";
-import { RUNNABLE_TASK } from "../attempts";
+import { and, asc, desc, eq, gt, gte, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { RUNNABLE_TASK, renderInstructions } from "../attempts";
 import type { AppContext } from "../context";
 import { HttpError } from "../http";
-import { routeAgents } from "./agents";
+import { routeAgents, type WorkspaceAgent } from "./agents";
 import { approvePlan, latestPlan, storePlan } from "./plans";
+import { attemptAgentKey, Scoreboard } from "./scoreboard";
 
 const { artifacts, attempts, blobs, contracts, handoffs, leases, missions, tasks } = schema;
 
@@ -42,6 +58,42 @@ const COMMAND_CHECKS = new Set(["tests", "typecheck", "lint", "build"]);
 const isCodeTask = (t: Pick<Task, "type">) => t.type.startsWith("code.") || t.type === "merge.integrate";
 const footprintOf = (t: Task) => TaskContract.parse(t.contract).expectedFootprint?.paths ?? [];
 
+/** How a task was routed (kept on tasks.mode_params.route): its mode, who plays which role, and why. */
+export interface TaskRoute {
+  mode: Mode;
+  agents: Assignment[];
+  rationale: string;
+  degraded?: string;
+  estUsd: number;
+  /** Attempts created from here on belong to this route (a person's revise or a replan routes again). */
+  startedAt: string;
+}
+/** The attempt a multi-agent mode settled on, which the verifier then checks like a single attempt. */
+export interface ModeResult {
+  attemptId: string;
+  note: string;
+}
+type ModeParams = {
+  route?: TaskRoute;
+  result?: ModeResult;
+  /** Things done once per task (Elo updates, review rows), so a re-run tick does not repeat them. */
+  marks?: string[];
+  n?: number;
+  steps?: Array<{ agentId: string }>;
+  explicit?: boolean;
+};
+const paramsOf = (t: Task) => t.modeParams as ModeParams;
+const multi = (t: Task) => {
+  const r = paramsOf(t).route;
+  return r !== undefined && r.mode !== "single";
+};
+/** A stable seed per task and revision, so a route can be reproduced from the database. */
+const seedOf = (s: string) => {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
+};
+
 export interface OrchestratorOptions {
   sweepMs?: number;
 }
@@ -52,11 +104,14 @@ export class Orchestrator {
   private timer: NodeJS.Timeout | null = null;
   private unsubscribe: (() => void) | null = null;
   private stopped = false;
+  readonly scores: Scoreboard;
 
   constructor(
     private readonly ctx: AppContext,
     private readonly opts: OrchestratorOptions = {},
-  ) {}
+  ) {
+    this.scores = new Scoreboard(ctx);
+  }
 
   /** Reacts to every new event, and sweeps active missions so nothing waits on a missed notification. */
   start(): void {
@@ -352,6 +407,8 @@ export class Orchestrator {
 
     // Verification first: it moves tasks to done, revise or failed, which the scheduler then acts on.
     for (const t of rows) if (t.status === "verifying") await this.verify(m, t);
+    // Multi-agent modes move on as their attempts and checks finish.
+    for (const t of rows) if (t.status === "running" && multi(t)) await this.modeStep(m, t);
     for (const t of rows)
       if (t.status === "failed" && t.revisions < MAX_REVISIONS) await this.reviseAfterFailedAttempt(m, t);
 
@@ -472,54 +529,476 @@ export class Orchestrator {
     const fresh = (await this.ctx.db.select().from(tasks).where(eq(tasks.id, task.id)))[0];
     if (!fresh || !(RUNNABLE_TASK as readonly string[]).includes(fresh.status)) return;
     const revising = fresh.status === "revise";
-    const previous = revising ? await this.latestAttempt(fresh.id) : undefined;
+    // A revision goes back to the agent that made the result: the mode's pick, or the last attempt.
+    const previous = revising ? await this.resultAttempt(fresh, false) : undefined;
     const agents = await routeAgents(this.ctx, m.workspaceId);
     const contract = TaskContract.parse(fresh.contract);
-    const route = staticRoute(
-      {
-        key: fresh.key,
-        type: fresh.type,
-        sensitivity: contract.sensitivity,
-        // A revision goes back to the agent that made the attempt.
-        pinnedAgentId: previous?.agentId ?? fresh.pinnedAgentId,
-        mode: fresh.mode,
-      },
-      agents,
-    );
-    if (!route.ok) {
-      await this.blockTask(m, fresh, `route: ${route.reason}`);
+    const decision = await this.route(m, fresh, contract, agents, previous?.agentId ?? fresh.pinnedAgentId);
+    if (!decision.ok) {
+      await this.blockTask(m, fresh, `route: ${decision.reason}`);
       return;
     }
+    const route: TaskRoute = {
+      mode: decision.mode,
+      agents: decision.agents,
+      rationale: decision.rationale,
+      ...(decision.degraded ? { degraded: decision.degraded } : {}),
+      estUsd: decision.estUsd,
+      startedAt: new Date().toISOString(),
+    };
+    const rationale = route.degraded ? `${route.rationale} · ${route.degraded}` : route.rationale;
 
     const granted = isCodeTask(fresh) ? await this.acquireLeases(m, fresh) : [];
     if (granted === null) return; // lost a race for the files; the next tick blocks or retries it
+    const { result: _result, marks: _marks, ...kept } = paramsOf(fresh);
+    const params = { ...kept, route };
 
-    const packets = (await this.ctx.db.select().from(handoffs).where(eq(handoffs.toTaskId, fresh.id))).map(
-      (h) => h.packet,
-    );
-    const contractFiles = await this.contractFiles(m, contract);
-    const bases =
-      isCodeTask(fresh) || fresh.type.startsWith("design.") ? await this.upstreamBranches(fresh) : [];
+    if (route.mode !== "single") {
+      // The task runs as a whole; its attempts are the mode's to start.
+      const [claimed] = await this.ctx.db
+        .update(tasks)
+        .set({ status: "running", modeParams: params })
+        .where(and(eq(tasks.id, fresh.id), inArray(tasks.status, [...RUNNABLE_TASK])))
+        .returning();
+      if (!claimed) {
+        if (granted.length) await this.releaseLeases(m, fresh, "dispatch lost a race");
+        return;
+      }
+      await this.emitRouted(m, claimed, route, agents);
+      await this.modeStep(m, claimed);
+      return;
+    }
+
+    await this.ctx.db.update(tasks).set({ modeParams: params }).where(eq(tasks.id, fresh.id));
+    await this.emitRouted(m, fresh, route, agents);
+    const inputs = await this.taskInputs(m, fresh, contract);
     try {
       await this.ctx.attempts.start({
         workspaceId: m.workspaceId,
         taskId: fresh.id,
-        agentId: route.agentId,
+        agentId: (route.agents[0] as Assignment).agentId,
         actor: "system",
-        handoffs: packets,
-        bases,
-        files: [
-          ...(packets.length ? [{ path: "handoff.json", content: JSON.stringify(packets, null, 2) }] : []),
-          { path: "contract.json", content: JSON.stringify(contract, null, 2) },
-          ...contractFiles,
-        ],
-        rationale: route.degraded ? `${route.rationale} · ${route.degraded}` : route.rationale,
+        handoffs: inputs.packets,
+        // A revision builds on the work it revises.
+        bases: [...inputs.bases, ...(revising && previous?.worktreeRef ? [previous.worktreeRef] : [])],
+        files: inputs.files,
+        rationale,
         ...(revising && previous ? { feedback: failedChecksFeedback(previous) } : {}),
       });
     } catch (err) {
       if (granted.length) await this.releaseLeases(m, fresh, "dispatch failed");
       if (err instanceof HttpError) await this.blockTask(m, fresh, `dispatch: ${err.message}`);
       else throw err;
+    }
+  }
+
+  /** The learned router over the workspace's agents, with their scores on this task type and the budget left. */
+  private async route(
+    m: Mission,
+    t: Task,
+    contract: TaskContract,
+    agents: WorkspaceAgent[],
+    pinnedAgentId: string | null,
+  ): Promise<LearnedDecision> {
+    const now = new Date();
+    const scored = await this.scores.get(
+      m.workspaceId,
+      [...new Set(agents.map((a) => a.scoreKey))],
+      t.type,
+      now,
+    );
+    const candidates: Candidate[] = agents.map((a) => ({
+      agent: a,
+      score: scored.get(a.scoreKey) ?? freshScore(now),
+      healthy: a.healthy,
+      estUsd: a.estUsd,
+    }));
+    let remainingUsd: number | undefined;
+    if (m.budget.usd !== undefined) {
+      const [spent] = await this.ctx.db
+        .select({ usd: sql<number>`coalesce(sum(${attempts.costUsd}), 0)::float` })
+        .from(attempts)
+        .innerJoin(tasks, eq(tasks.id, attempts.taskId))
+        .where(eq(tasks.missionId, m.id));
+      remainingUsd = Math.max(0, m.budget.usd - (spent?.usd ?? 0));
+    }
+    const p = paramsOf(t);
+    return routeLearned(
+      {
+        key: t.key,
+        type: t.type,
+        sensitivity: contract.sensitivity,
+        pinnedAgentId,
+        mode: t.mode,
+        hasTests: contract.acceptance.some((c) => c.hard && COMMAND_CHECKS.has(c.kind)),
+        modeExplicit: t.mode !== "single" || p.explicit === true,
+        modeParams: { ...(p.n ? { n: p.n } : {}), ...(p.steps ? { steps: p.steps } : {}) },
+      },
+      candidates,
+      {
+        priority: m.priority,
+        rng: seeded(seedOf(`${t.id}:${t.revisions}`)),
+        ...(remainingUsd !== undefined ? { remainingUsd } : {}),
+        everyone: candidates,
+      },
+    );
+  }
+
+  private async emitRouted(m: Mission, t: Task, route: TaskRoute, agents: WorkspaceAgent[]) {
+    const names = new Map(agents.map((a) => [a.id, a.name]));
+    await this.emit(
+      this.ctx.db,
+      m,
+      "task.routed",
+      {
+        taskKey: t.key,
+        mode: route.mode,
+        agents: route.agents.map((a) => ({ ...a, name: names.get(a.agentId) ?? a.agentId })),
+        rationale: route.rationale,
+        degraded: route.degraded ?? null,
+        estUsd: route.estUsd,
+      },
+      { taskId: t.id },
+    );
+  }
+
+  /** What a task's makers receive: handoff packets, the upstream branches to start from, and contract files. */
+  private async taskInputs(m: Mission, t: Task, contract: TaskContract) {
+    const packets = (await this.ctx.db.select().from(handoffs).where(eq(handoffs.toTaskId, t.id))).map(
+      (h) => h.packet,
+    );
+    const contractFiles = await this.contractFiles(m, contract);
+    const bases = isCodeTask(t) || t.type.startsWith("design.") ? await this.upstreamBranches(t) : [];
+    return {
+      packets,
+      bases,
+      files: [
+        ...(packets.length ? [{ path: "handoff.json", content: JSON.stringify(packets, null, 2) }] : []),
+        { path: "contract.json", content: JSON.stringify(contract, null, 2) },
+        ...contractFiles,
+      ],
+    };
+  }
+
+  /**
+   * The attempt that stands as the task's result: the one a multi-agent mode accepted, else the latest one (succeeded
+   * only, when asked).
+   */
+  private async resultAttempt(t: Task, succeededOnly = true): Promise<Attempt | undefined> {
+    const picked = paramsOf(t).result?.attemptId;
+    if (picked) return (await this.ctx.db.select().from(attempts).where(eq(attempts.id, picked)))[0];
+    if (!succeededOnly) return this.latestAttempt(t.id);
+    const [a] = await this.ctx.db
+      .select()
+      .from(attempts)
+      .where(and(eq(attempts.taskId, t.id), eq(attempts.status, "succeeded")))
+      .orderBy(desc(attempts.endedAt))
+      .limit(1);
+    return a;
+  }
+
+  // ---- Multi-agent modes (ROUTING §3.2): the pure engine decides, this applies -------------------------------------
+
+  private async modeStep(m: Mission, t: Task): Promise<void> {
+    const route = paramsOf(t).route;
+    if (!route || route.mode === "single") return;
+    const rows = await this.ctx.db
+      .select()
+      .from(attempts)
+      .where(and(eq(attempts.taskId, t.id), gte(attempts.createdAt, new Date(route.startedAt))))
+      .orderBy(asc(attempts.createdAt));
+    const state: ModeAttempt[] = [];
+    for (const a of rows) {
+      const mode = (a.dispatch as Dispatch | null)?.mode;
+      if (!mode) continue;
+      const item: ModeAttempt = {
+        id: a.id,
+        role: a.role,
+        agentId: a.agentId,
+        status: a.status,
+        checks: "none",
+        purpose: mode.purpose,
+        of: mode.of,
+        step: mode.step,
+        costUsd: a.costUsd ?? 0,
+        createdAt: a.createdAt.getTime(),
+      };
+      if (a.status === "succeeded") {
+        if (mode.purpose === "make" || mode.purpose === "revise" || mode.purpose === "merge")
+          item.checks = await this.modeChecks(m, t, a);
+        else if (mode.purpose === "judge") {
+          const j = parseJudgment(await this.attemptOutput(a));
+          if (j) item.winner = j.winner === "tie" ? "tie" : j.winner === "A" ? mode.of[0] : mode.of[1];
+          await this.recordReview(m, t, a, mode.of, j ? { verdict: j.winner, reasons: j.reasons } : null);
+        } else if (mode.purpose === "review") {
+          const v = parseVerdict(await this.attemptOutput(a));
+          // A review that cannot be read counts as no review at all.
+          if (v) Object.assign(item, { verdict: v.verdict, reasons: v.reasons });
+          else item.status = "failed";
+          await this.recordReview(m, t, a, mode.of, v);
+        }
+      }
+      state.push(item);
+    }
+
+    const actions = nextStep({
+      mode: route.mode,
+      agents: route.agents,
+      attempts: state,
+      maxRevisions: MAX_REVISIONS,
+    });
+    const byId = new Map(rows.map((a) => [a.id, a]));
+    for (const action of actions) {
+      if (action.kind === "dispatch") {
+        const ok = await this.modeDispatch(m, t, route, action, byId);
+        if (!ok) return;
+      } else if (action.kind === "judged") {
+        const w = byId.get(action.winner);
+        const l = action.loser ? byId.get(action.loser) : undefined;
+        const wk = w && attemptAgentKey(w.dispatch);
+        const lk = l && attemptAgentKey(l.dispatch);
+        if (wk && lk && (await this.markOnce(t.id, `elo:${action.winner}:${action.loser}`)))
+          await this.scores.judgment(m.workspaceId, t.type, wk, lk, action.tie);
+      } else if (action.kind === "accept") {
+        return this.acceptModeResult(m, t, action.attemptId, action.note);
+      } else {
+        return this.failModeTask(m, t, action.reason);
+      }
+    }
+  }
+
+  /** A made result's hard checks, summarised for the engine. People's checks wait until a result is chosen. */
+  private async modeChecks(m: Mission, t: Task, a: Attempt): Promise<ModeAttempt["checks"]> {
+    const checks = (a.checks as AttemptChecks | null) ?? (await this.startChecks(m, t, a, false));
+    const auto = checks.items.filter((i) => i.hard && i.status !== "needs_human");
+    if (auto.some((i) => i.status === "failed")) return "failed";
+    if (auto.some((i) => i.status === "pending" || i.status === "running")) return "pending";
+    return auto.length ? "passed" : "none";
+  }
+
+  /** Sets a once-per-task mark; true when this call set it. */
+  private async markOnce(taskId: string, mark: string): Promise<boolean> {
+    const [r] = await this.ctx.db
+      .update(tasks)
+      .set({
+        modeParams: sql`jsonb_set(${tasks.modeParams}, '{marks}', coalesce(${tasks.modeParams}->'marks', '[]'::jsonb) || to_jsonb(${mark}::text))`,
+      })
+      .where(
+        and(eq(tasks.id, taskId), sql`not (coalesce(${tasks.modeParams}->'marks', '[]'::jsonb) ? ${mark})`),
+      )
+      .returning({ id: tasks.id });
+    return Boolean(r);
+  }
+
+  /** A checker's or judge's verdict, as a review row and an event (once). */
+  private async recordReview(
+    m: Mission,
+    t: Task,
+    reviewer: Attempt,
+    of: string[],
+    v: { verdict: "pass" | "revise" | "fail" | "A" | "B" | "tie"; reasons: string } | null,
+  ) {
+    if (!(await this.markOnce(t.id, `review:${reviewer.id}`))) return;
+    const judging = of.length === 2;
+    const reviewed = judging ? (v?.verdict === "B" ? of[1] : of[0]) : of[0];
+    const verdict = judging
+      ? v && v.verdict !== "tie"
+        ? "pass"
+        : "revise"
+      : ((v?.verdict ?? "revise") as "pass" | "revise" | "fail");
+    await this.ctx.db.insert(schema.reviews).values({
+      workspaceId: m.workspaceId,
+      taskId: t.id,
+      attemptId: reviewed ?? null,
+      reviewerAgentId: reviewer.agentId,
+      kind: judging ? "judge" : "review",
+      verdict,
+      reasons: v?.reasons ?? "the answer could not be read",
+      evidence: [{ reviewerAttemptId: reviewer.id, of }],
+    });
+    await this.emit(
+      this.ctx.db,
+      m,
+      judging ? "judge.verdict" : "review.verdict",
+      judging
+        ? {
+            taskKey: t.key,
+            a: of[0],
+            b: of[1],
+            winner: v?.verdict ?? null,
+            reasons: v?.reasons ?? "unreadable",
+          }
+        : {
+            taskKey: t.key,
+            verdict: v?.verdict ?? null,
+            reasons: v ? [v.reasons] : ["unreadable review"],
+            by: "agent",
+          },
+      { taskId: t.id, attemptId: reviewer.id },
+    );
+  }
+
+  /** A result's text for reviewers, judges and mergers: the agent's report and its diff. */
+  private async resultText(a: Attempt | undefined): Promise<string> {
+    if (!a) return "";
+    const rows = await this.ctx.db
+      .select({ kind: artifacts.kind, bytes: blobs.bytes })
+      .from(artifacts)
+      .innerJoin(blobs, and(eq(blobs.workspaceId, artifacts.workspaceId), eq(blobs.sha256, artifacts.sha256)))
+      .where(and(eq(artifacts.attemptId, a.id), inArray(artifacts.kind, ["report", "diff"])));
+    const report = rows.find((r) => r.kind === "report")?.bytes.toString("utf8") ?? "";
+    const diff = rows.find((r) => r.kind === "diff")?.bytes.toString("utf8") ?? "";
+    return diff ? `${report}\n\n--- diff ---\n${diff}` : report;
+  }
+
+  private async modeDispatch(
+    m: Mission,
+    t: Task,
+    route: TaskRoute,
+    action: Extract<ModeAction, { kind: "dispatch" }>,
+    byId: Map<string, Attempt>,
+  ): Promise<boolean> {
+    const contract = TaskContract.parse(t.contract);
+    const brief = { title: t.title, objective: contract.objective, constraints: contract.constraints };
+    const inputs = await this.taskInputs(m, t, contract);
+    const sources = action.of.map((id) => byId.get(id));
+    const texts = await Promise.all(sources.map((a) => this.resultText(a)));
+    const branches = sources.flatMap((a) => (a?.worktreeRef ? [a.worktreeRef] : []));
+    let instructions: string | undefined;
+    let feedback = action.feedback;
+    let bases = inputs.bases;
+    let reader = false;
+    switch (action.purpose) {
+      case "review":
+        instructions = reviewInstructions(brief, texts[0] ?? "");
+        reader = true;
+        break;
+      case "judge":
+        instructions = judgeInstructions(brief, texts[0] ?? "", texts[1] ?? "");
+        reader = true;
+        break;
+      case "merge":
+        instructions = mergeInstructions(brief, texts, feedback);
+        feedback = undefined;
+        // Code is merged on top of the first (the judge's pick, in a debate).
+        bases = [...bases, ...branches.slice(0, 1)];
+        break;
+      case "revise":
+        bases = [...bases, ...branches.slice(0, 1)];
+        break;
+      case "make":
+        if (action.of.length) {
+          // A pipeline step builds on the step before; a cascade step sees what the cheaper agent tried.
+          const label =
+            route.mode === "pipeline" ? "The previous step's result" : "A cheaper agent's failed attempt";
+          instructions = stepInstructions(
+            [renderInstructions(t, contract, m.goal), feedback ?? ""].filter(Boolean).join("\n\n"),
+            texts[0] ?? "",
+            label,
+          );
+          feedback = undefined;
+          if (route.mode === "pipeline") bases = [...bases, ...branches.slice(0, 1)];
+        }
+        break;
+    }
+    try {
+      await this.ctx.attempts.start({
+        workspaceId: m.workspaceId,
+        taskId: t.id,
+        agentId: action.agentId,
+        actor: "system",
+        role: action.role,
+        mode: { purpose: action.purpose, of: action.of, step: action.step },
+        rationale: `${route.mode.replaceAll("_", " ")}: ${action.purpose}${action.step ? ` (step ${action.step + 1})` : ""}`,
+        ...(reader
+          ? { sandboxTaskType: "review.result" }
+          : { handoffs: inputs.packets, bases, files: inputs.files }),
+        ...(instructions ? { instructions } : {}),
+        ...(feedback ? { feedback } : {}),
+      });
+      return true;
+    } catch (err) {
+      if (!(err instanceof HttpError)) throw err;
+      await this.failModeTask(m, t, `${action.purpose}: ${err.message}`);
+      return false;
+    }
+  }
+
+  private async acceptModeResult(m: Mission, t: Task, attemptId: string, note: string): Promise<void> {
+    const [a] = await this.ctx.db.select().from(attempts).where(eq(attempts.id, attemptId));
+    if (!a) return;
+    const [art] = await this.ctx.db
+      .select({ id: artifacts.id, kind: artifacts.kind })
+      .from(artifacts)
+      .where(and(eq(artifacts.attemptId, a.id), inArray(artifacts.kind, ["diff", "report"])))
+      .orderBy(asc(artifacts.kind));
+    const [claimed] = await this.ctx.db
+      .update(tasks)
+      .set({
+        status: "verifying",
+        modeParams: { ...paramsOf(t), result: { attemptId, note } },
+        ...(art ? { resultArtifactId: art.id } : {}),
+      })
+      .where(and(eq(tasks.id, t.id), eq(tasks.status, "running")))
+      .returning();
+    if (!claimed) return;
+    const checks = a.checks as AttemptChecks | null;
+    const human = checks?.items.filter((i) => i.status === "needs_human") ?? [];
+    if (human.length)
+      await this.emit(
+        this.ctx.db,
+        m,
+        "approval.requested",
+        { taskKey: t.key, what: "accept this task's result", checks: human.map((i) => i.kind), note },
+        { taskId: t.id, attemptId: a.id },
+      );
+    this.schedule(m.id);
+  }
+
+  private async failModeTask(m: Mission, t: Task, reason: string): Promise<void> {
+    const [f] = await this.ctx.db
+      .update(tasks)
+      .set({ status: "failed", revisions: MAX_REVISIONS, blockedReason: reason })
+      .where(and(eq(tasks.id, t.id), eq(tasks.status, "running")))
+      .returning();
+    if (!f) return;
+    await this.scoreAttempts(f, null);
+    await this.emit(
+      this.ctx.db,
+      m,
+      "review.verdict",
+      { taskKey: t.key, verdict: "fail", reasons: [reason] },
+      { taskId: t.id },
+    );
+    await this.releaseLeases(m, t, "task failed");
+    await this.emit(this.ctx.db, m, "task.failed", { taskKey: t.key, reasons: [reason] }, { taskId: t.id });
+  }
+
+  /**
+   * Scoreboard outcomes for a finished task's made results (each counted once): the accepted one passes; in modes the
+   * others pass or fail on their own checks, and a result the checker sent back counts as a revise.
+   */
+  private async scoreAttempts(t: Task, acceptedId: string | null): Promise<void> {
+    if (acceptedId) await this.scores.outcome(acceptedId, "pass", t.type);
+    const route = paramsOf(t).route;
+    if (!route || route.mode === "single") return;
+    const rows = await this.ctx.db
+      .select()
+      .from(attempts)
+      .where(and(eq(attempts.taskId, t.id), gte(attempts.createdAt, new Date(route.startedAt))));
+    const revised = new Set(
+      rows.flatMap((a) => {
+        const mode = (a.dispatch as Dispatch | null)?.mode;
+        return mode?.purpose === "revise" ? mode.of : [];
+      }),
+    );
+    for (const a of rows) {
+      const purpose = (a.dispatch as Dispatch | null)?.mode?.purpose;
+      if (a.scored || (purpose !== "make" && purpose !== "revise")) continue;
+      const checks =
+        (a.checks as AttemptChecks | null)?.items.filter((i) => i.hard && i.status !== "needs_human") ?? [];
+      const passed = a.status === "succeeded" && !checks.some((i) => i.status !== "passed");
+      await this.scores.outcome(a.id, revised.has(a.id) ? "revise" : passed ? "pass" : "fail", t.type);
     }
   }
 
@@ -612,13 +1091,8 @@ export class Orchestrator {
     const out: string[] = [];
     for (const u of ups) {
       if (u.status !== "done") continue;
-      const [a] = await this.ctx.db
-        .select({ ref: attempts.worktreeRef })
-        .from(attempts)
-        .where(and(eq(attempts.taskId, u.id), eq(attempts.status, "succeeded")))
-        .orderBy(desc(attempts.endedAt))
-        .limit(1);
-      if (a?.ref && (await this.hasDiff(u))) out.push(a.ref);
+      const a = await this.resultAttempt(u);
+      if (a?.worktreeRef && (await this.hasDiff(u))) out.push(a.worktreeRef);
     }
     return out;
   }
@@ -651,12 +1125,7 @@ export class Orchestrator {
   // ---- Verification (the M3 verifier: command checks, diff scope, people; ROUTING §4 in full arrives in M5) ------
 
   private async verify(m: Mission, t: Task): Promise<void> {
-    const [a] = await this.ctx.db
-      .select()
-      .from(attempts)
-      .where(and(eq(attempts.taskId, t.id), eq(attempts.status, "succeeded")))
-      .orderBy(desc(attempts.endedAt))
-      .limit(1);
+    const a = await this.resultAttempt(t);
     if (!a) return;
     let checks = a.checks as AttemptChecks | null;
     if (!checks) checks = await this.startChecks(m, t, a);
@@ -668,7 +1137,8 @@ export class Orchestrator {
     return this.completeTask(m, t, a, checks);
   }
 
-  private async startChecks(m: Mission, t: Task, a: Attempt): Promise<AttemptChecks> {
+  /** Starts an attempt's acceptance checks; `announce` asks people for theirs (modes ask once a result is chosen). */
+  private async startChecks(m: Mission, t: Task, a: Attempt, announce = true): Promise<AttemptChecks> {
     const contract = TaskContract.parse(t.contract);
     const diff = (
       await this.ctx.db
@@ -716,7 +1186,7 @@ export class Orchestrator {
         { index: i.index, kind: i.kind, passed: i.status === "passed", summary: i.summary ?? "" },
         { taskId: t.id, attemptId: a.id },
       );
-    if (items.some((i) => i.status === "needs_human"))
+    if (announce && items.some((i) => i.status === "needs_human"))
       await this.emit(
         this.ctx.db,
         m,
@@ -741,6 +1211,7 @@ export class Orchestrator {
         .set({ status: "revise", revisions: t.revisions + 1 })
         .where(and(eq(tasks.id, t.id), eq(tasks.status, "verifying")))
         .returning();
+      if (r) await this.scores.outcome(a.id, "revise", t.type);
       if (r)
         await this.emit(
           this.ctx.db,
@@ -757,6 +1228,8 @@ export class Orchestrator {
       .where(and(eq(tasks.id, t.id), eq(tasks.status, "verifying")))
       .returning();
     if (f) {
+      await this.scores.outcome(a.id, "fail", t.type);
+      await this.scoreAttempts(f, null);
       await this.emit(
         this.ctx.db,
         m,
@@ -778,6 +1251,7 @@ export class Orchestrator {
       .set({ status: "revise", revisions: t.revisions + 1 })
       .where(and(eq(tasks.id, t.id), eq(tasks.status, "failed"), eq(tasks.revisions, t.revisions)))
       .returning();
+    if (r) await this.scores.outcome(a.id, "fail", t.type);
     if (r)
       await this.emit(
         this.ctx.db,
@@ -801,12 +1275,7 @@ export class Orchestrator {
     reasons: string,
     userId: string,
   ): Promise<void> {
-    const [a] = await this.ctx.db
-      .select()
-      .from(attempts)
-      .where(and(eq(attempts.taskId, t.id), eq(attempts.status, "succeeded")))
-      .orderBy(desc(attempts.endedAt))
-      .limit(1);
+    const a = await this.resultAttempt(t);
     const checks = a?.checks as AttemptChecks | null;
     if (!a || !checks || t.status !== "verifying")
       throw new HttpError(409, "this task is not waiting for review", "not_reviewable");
@@ -863,6 +1332,7 @@ export class Orchestrator {
       .returning();
     if (!done) return;
     await this.releaseLeases(m, t, "task done");
+    await this.scoreAttempts(done, a.id);
     const output = await this.attemptOutput(a);
     const dispatch = a.dispatch as {
       agent?: { name: string; model: string; connector: { presetKey: string } };
@@ -954,6 +1424,8 @@ export class Orchestrator {
         checks: checks.items.map((i) => ({ kind: i.kind, status: i.status })),
         costUsd: cost[0]?.usd ?? 0,
         contract,
+        mode: paramsOf(t).route?.mode ?? "single",
+        ...(paramsOf(t).result ? { note: paramsOf(t).result?.note } : {}),
       },
       { taskId: t.id },
     );
