@@ -28,7 +28,7 @@ export const ADAPTERS: Readonly<Record<string, AgentAdapter>> = {
 export const IMPLEMENTED_FAMILIES: ReadonlySet<string> = new Set(Object.keys(ADAPTERS));
 
 /** The milestone whose adapters must all exist (the registry coverage check runs through it). */
-export const ADAPTERS_THROUGH_MILESTONE = "M6";
+export const ADAPTERS_THROUGH_MILESTONE = "M7";
 
 export function adapterFor(family: string): AgentAdapter | undefined {
   return ADAPTERS[family];

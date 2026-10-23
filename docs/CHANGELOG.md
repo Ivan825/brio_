@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-24 — M7 Protocol surfaces: MCP, A2A, ACP
+Pushed in small steps (CLAUDE.md rule 9, D-17). Protocol facts verified on 24 Oct 2026 in `docs/vendors/protocols.md`.
+- **Brio as an MCP server (D-75):** /mcp (streamable HTTP) with delegate, plan_mission, approve_plan, mission_status, report, ask_agent, answer, get_brief, get_contract, request_review and list_missions — any agent hands Brio a goal and gets the verified report back. `brio mcp` serves the same tools over stdio for local clients.
+- **Sign-in for remote MCP clients (D-76):** OAuth 2.1 from Better Auth — protected resource and authorization server metadata, Client ID Metadata Documents and dynamic registration, PKCE, a consent page, sign-in that resumes the authorization, JWT access tokens bound to /mcp. Claude Code, Cursor and Codex can connect with nothing but the URL.
+- **API tokens (D-77):** workspace-bound tokens in Settings (shown once, with ready-made lines for Claude Code, Codex and the stdio server), held to their workspace on every route.
+- **Brio as an A2A agent (D-78):** an A2A v1.0 Agent Card and JSON-RPC/SSE endpoint on the official SDK; every message becomes a mission, its task follows the mission (questions and plan approvals as input-required) and ends with the report and produced files as artifacts; tasks live in Postgres and survive restarts.
+- **A2A agents as workers (D-79):** install any A2A agent by URL; its card names it and its skills suggest the task types it takes (editable); questions it asks reach the mission's person.
+- **MCP servers as tools (D-80):** install any MCP server by URL (checked by listing its tools), attach it to agents; model-API agents call its tools in their tool loop, coding CLIs get it in their configuration; its credential never leaves the vault except into the run's memory.
+- **ACP (D-74):** coding CLIs that speak the Agent Client Protocol can be driven over it with the official SDK — opt-in per agent, Cursor first — with structured tool calls, plans, file edits and answered permission requests.
+- **Acceptance evidence:** an MCP client (the official SDK, as Claude Code connects) delegates a goal over HTTP and over stdio and gets the report; the full OAuth flow in a browser (signed out → sign in → consent → code → token → MCP call); the official A2A client discovers Brio, streams a mission and reads the report artifact; Brio delegates a research task to a sample A2A agent on the official SDK, verifies its citation and relays its question; an agent calls a real MCP server's tool mid-task with the token kept out of every stored record; Cursor's adapter drives an ACP agent built on the official SDK, including cancellation.
+- **Not yet verified live:** Claude Code, Cursor and Codex connecting to a deployed Brio, and Cursor's ACP mode, need a public deployment and the owner's keys.
+
 ## 2026-10-24 — M6 Hosted, browser, media and research agents
 Pushed in small steps (CLAUDE.md rule 9, D-17). Vendor wire facts verified on 23–24 Oct 2026 in `docs/vendors/` (hosted agents, media, research and browsers, protocols).
 - **Service connectors as data (D-62):** a `services` section in the registry (base URL with install settings, bearer/header/AWS SigV4/Entra auth, a free key check, billing unit and fixed rates, the task types each takes). One shared job runner (start, poll, answer, cancel, collect) gives every vendor the same limits, cost events, approvals and file handling.

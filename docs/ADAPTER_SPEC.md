@@ -133,11 +133,13 @@ Pattern: create session/task → stream or poll events → fetch outputs (diff, 
 - Map skills → task types (planner-assisted mapping stored on the connector; user can edit).
 - Send `message/send` or streaming `message/stream`; track A2A task id; map parts/artifacts to Brio artifacts; support input-required state → mailbox/approvals.
 - Use the official A2A JS SDK; protocol v1.0 (Mar 2026).
+- As implemented (M7): registry service `a2a` (URL setting, optional bearer); the card is read at install, its skills suggest task types (editable), each agent is its own vendor by host, runs are unmetered (D-79).
 
 ### 2.6 MCP (route: mcp)
 MCP servers are **tools**, not agents. Attach them to agents via `RunInput.mcpServers`. Brio ships its own MCP servers:
 - `brio-mailbox` (ask_agent, inbox, answer, report_blocker, request_review, get_contract, get_brief, report_progress) — given to every capable agent: in-process for model-API agents (new messages arrive between turns), and as a streamable-HTTP MCP server for coding CLIs, reached through the sandbox's proxy at `brio-mailbox:8080` with a per-attempt token (D-43). Claude Code, Codex, Cursor and OpenCode are configured for it; Antigravity, Goose and Aider run without it for now.
 - `brio-lease` (claim, release, status) — used by hooks and agents that prefer explicit claims.
+- As implemented (M7): any remote MCP server installs as registry service `mcp` and attaches to agents as a tool (D-80); model-API agents call its tools in their tool loop; coding CLIs get it in their MCP configuration.
 
 ### 2.7 Browser / computer use (route: browser via sdk/hosted)
 - `anthropic-computer-use` (Messages API tool, our sandboxed browser VM), `openai-agents` hosted browser, `nova-act` (SDK), `browser-use` (library or cloud API), cloud browsers (Browserbase/Steel) as infrastructure.
