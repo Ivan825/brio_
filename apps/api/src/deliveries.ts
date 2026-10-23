@@ -7,6 +7,7 @@ import { enqueueDelivery, githubRepoOf } from "@brio/runner";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import type { AppContext } from "./context";
 import { HttpError } from "./http";
+import { pokeRunner } from "./runners/hub";
 
 const { approvals, deliveries, integrations, missions, projects } = schema;
 
@@ -72,7 +73,9 @@ export async function proposeDelivery(
     )
     .limit(1);
   if (open) return null;
-  const kind = githubRepoOf(project.repoUrl, project.settings) ? "pull_request" : "branch";
+  // On a local runner the branch goes into the person's own repository; pull requests need a cloud project's token.
+  const kind =
+    !project.runnerId && githubRepoOf(project.repoUrl, project.settings) ? "pull_request" : "branch";
   const [approval] = await db
     .insert(approvals)
     .values({
@@ -191,6 +194,14 @@ export async function decideApproval(
       });
     return { approval: a, delivery: d ?? null };
   });
-  if (decided.delivery?.status === "queued") await enqueueDelivery(ctx.queue, decided.delivery.id);
+  if (decided.delivery?.status === "queued") {
+    const [p] = await ctx.db
+      .select({ runnerId: projects.runnerId })
+      .from(projects)
+      .innerJoin(missions, eq(missions.projectId, projects.id))
+      .where(eq(missions.id, decided.delivery.missionId));
+    if (p?.runnerId) await pokeRunner(ctx.db, p.runnerId);
+    else await enqueueDelivery(ctx.queue, decided.delivery.id);
+  }
   return decided;
 }

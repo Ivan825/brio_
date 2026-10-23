@@ -41,7 +41,8 @@ import { RUNNABLE_TASK, renderInstructions } from "../attempts";
 import type { AppContext } from "../context";
 import { proposeDelivery } from "../deliveries";
 import { HttpError } from "../http";
-import { crewPin, missionAgents, type WorkspaceAgent } from "./agents";
+import { pokeRunner } from "../runners/hub";
+import { crewPin, missionAgents, projectRunnerOf, type WorkspaceAgent, worksOnFiles } from "./agents";
 import { approvePlan, latestPlan, storePlan } from "./plans";
 import { saveMissionReport } from "./report";
 import { attemptAgentKey, Scoreboard } from "./scoreboard";
@@ -582,8 +583,10 @@ export class Orchestrator {
     // mode's pick, or the last attempt) and builds on it.
     const rerouting = revising ? paramsOf(fresh).reroute : undefined;
     const previous = revising && !rerouting ? await this.resultAttempt(fresh, false) : undefined;
-    const agents = await missionAgents(this.ctx, m);
     const contract = TaskContract.parse(fresh.contract);
+    // Work on the files of a project that lives on a local runner goes to that runner's agents only.
+    const onRunner = worksOnFiles(fresh, contract) ? await projectRunnerOf(this.ctx, m.projectId) : null;
+    const agents = (await missionAgents(this.ctx, m)).filter((a) => !onRunner || a.runnerId === onRunner);
     const decision = await this.route(
       m,
       fresh,
@@ -772,15 +775,8 @@ export class Orchestrator {
       (h) => h.packet,
     );
     const contractFiles = await this.contractFiles(m, contract);
-    // Any task that works on the repository's files starts from its upstream tasks' work: code and design, and also a
-    // voiceover reading the script a writer produced, or an image placed next to the page that uses it.
-    const worksOnFiles =
-      isCodeTask(t) ||
-      t.type.startsWith("design.") ||
-      Boolean(contract.expectedFootprint?.paths.length) ||
-      contract.outputs.some((o) => o.kind === "diff" || o.kind === "file" || Boolean(o.path)) ||
-      contract.inputs.some((i) => i.kind === "file");
-    const bases = worksOnFiles ? await this.upstreamBranches(t) : [];
+    // Any task that works on the repository's files starts from its upstream tasks' work.
+    const bases = worksOnFiles(t, contract) ? await this.upstreamBranches(t) : [];
     return {
       packets,
       bases,
@@ -1750,11 +1746,7 @@ export class Orchestrator {
           .set({ status: "queued" })
           .where(and(eq(integrations.id, latest.id), eq(integrations.updatedAt, latest.updatedAt)))
           .returning();
-        if (again)
-          await enqueueIntegration(this.ctx.queue, {
-            integrationId: again.id,
-            commands: this.integrationCommands(rows),
-          });
+        if (again) await this.sendIntegration(m, again.id, this.integrationCommands(rows));
       }
       return;
     }
@@ -1803,9 +1795,18 @@ export class Orchestrator {
       });
       return this.finishMission(m, row);
     }
+    const commands = this.integrationCommands(rows);
     const [row] = await this.ctx.db
       .insert(integrations)
-      .values({ workspaceId: m.workspaceId, missionId: m.id, planVersion: plan.version, round, refs, repo })
+      .values({
+        workspaceId: m.workspaceId,
+        missionId: m.id,
+        planVersion: plan.version,
+        round,
+        refs,
+        repo,
+        commands,
+      })
       .onConflictDoNothing()
       .returning();
     if (!row) return;
@@ -1814,10 +1815,19 @@ export class Orchestrator {
       round,
       branches: refs.map((r) => r.taskKey),
     });
-    await enqueueIntegration(this.ctx.queue, {
-      integrationId: row.id,
-      commands: this.integrationCommands(rows),
-    });
+    await this.sendIntegration(m, row.id, commands);
+  }
+
+  /** A merge round goes to the runner holding the mission's work: the project's local runner, or the cloud's. */
+  private async sendIntegration(m: Mission, integrationId: string, commands: string[]): Promise<void> {
+    const runnerId = await this.projectRunner(m);
+    if (runnerId) await pokeRunner(this.ctx.db, runnerId);
+    else await enqueueIntegration(this.ctx.queue, { integrationId, commands });
+  }
+
+  /** The local runner the mission's project lives on (M8), if any. */
+  private projectRunner(m: Mission): Promise<string | null> {
+    return projectRunnerOf(this.ctx, m.projectId);
   }
 
   /** Every hard command check of the mission's code tasks, once each. */

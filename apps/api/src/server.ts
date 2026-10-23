@@ -41,10 +41,12 @@ import { planRoutes } from "./routes/plans";
 import { pricingRoutes } from "./routes/pricing";
 import { projectRoutes } from "./routes/projects";
 import { registryRoutes } from "./routes/registry";
+import { runnerRoutes } from "./routes/runners";
 import { scoreboardRoutes } from "./routes/scoreboard";
 import { templateRoutes } from "./routes/templates";
 import { tokenRoutes } from "./routes/tokens";
 import { workspaceRoutes } from "./routes/workspaces";
+import { RunnerHub } from "./runners/hub";
 
 export interface BuildOptions {
   config: Config;
@@ -129,6 +131,7 @@ export async function buildServer({
   } as AppContext;
   ctx.attempts = new AttemptRunner(ctx);
   ctx.orchestrator = new Orchestrator(ctx, { ...(sweepMs ? { sweepMs } : {}) });
+  ctx.runners = new RunnerHub(ctx);
 
   await ctx.pricing.seed();
   let pricingTimer: NodeJS.Timeout | undefined;
@@ -184,8 +187,12 @@ export async function buildServer({
   await approvalRoutes(app, ctx);
   await crewRoutes(app, ctx);
   await templateRoutes(app, ctx);
+  await runnerRoutes(app, ctx);
   if (config.BRIO_DEV_OUTBOX && config.NODE_ENV !== "production") await devRoutes(app, ctx);
   ctx.orchestrator.start();
+  // Local runners connect over a WebSocket on the API's own HTTP server.
+  ctx.runners.attach(app.server);
+  await ctx.runners.start();
 
   return {
     app,
@@ -193,6 +200,7 @@ export async function buildServer({
     close: async () => {
       if (pricingTimer) clearInterval(pricingTimer);
       await ctx.orchestrator.stop();
+      await ctx.runners.stop();
       await app.close();
       await ctx.queue.stop({ graceful: false }).catch(() => {});
       await feed.stop();

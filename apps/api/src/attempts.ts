@@ -7,12 +7,13 @@ import { schema } from "@brio/db";
 import { enqueueAttempt, requestCancel } from "@brio/runner";
 import { type Actor, type HandoffPacket, TaskContract, TaskType } from "@brio/schema";
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import { adapterOf, connectorConfig, meteringOf, toolsFor } from "./connectors";
+import { adapterOf, connectorConfig, type Metering, meteringOf, toolsFor } from "./connectors";
 import type { AppContext } from "./context";
 import { HttpError, one } from "./http";
 import { inputsForAttempt } from "./mission-inputs";
+import { pokeRunner } from "./runners/hub";
 
-const { agents, attempts, connectors, missions, projects, tasks } = schema;
+const { agents, attempts, connectors, missions, projects, runners, tasks } = schema;
 
 /** Per-attempt defaults when neither the agent nor the task sets a limit. */
 export const DEFAULT_LIMITS = { maxCostUsd: 1, maxMinutes: 10, maxOutputTokens: 8192, maxTurns: 12 } as const;
@@ -118,6 +119,33 @@ export class AttemptRunner {
 
     const adapter = adapterOf(connector);
     const contract = TaskContract.parse(task.contract);
+    // The project's repository may live on a person's machine (a local runner, M8): file work on it runs there.
+    const [project] = mission.projectId
+      ? await ctx.db.select().from(projects).where(eq(projects.id, mission.projectId))
+      : [];
+    // An agent bound to a local runner runs there, under the person's own sign-in: API keys never leave the vault.
+    let target: Dispatch["target"];
+    if (agent.runnerId) {
+      const [r] = await ctx.db
+        .select()
+        .from(runners)
+        .where(and(eq(runners.id, agent.runnerId), isNull(runners.revokedAt)));
+      if (!r) throw new HttpError(409, `${agent.name}'s local runner was revoked`, "runner_revoked");
+      if (connector.credentialRef)
+        throw new HttpError(
+          422,
+          `${agent.name} is on a local runner, where API keys never go: install its connector for your own sign-in`,
+          "key_on_local_runner",
+        );
+      if (project?.runnerId !== r.id)
+        throw new HttpError(
+          409,
+          `${agent.name} runs on ${r.name}, which works only on the projects that live there`,
+          "runner_cannot_reach",
+        );
+      target = { kind: "local", runnerId: r.id, mode: r.mode as "docker" | "host" };
+    }
+    const localLogin = Boolean((connector.config as { localLogin?: unknown }).localLogin);
     const taskType = TaskType.parse(task.type);
     const cc = connectorConfig(connector);
     // Fail closed until the policy engine (M9): confidential work stays on the user's own machine.
@@ -129,11 +157,14 @@ export class AttemptRunner {
       );
 
     const cli = (adapter as { spec?: CliSpec }).spec;
-    const metering = await meteringOf(ctx, cc, adapter, {
-      model: agent.model,
-      priceOverride: agent.priceOverride ?? null,
-      options: agent.options ?? {},
-    });
+    // Under the person's own sign-in the vendor bills their plan: nothing to meter here.
+    const metering: Metering = localLogin
+      ? { runnable: true, price: null, unitPrice: null, reason: null, estUsd: 0, priceKind: "subscription" }
+      : await meteringOf(ctx, cc, adapter, {
+          model: agent.model,
+          priceOverride: agent.priceOverride ?? null,
+          options: agent.options ?? {},
+        });
     if (!metering.runnable)
       throw new HttpError(422, metering.reason ?? `no price is known for ${agent.model}`, "price_unknown");
 
@@ -160,7 +191,7 @@ export class AttemptRunner {
       connector: cc,
       price: metering.price,
       unitPrice: metering.unitPrice,
-      options: agent.options,
+      options: { ...agent.options, ...(localLogin ? { localLogin: true } : {}) },
     };
     // What the mission was started from (an issue, attached files), for every attempt.
     const given = await inputsForAttempt(ctx.db, input.workspaceId, mission.inputs);
@@ -238,15 +269,36 @@ export class AttemptRunner {
         `${agent.name} uses a cloud browser (options.browser = cloud), and the workspace has no healthy Browserbase or Steel connector`,
         "no_cloud_browser",
       );
+    if (project?.runnerId && sandbox && !target)
+      throw new HttpError(
+        409,
+        "this project lives on a local runner: work on its files runs on agents bound to that runner",
+        "project_on_runner",
+      );
     let repo: Dispatch["repo"] = null;
-    if (mission.projectId) {
-      const [project] = await ctx.db.select().from(projects).where(eq(projects.id, mission.projectId));
-      if (project?.repoUrl)
+    let repoMap = input.repoMap;
+    if (project) {
+      if (project.repoUrl)
         repo = {
           url: project.repoUrl,
           branch: project.defaultBranch,
           ...(project.credentialRef ? { credentialRef: project.credentialRef } : {}),
         };
+      // A repository on a local runner is mapped there: the planner gets its file list as an attachment.
+      if (repo && repoMap && project.runnerId && !target) {
+        repoMap = false;
+        const listed = await ctx.runners.listFiles(project.runnerId, { url: repo.url, branch: repo.branch });
+        runInput.attachments = [
+          ...runInput.attachments,
+          {
+            kind: "repo-map",
+            ref: `repository files (${listed?.files.length ?? 0})`,
+            text: listed?.files.length
+              ? listed.files.join("\n")
+              : `(no file list: ${listed ? (listed.error ?? "the repository is empty") : "its local runner is offline"})`,
+          },
+        ];
+      }
     }
     const estimate = await adapter
       .estimate({ ...runInput, attemptId: "estimate" }, agentConfig)
@@ -301,7 +353,8 @@ export class AttemptRunner {
           : {}),
         ...(tools ? { tools } : {}),
         ...(mcp.length ? { mcp } : {}),
-        ...(input.repoMap ? { repoMap: true } : {}),
+        ...(repoMap ? { repoMap: true } : {}),
+        ...(target ? { target } : {}),
         ...(input.keepConflicts ? { keepConflicts: true } : {}),
         ...(concurrent ? { manageTask: false, mode: input.mode } : {}),
       };
@@ -367,6 +420,12 @@ export class AttemptRunner {
       return row;
     });
     // After commit; the runners' reaper re-queues anything whose job is lost.
+    const runnerId = (attempt.dispatch as Dispatch | null)?.target?.runnerId;
+    if (runnerId) {
+      // A local runner takes it when it is connected (now, or when it next connects).
+      await pokeRunner(ctx.db, runnerId).catch(() => {});
+      return attempt;
+    }
     await enqueueAttempt(ctx.queue, attempt.id).catch((err) =>
       ctx.log.warn(
         { err: (err as Error).message, attemptId: attempt.id },

@@ -10,6 +10,7 @@ import type { Config } from "./config";
 import type { LogMailer } from "./mailer";
 import type { Orchestrator } from "./orchestrator/orchestrator";
 import type { PricingService } from "./pricing";
+import type { RunnerHub } from "./runners/hub";
 
 /** Everything routes need, built once in buildServer and passed explicitly (no globals). */
 export interface AppContext {
@@ -32,5 +33,7 @@ export interface AppContext {
   queue: PgBoss;
   /** Plans missions, runs their task graphs and verifies results (ARCHITECTURE §4). */
   orchestrator: Orchestrator;
+  /** Local runners connected to this API instance (M8). */
+  runners: RunnerHub;
   log: FastifyBaseLogger;
 }

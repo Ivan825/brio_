@@ -41,6 +41,11 @@ export interface StoredConnectorConfig {
     description: string;
     skills: Array<{ id: string; name: string; description: string }>;
   };
+  /**
+   * A coding CLI run under the person's own sign-in on a local runner (M8): no key here; the vendor's terms allow it
+   * (registry localLogin), and for "own-use" the person said it is for their own work.
+   */
+  localLogin?: { by: string; at: string; terms: "allowed" | "own-use" };
   /** A vendor webhook registered for this connector (Manus): where it points, and its id or why it failed. */
   webhook?: { url: string; id?: string | null; error?: string };
   baseUrl: string;

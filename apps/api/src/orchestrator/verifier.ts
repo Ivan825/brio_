@@ -27,6 +27,7 @@ import { type Actor, type EventType, TaskContract } from "@brio/schema";
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { AppContext } from "../context";
 import { HttpError } from "../http";
+import { pokeRunner } from "../runners/hub";
 import { missionAgents } from "./agents";
 import type { Scoreboard } from "./scoreboard";
 
@@ -269,8 +270,12 @@ export class Verifier {
       items.some(
         (i) => runnerOwns(i) || (i.kind === "contract_conformance" && i.command && i.status === "pending"),
       )
-    )
+    ) {
       await enqueueChecks(this.ctx.queue, a.id);
+      // A local runner's attempt: its command checks run on that runner.
+      const runnerId = (a.dispatch as { target?: { runnerId?: string } } | null)?.target?.runnerId;
+      if (runnerId) await pokeRunner(this.ctx.db, runnerId).catch(() => {});
+    }
     return checks;
   }
 

@@ -30,6 +30,8 @@ const CreateProject = z.object({
   defaultBranch: Branch.optional(),
   gitToken: GitToken.optional(),
   githubRepo: GithubRepo.optional(),
+  /** A local runner whose machine holds the repository (M8): repoUrl is then a path on that machine. */
+  runnerId: z.uuid().optional(),
 });
 
 const UpdateProject = z.object({
@@ -52,6 +54,7 @@ const present = (p: Project) => ({
   defaultBranch: p.defaultBranch,
   hasToken: p.credentialRef !== null,
   githubRepo: ((p.settings.github as { repo?: string } | undefined)?.repo ?? null) as string | null,
+  runnerId: p.runnerId ?? null,
   createdAt: p.createdAt,
 });
 
@@ -73,7 +76,34 @@ export async function projectRoutes(app: FastifyInstance, ctx: AppContext) {
     const workspaceId = workspaceFor(req, s);
     await requireMember(ctx, workspaceId, s, ["owner", "admin", "member"]);
     const body = CreateProject.parse(req.body);
-    if (body.repoUrl) {
+    if (body.runnerId) {
+      // The runner's owner puts projects on their machine; the path is theirs, checked by the runner when it works.
+      const [r] = await ctx.db
+        .select()
+        .from(schema.runners)
+        .where(
+          and(
+            eq(schema.runners.id, body.runnerId),
+            eq(schema.runners.workspaceId, workspaceId),
+            isNull(schema.runners.revokedAt),
+          ),
+        );
+      if (!r) throw new HttpError(404, "runner not found", "not_found");
+      if (r.ownerId !== s.userId)
+        throw new HttpError(403, `only ${r.name}'s owner can put projects on it`, "not_runner_owner");
+      if (!body.repoUrl || !(isAbsolute(body.repoUrl) || /^https:\/\//.test(body.repoUrl)))
+        throw new HttpError(
+          422,
+          "give the repository's path on that machine (or its https URL)",
+          "repo_required",
+        );
+      if (body.gitToken)
+        throw new HttpError(
+          422,
+          "a project on a local runner uses the machine's own git access, not a token",
+          "token_on_runner",
+        );
+    } else if (body.repoUrl) {
       if (isAbsolute(body.repoUrl)) {
         if (!ctx.config.allowLocalRepos)
           throw new HttpError(
@@ -98,6 +128,7 @@ export async function projectRoutes(app: FastifyInstance, ctx: AppContext) {
             repoUrl: body.repoUrl ?? null,
             defaultBranch: body.defaultBranch ?? null,
             settings: body.githubRepo ? { github: { repo: body.githubRepo } } : {},
+            runnerId: body.runnerId ?? null,
           })
           .returning(),
         "project",

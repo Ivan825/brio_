@@ -45,6 +45,10 @@ const CreateConnector = z.object({
   apiStyle: ApiStyle.optional(),
   /** The task types its agents take (A2A agents: defaults to what its skills suggest). */
   taskTypes: z.array(TaskType).min(1).max(TaskType.options.length).optional(),
+  /** A coding CLI under the person's own sign-in, for agents on a local runner (no key). */
+  localLogin: z.literal(true).optional(),
+  /** For vendors whose terms allow sign-in use only for the person's own work: they say it is. */
+  ownUse: z.literal(true).optional(),
 });
 const UpdateConnector = z.object({
   displayName: z.string().trim().min(1).max(80).optional(),
@@ -100,6 +104,23 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
   };
 
   const check = async (row: ConnectorRow) => {
+    // A CLI under the person's own sign-in is checked where it runs (the local runner), never with a key from here.
+    if ((row.config as { localLogin?: unknown }).localLogin) {
+      const [updated] = await ctx.db
+        .update(connectors)
+        .set({
+          health: {
+            ok: true,
+            checkedAt: new Date().toISOString(),
+            latencyMs: 0,
+            detail: "runs under your own sign-in on a local runner",
+          },
+          ...(row.status === "disabled" ? {} : { status: "active" }),
+        })
+        .where(eq(connectors.id, row.id))
+        .returning();
+      return updated ?? row;
+    }
     const adapter = adapterOf(row);
     const health = await adapter.healthCheck(connectorConfig(row), {
       credential: await credentialOf(ctx, row),
@@ -182,7 +203,8 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
       throw new HttpError(422, e.message, "unsafe_url");
     });
     const needsKey = preset.auth !== "none" && preset.auth !== "optional-bearer";
-    if (needsKey && !body.apiKey)
+    // A CLI under the person's own sign-in has no key (checked below against the vendor's terms).
+    if (needsKey && !body.apiKey && !(cliAdapter && body.localLogin))
       throw new HttpError(422, `${preset.name} needs an API key`, "api_key_required");
     if (body.apiStyle && (cliAdapter || !preset.apiStyles.includes(body.apiStyle)))
       throw new HttpError(
@@ -281,6 +303,28 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
         ? await serviceInstall(entry, body)
         : await presetInstall(entry, body);
     const { config, adapter, label: presetKey, baseUrl, multiple } = plan;
+    if (body.localLogin) {
+      // Only where the vendor's terms allow it (SECURITY_GOVERNANCE §1), and never with a key.
+      if (adapter.route !== "cli" || !entry.localLogin)
+        throw new HttpError(
+          422,
+          `${entry.name} cannot run under your own sign-in: its terms are not verified for that; add an API key instead`,
+          "local_login_not_allowed",
+        );
+      if (body.apiKey)
+        throw new HttpError(422, "a sign-in connector takes no API key", "local_login_with_key");
+      if (entry.localLogin === "own-use" && !body.ownUse)
+        throw new HttpError(
+          422,
+          `${entry.name}'s terms allow your own sign-in only for your own work: confirm that it is (ownUse)`,
+          "own_use_required",
+        );
+      (config as StoredConnectorConfig).localLogin = {
+        by: s.userId,
+        at: new Date().toISOString(),
+        terms: entry.localLogin,
+      };
+    }
     const row = await ctx.db.transaction(async (tx) => {
       const created = one(
         await tx
