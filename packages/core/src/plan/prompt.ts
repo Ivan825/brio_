@@ -15,10 +15,25 @@ export interface PlannerContext {
   feedback?: string[];
   /** The user's answers to the planner's questions, and edits they asked for. */
   userNotes?: string[];
+  /** Replanning after a task failed for good: what failed, and the finished tasks (as planned) to keep. */
+  replan?: {
+    failed: { key: string; title: string; reasons: string[] };
+    done: unknown[];
+  };
 }
 
-/** Acceptance checks the M3 verifier runs; the rest wait for M5 and are treated as a human check until then. */
-export const RUNNABLE_CHECKS = ["tests", "typecheck", "lint", "build", "diff_scope", "human"] as const;
+/** How the planner should use each acceptance check kind (ROUTING §4.1); the verifier runs all of them. */
+export const CHECK_GUIDE = [
+  "tests, typecheck, lint, build: a shell command run from the repository root",
+  "diff_scope: the changed files stay inside expectedFootprint",
+  'contract_conformance: {"contract":"<design task key>"} (a JSON Schema in the contract is validated; otherwise a reviewer from another vendor compares)',
+  'rubric_review: {"criteria":["…"],"threshold":4} for writing, design and anything judged on quality',
+  "fact_check and citation_present: for researched writing with numbered sources ([1]: https://…)",
+  "link_check: every link in the result answers",
+  'media_spec: {"params":{"formats":["png"],"width":1200,"maxDurationS":30}} for images, audio and video',
+  'a11y and lighthouse: {"params":{"path":"web/index.html"}} for web pages',
+  "human: a person approves the result",
+] as const;
 
 export function plannerInstructions(c: PlannerContext): string {
   const files = c.repoFiles.slice(0, 400);
@@ -38,6 +53,17 @@ export function plannerInstructions(c: PlannerContext): string {
     c.availableTaskTypes.join(", ") || "nothing yet",
     c.budgetUsd !== undefined ? `\n## Budget\nAt most $${c.budgetUsd} for the whole mission.` : "",
     c.userNotes?.length ? `\n## From the user\n${c.userNotes.map((n) => `- ${n}`).join("\n")}` : "",
+    c.replan
+      ? [
+          "\n## Replanning",
+          `The approved plan could not finish: task ${c.replan.failed.key} ("${c.replan.failed.title}") failed for good:`,
+          ...c.replan.failed.reasons.map((r) => `- ${r}`),
+          "Propose a complete plan for the goal that gets past this failure (another approach, a split, different checks).",
+          c.replan.done.length
+            ? `These tasks are done. Copy them into your plan exactly as they are (same key, type and contract) and their work is kept:\n\`\`\`json\n${JSON.stringify(c.replan.done, null, 2)}\n\`\`\``
+            : "No task is done yet.",
+        ].join("\n")
+      : "",
     c.feedback?.length
       ? `\n## Your previous answer was rejected\n${c.feedback.map((f) => `- ${f}`).join("\n")}\nFix these and answer again.`
       : "",
@@ -47,7 +73,7 @@ export function plannerInstructions(c: PlannerContext): string {
     `- Each task has exactly one type from: ${TASK_TYPES.join(", ")}.`,
     '- Contract first: when tasks share an interface (an API between frontend and backend, a schema, component props, a file format), add a design.api_contract or design.schema task that defines it, and list it in each consumer\'s contract.inputs as {"kind":"contract","ref":"<that task\'s key>"}.',
     "- Code tasks give contract.expectedFootprint.paths: the files and globs they will change. Tasks that may touch the same files cannot run at the same time.",
-    `- Acceptance checks: use ${RUNNABLE_CHECKS.join(", ")}. tests/typecheck/lint/build need a shell command that runs from the repository root. Every task needs at least one hard check.`,
+    `- Acceptance checks (every task needs at least one hard check):\n${CHECK_GUIDE.map((g) => `  - ${g}`).join("\n")}`,
     "- dependsOn lists task keys. Keys are lowercase slugs like api.auth-routes.",
     "- Give each task an estimate {usd, minutes}.",
     "- Ask at most 3 questions, and only ones that block planning; put everything you assumed in assumptions.",

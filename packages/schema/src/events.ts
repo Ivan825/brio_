@@ -11,6 +11,7 @@ export const EVENT_TYPES = [
   "plan.failed",
   "mission.started",
   "mission.blocked",
+  "mission.replanning",
   "task.ready",
   "task.routed",
   "task.blocked",
