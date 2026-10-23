@@ -31,6 +31,35 @@ export const AgentLimits = z.object({
   maxCostUsd: Usd.optional(),
 });
 
+/** USD per million tokens (packages/core ModelPrice). */
+export const ModelPrice = z.object({
+  inputPerM: z.number().nonnegative(),
+  outputPerM: z.number().nonnegative(),
+  cachedInputPerM: z.number().nonnegative().nullable(),
+  cacheWritePerM: z.number().nonnegative().nullable(),
+  longContext: z
+    .object({
+      thresholdTokens: z.number().int().positive(),
+      inputPerM: z.number().nonnegative(),
+      outputPerM: z.number().nonnegative(),
+      cachedInputPerM: z.number().nonnegative().nullable(),
+    })
+    .nullable()
+    .optional(),
+  offPeak: z
+    .object({
+      multiplier: z.number().positive().max(1),
+      peakUtcHours: z.array(z.tuple([z.number().min(0).max(24), z.number().min(0).max(24)])),
+      weekdaysOnly: z.boolean(),
+    })
+    .nullable()
+    .optional(),
+});
+export type ModelPrice = z.infer<typeof ModelPrice>;
+
+export const PriceSource = z.enum(["vendor_docs", "openrouter", "models_endpoint"]);
+export type PriceSource = z.infer<typeof PriceSource>;
+
 export const SandboxProfile = z.enum(["none", "readonly", "standard", "networked"]);
 
 /** A configured worker: connector + model + role prompt + limits. Model names are data (CLAUDE.md rule 8). */
@@ -43,5 +72,9 @@ export const Agent = WorkspaceScoped.extend({
   limits: AgentLimits,
   sandboxProfile: SandboxProfile,
   tags: z.array(z.string()),
+  /** The user's own price for a model the pricing table does not know (or a negotiated rate). */
+  priceOverride: ModelPrice.nullable(),
+  /** Vendor request options passed through, e.g. temperature or reasoning effort. */
+  options: z.record(z.string(), z.unknown()),
 }).extend(SoftDeletable.shape);
 export type Agent = z.infer<typeof Agent>;

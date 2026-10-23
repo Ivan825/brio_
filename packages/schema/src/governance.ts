@@ -50,6 +50,8 @@ export const LedgerKind = z.enum([
   "key.removed",
   "workspace.created",
   "member.invited",
+  "connector.added",
+  "connector.removed",
 ]);
 export type LedgerKind = z.infer<typeof LedgerKind>;
 

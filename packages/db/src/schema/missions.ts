@@ -8,13 +8,14 @@ import {
   jsonb,
   numeric,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   unique,
   uuid,
 } from "drizzle-orm/pg-core";
 import { users } from "./auth";
-import { id, timestamps } from "./columns";
+import { bytea, id, timestamps } from "./columns";
 import { agents } from "./connectors";
 import {
   artifactKind,
@@ -140,6 +141,23 @@ export const artifacts = pgTable(
     ...timestamps(),
   },
   (t) => [index().on(t.attemptId)],
+);
+
+/**
+ * Content-addressed artifact bodies (agent answers, reports, small files), per workspace. `artifacts.storage_ref` is
+ * `blob:<sha256>`. Large binaries move to object storage later; the ref scheme keeps that a storage change only.
+ */
+export const blobs = pgTable(
+  "blobs",
+  {
+    workspaceId: ws(),
+    sha256: text().notNull(),
+    contentType: text().notNull(),
+    size: integer().notNull(),
+    bytes: bytea().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.sha256] })],
 );
 
 export const reviews = pgTable(

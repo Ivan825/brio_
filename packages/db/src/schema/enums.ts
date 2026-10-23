@@ -20,6 +20,7 @@ import {
   MissionStatus,
   PlanStatus,
   PolicyKind,
+  PriceSource,
   ProjectKind,
   ReviewKind,
   SandboxProfile,
@@ -57,6 +58,7 @@ export const budgetScopeKind = pgEnum("budget_scope_kind", values(BudgetScopeKin
 export const policyKind = pgEnum("policy_kind", values(PolicyKind));
 export const approvalStatus = pgEnum("approval_status", values(ApprovalStatus));
 export const ledgerKind = pgEnum("ledger_kind", values(LedgerKind));
+export const priceSource = pgEnum("price_source", values(PriceSource));
 export const scoreScope = pgEnum("score_scope", ["workspace", "global"]);
 export const memoryNodeKind = pgEnum("memory_node_kind", [
   "decision",

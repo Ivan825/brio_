@@ -78,7 +78,9 @@ All tables have `id` (uuid v7), `workspace_id`, `created_at`, `updated_at` unles
 
 **Connectors & agents**
 - `connectors` — an installed connector: `registry_key` (→ connectors.json id), `display_name`, `route` (api|cli|sdk|hosted|a2a|mcp|browser|local), `credential_ref` (vault id), `config` jsonb, `health` jsonb, `status`.
-- `agents` — configured worker: `connector_id`, `model`, `role_prompt`, `tools` jsonb (MCP servers), `limits` jsonb (max tokens, max minutes, max cost), `sandbox_profile`, `tags`.
+- `agents` — configured worker: `connector_id`, `model`, `role_prompt`, `tools` jsonb (MCP servers), `limits` jsonb (max tokens, max minutes, max cost), `sandbox_profile`, `tags`, `price_override` jsonb (the user's own price per M tokens), `options` jsonb (vendor request options).
+- `connector_models` — the connector's live model list as last fetched: `connector_id`, `model`, `display_name`, `context_tokens`, `max_output_tokens`, `meta`, `listed_at`.
+- `model_prices` — public list prices (global, not per workspace): `preset_key`, `model`, `input_per_m`, `output_per_m`, `cached_input_per_m`, `cache_write_per_m`, `long_context` jsonb, `off_peak` jsonb, `currency`, `source` (vendor_docs|openrouter|models_endpoint), `source_url`, `fetched_at`. Every `attempt.cost` event records the price it used.
 - `crews` — named sets of agents + routing prefs jsonb.
 
 **Projects & memory**
@@ -92,6 +94,7 @@ All tables have `id` (uuid v7), `workspace_id`, `created_at`, `updated_at` unles
 - `tasks` — `mission_id`, `plan_version`, `key` (stable slug), `type` (taxonomy), `title`, `contract` jsonb (schema `TaskContract`), `depends_on` uuid[], `mode` (single|best_of_n|ensemble|maker_checker|debate|cascade|pipeline), `mode_params` jsonb, `pinned_agent_id`, `status` (pending|ready|leased|running|verifying|revise|done|failed|blocked|cancelled), `budget` jsonb, `result_artifact_id`.
 - `attempts` — `task_id`, `agent_id`, `role` (maker|checker|candidate|judge|merger), `status`, `sandbox_id`, `worktree_ref`, `started_at`, `ended_at`, `cost_usd numeric(12,6)`, `tokens_in`, `tokens_out`, `exit_reason`, `transcript_ref`.
 - `artifacts` — `kind` (diff|file|doc|url|image|video|audio|dataset|report), `storage_ref`, `sha256`, `meta` jsonb, `attempt_id`.
+- `blobs` — content-addressed artifact bodies per workspace (`workspace_id`, `sha256`, `content_type`, `size`, `bytes`); `artifacts.storage_ref` is `blob:<sha256>`. Large binaries move to object storage later without changing the ref scheme.
 - `reviews` — `task_id`, `attempt_id`, `reviewer_agent_id` or `reviewer_user_id`, `kind` (check|review|judge|human), `verdict` (pass|revise|fail), `scores` jsonb, `reasons` text, `evidence` jsonb.
 - `contracts` — shared interface contracts: `project_id`, `name`, `version`, `spec` jsonb or text (OpenAPI, TS types, schema), `owner_task_id`, `status`.
 - `leases` — `task_id`, `resource_kind` (path|glob|symbol|contract|external), `resource`, `mode` (exclusive|shared), `expires_at` (heartbeat-renewed), `released_at`.
