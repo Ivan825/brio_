@@ -42,7 +42,7 @@ export async function storePlan(
   tx: DbOrTx,
   mission: typeof missions.$inferSelect,
   graph: PlanGraph,
-  origin: "planner" | "user" | "replan" | "supplied",
+  origin: "planner" | "user" | "replan" | "supplied" | "template",
   actor: Actor,
 ): Promise<{ plan: PlanRow; lint: LintResult }> {
   const lint = lintPlan(graph, {
@@ -87,6 +87,7 @@ export async function storePlan(
       estimate: lint.estimate,
       ...(origin === "replan" ? { replan: true } : {}),
       ...(origin === "supplied" ? { supplied: true } : {}),
+      ...(origin === "template" ? { template: true } : {}),
     },
   });
   return { plan, lint };

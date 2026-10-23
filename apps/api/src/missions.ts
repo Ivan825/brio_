@@ -33,6 +33,11 @@ export const CreateMission = z.object({
   issueUrl: z.url().max(500).optional(),
   /** Files to work from (≤ 10, ≤ 2 MB together); every agent on the mission gets them. */
   files: z.array(InputFile).max(MAX_INPUT_FILES).optional(),
+  /**
+   * A saved pipeline (PRD F5): `adapt` (default) has the planner follow its shape for this goal; `as_is` proposes its
+   * plan unchanged.
+   */
+  template: z.object({ id: z.uuid(), mode: z.enum(["adapt", "as_is"]).default("adapt") }).optional(),
 });
 export type CreateMissionInput = z.input<typeof CreateMission>;
 
@@ -75,6 +80,15 @@ export async function createMission(
       );
     if (!crew) throw new HttpError(422, "the crew is not in this workspace", "unknown_crew");
   }
+  if (body.template && body.plan)
+    throw new HttpError(422, "start from a template or from a plan, not both", "template_and_plan");
+  const template = body.template ? await templateFor(ctx, workspaceId, body.template.id) : undefined;
+  // As is, the template's plan is the mission's plan v1 (pins to agents that are gone are dropped).
+  const plan =
+    body.plan ??
+    (template && body.template?.mode === "as_is"
+      ? await withLivePins(ctx, workspaceId, template.graph)
+      : undefined);
   const issue = body.issueUrl ? await readIssue(ctx, workspaceId, body.issueUrl, body.projectId) : undefined;
   const mission = await ctx.db.transaction(async (tx) => {
     const files = body.files?.length ? await storeInputFiles(tx, workspaceId, body.files) : undefined;
@@ -91,8 +105,14 @@ export async function createMission(
           plannerAgentId: body.plannerAgentId ?? null,
           autoApprove: body.autoApprove,
           routing: body.routing,
-          inputs: { ...(issue ? { issue } : {}), ...(files ? { files } : {}) },
-          status: body.plan ? "awaiting_approval" : "planning",
+          inputs: {
+            ...(issue ? { issue } : {}),
+            ...(files ? { files } : {}),
+            ...(template && body.template
+              ? { template: { id: template.id, name: template.name, mode: body.template.mode } }
+              : {}),
+          },
+          status: plan ? "awaiting_approval" : "planning",
           createdBy: s.userId,
         })
         .returning(),
@@ -113,10 +133,10 @@ export async function createMission(
         ...(files ? { files: files.map((f) => f.name) } : {}),
       },
     });
-    if (body.plan) await storePlan(ctx, tx, m, body.plan, "supplied", actor);
+    if (plan) await storePlan(ctx, tx, m, plan, body.plan ? "supplied" : "template", actor);
     return m;
   });
-  if (!body.plan) await ctx.orchestrator.startMission(mission);
+  if (!plan) await ctx.orchestrator.startMission(mission);
   return mission;
 }
 
@@ -135,4 +155,37 @@ export async function cancelMission(ctx: AppContext, m: typeof missions.$inferSe
     actor,
     payload: { reason: "cancelled by a person" },
   });
+}
+
+async function templateFor(ctx: AppContext, workspaceId: string, id: string) {
+  const [t] = await ctx.db
+    .select()
+    .from(schema.templates)
+    .where(
+      and(
+        eq(schema.templates.id, id),
+        eq(schema.templates.workspaceId, workspaceId),
+        isNull(schema.templates.deletedAt),
+      ),
+    );
+  if (!t) throw new HttpError(404, "template not found", "not_found");
+  return t;
+}
+
+/** The plan without pins to agents the workspace no longer has. */
+async function withLivePins(ctx: AppContext, workspaceId: string, graph: PlanGraph): Promise<PlanGraph> {
+  const live = new Set(
+    (
+      await ctx.db
+        .select({ id: schema.agents.id })
+        .from(schema.agents)
+        .where(and(eq(schema.agents.workspaceId, workspaceId), isNull(schema.agents.deletedAt)))
+    ).map((a) => a.id),
+  );
+  return {
+    ...graph,
+    tasks: graph.tasks.map(({ pinnedAgentId, ...t }) =>
+      pinnedAgentId && live.has(pinnedAgentId) ? { ...t, pinnedAgentId } : t,
+    ),
+  };
 }

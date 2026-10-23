@@ -20,6 +20,8 @@ export interface PlannerContext {
     failed: { key: string; title: string; reasons: string[] };
     done: unknown[];
   };
+  /** A saved pipeline (PRD F5) to follow: its shape stays, its words are rewritten for this goal. */
+  template?: { name: string; graph: unknown };
 }
 
 /** How the planner should use each acceptance check kind (ROUTING §4.1); the verifier runs all of them. */
@@ -53,6 +55,13 @@ export function plannerInstructions(c: PlannerContext): string {
     c.availableTaskTypes.join(", ") || "nothing yet",
     c.budgetUsd !== undefined ? `\n## Budget\nAt most $${c.budgetUsd} for the whole mission.` : "",
     c.userNotes?.length ? `\n## From the user\n${c.userNotes.map((n) => `- ${n}`).join("\n")}` : "",
+    c.template && !c.replan
+      ? [
+          `\n## Template: ${c.template.name}`,
+          "The user chose this saved pipeline. Keep its shape: the same tasks with the same types, dependencies, modes and pinned agents. Rewrite titles, objectives, outputs, footprints and checks for this goal; add or drop a task only when the goal clearly needs it, and say so in assumptions.",
+          `\`\`\`json\n${JSON.stringify(c.template.graph, null, 2)}\n\`\`\``,
+        ].join("\n")
+      : "",
     c.replan
       ? [
           "\n## Replanning",

@@ -340,6 +340,17 @@ export class Orchestrator {
       return this.retryPlanning(m, task, [attempt?.exitReason ?? "the planner did not finish"]);
   }
 
+  /** The saved pipeline the planner adapts for this mission, if it started from one (and it still exists). */
+  private async templateOf(m: Mission): Promise<{ template?: { name: string; graph: unknown } }> {
+    const ref = m.inputs.template;
+    if (!ref || ref.mode !== "adapt") return {};
+    const [t] = await this.ctx.db
+      .select()
+      .from(schema.templates)
+      .where(and(eq(schema.templates.id, ref.id), eq(schema.templates.workspaceId, m.workspaceId)));
+    return t ? { template: { name: t.name, graph: t.graph } } : {};
+  }
+
   private async retryPlanning(m: Mission, task: Task, errors: string[]): Promise<void> {
     if (task.revisions >= MAX_PLANNING_RETRIES) {
       const [claimed] = await this.ctx.db
@@ -387,6 +398,7 @@ export class Orchestrator {
       ...(feedback ? { feedback } : {}),
       ...(notes?.length ? { userNotes: notes } : {}),
       ...(replan ? { replan } : {}),
+      ...(await this.templateOf(m)),
     });
     try {
       if (m.status === "draft" || m.blockedReason)
@@ -1948,6 +1960,8 @@ export class Orchestrator {
     m: Mission,
     status: "done" | "failed",
     payload: Record<string, unknown>,
+    /** A finished mission's integrated work: its delivery is proposed in the same transaction. */
+    integration: typeof integrations.$inferSelect | null = null,
   ): Promise<boolean> {
     const ended = await this.ctx.db.transaction(async (tx) => {
       const [row] = await tx
@@ -1962,6 +1976,13 @@ export class Orchestrator {
         .catch((err: Error) =>
           this.ctx.log.error({ err: err.message, missionId: m.id }, "mission report failed"),
         );
+      // Work on a repository goes back to it only once a person approves (a branch, and a pull request on GitHub).
+      if (status === "done")
+        await tx
+          .transaction((savepoint) => proposeDelivery(this.ctx, savepoint, m, integration))
+          .catch((err: Error) =>
+            this.ctx.log.error({ err: err.message, missionId: m.id }, "proposing the delivery failed"),
+          );
       return true;
     });
     if (ended) await this.releaseMissionLeases(m);
@@ -1980,21 +2001,25 @@ export class Orchestrator {
       .from(attempts)
       .innerJoin(tasks, eq(tasks.id, attempts.taskId))
       .where(eq(tasks.missionId, m.id));
-    const ended = await this.endMission(m, "done", {
-      costUsd: totals?.usd ?? 0,
-      attempts: totals?.attempts ?? 0,
-      minutes: Math.round((Date.now() - m.createdAt.getTime()) / 6000) / 10,
-      ...(integration
-        ? {
-            integration: { branch: integration.branch, commit: integration.commit, round: integration.round },
-          }
-        : {}),
-    });
-    // Work on a repository goes back to it only once a person approves (a branch, and a pull request on GitHub).
-    if (ended)
-      await proposeDelivery(this.ctx, this.ctx.db, m, integration).catch((err: Error) =>
-        this.ctx.log.error({ err: err.message, missionId: m.id }, "proposing the delivery failed"),
-      );
+    await this.endMission(
+      m,
+      "done",
+      {
+        costUsd: totals?.usd ?? 0,
+        attempts: totals?.attempts ?? 0,
+        minutes: Math.round((Date.now() - m.createdAt.getTime()) / 6000) / 10,
+        ...(integration
+          ? {
+              integration: {
+                branch: integration.branch,
+                commit: integration.commit,
+                round: integration.round,
+              },
+            }
+          : {}),
+      },
+      integration,
+    );
   }
 }
 
