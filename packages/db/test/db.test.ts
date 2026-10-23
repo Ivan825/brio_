@@ -53,6 +53,7 @@ const EXPECTED_TABLES = [
   "scores",
   "sessions",
   "tasks",
+  "templates",
   "users",
   "vault_secrets",
   "verifications",

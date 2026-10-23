@@ -35,6 +35,8 @@ import { projects } from "./projects";
 import { workspaces } from "./tenancy";
 
 export interface MissionInputs {
+  /** The template the mission started from; `as_is` used its plan unchanged, `adapt` gave it to the planner. */
+  template?: { id: string; name: string; mode: "as_is" | "adapt" };
   issue?: { url: string; title: string; body: string; state: string; comments: string[] };
   files?: Array<{ name: string; sha256: string; size: number; contentType: string; text: boolean }>;
 }
@@ -299,4 +301,22 @@ export const deliveries = pgTable(
     ...timestamps(),
   },
   (t) => [index().on(t.missionId), uniqueIndex().on(t.approvalId)],
+);
+
+/** A plan saved as a reusable pipeline (PRD F5): new missions start from it as their proposed plan v1. */
+export const templates = pgTable(
+  "templates",
+  {
+    id: id(),
+    workspaceId: ws(),
+    name: text().notNull(),
+    description: text().notNull().default(""),
+    graph: jsonb().$type<PlanGraph>().notNull(),
+    /** Where it came from: the mission and plan version it was saved from, if any. */
+    source: jsonb().$type<{ missionId: string; version: number } | null>(),
+    createdBy: uuid().references(() => users.id),
+    ...timestamps(),
+    deletedAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [index().on(t.workspaceId)],
 );
