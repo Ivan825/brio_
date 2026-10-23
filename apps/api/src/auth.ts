@@ -6,7 +6,7 @@ import { type Db, schema } from "@brio/db";
 import type { Ledger } from "@brio/governance";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { jwt, magicLink, organization } from "better-auth/plugins";
+import { bearer, deviceAuthorization, jwt, magicLink, organization } from "better-auth/plugins";
 import { uuidv7 } from "uuidv7";
 import type { Config } from "./config";
 import type { Mailer } from "./mailer";
@@ -17,6 +17,9 @@ export interface AuthDeps {
   mailer: Mailer;
   ledger: Ledger;
 }
+
+/** The device-flow client id of the `brio` CLI. */
+export const CLI_CLIENT_ID = "brio-cli";
 
 /** The scope an MCP client asks for to act as its person in Brio (missions, agents' questions, reports). */
 export const MCP_SCOPE = "brio";
@@ -56,6 +59,7 @@ export function createAuth({ db, config, mailer, ledger }: AuthDeps) {
         oauthAccessToken: schema.oauthAccessTokens,
         oauthConsent: schema.oauthConsents,
         oauthClientAssertion: schema.oauthClientAssertions,
+        deviceCode: schema.deviceCodes,
       },
     }),
     advanced: {
@@ -82,6 +86,15 @@ export function createAuth({ db, config, mailer, ledger }: AuthDeps) {
         allowUnauthenticatedClientRegistration: true,
       }),
       cimd({ fetchClientMetadataResource, metadataProfile: "mcp-2026-07-28" }),
+      // `brio login` (M8): the device flow (RFC 8628) — a code in the terminal, approved by the signed-in person at
+      // /device; the CLI then holds a session of its own and sends it as a bearer token.
+      deviceAuthorization({
+        verificationUri: `${config.APP_URL.replace(/\/+$/, "")}/device`,
+        expiresIn: "10m",
+        interval: "5s",
+        validateClient: (clientId) => clientId === CLI_CLIENT_ID,
+      }),
+      bearer(),
       organization({
         creatorRole: "owner",
         invitationExpiresIn: 7 * 24 * 60 * 60,

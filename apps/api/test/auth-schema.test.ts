@@ -25,6 +25,7 @@ const TABLES = {
   oauthAccessToken: schema.oauthAccessTokens,
   oauthConsent: schema.oauthConsents,
   oauthClientAssertion: schema.oauthClientAssertions,
+  deviceCode: schema.deviceCodes,
 } as const;
 
 describe("Better Auth schema", () => {
