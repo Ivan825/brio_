@@ -3868,6 +3868,59 @@
       "docsUrl": "https://docs.steel.dev/overview/sessions-api/quickstart",
       "verifiedOn": "2026-10-23",
       "notes": "A cloud browser for computer-use agents that ask for one (options.browser = cloud). Steel's connection URL carries the key; Brio keeps it in memory only."
+    },
+    "nova-act": {
+      "connector": "amazon-nova-act",
+      "name": "Amazon Nova Act",
+      "vendor": "aws",
+      "kind": "browser",
+      "adapter": "nova-act",
+      "taskTypes": [
+        "browser.task",
+        "browser.form_fill",
+        "browser.scrape_public"
+      ],
+      "baseUrl": "https://nova-act.{region}.amazonaws.com",
+      "auth": {
+        "scheme": "aws-sigv4",
+        "service": "nova-act"
+      },
+      "settings": [
+        {
+          "key": "region",
+          "label": "AWS region",
+          "required": true,
+          "pattern": "^[a-z]{2}(-[a-z]+)+-\\d$",
+          "placeholder": "us-east-1",
+          "help": "Nova Act runs in us-east-1."
+        },
+        {
+          "key": "workflow",
+          "label": "Workflow definition",
+          "required": false,
+          "pattern": "^[a-zA-Z0-9_-]{1,40}$",
+          "placeholder": "brio",
+          "help": "Created on first use if it does not exist."
+        }
+      ],
+      "health": {
+        "method": "POST",
+        "path": "/models?clientCompatibilityVersion=1"
+      },
+      "pricing": {
+        "unit": "second",
+        "usdPerUnit": 0.0013194,
+        "note": "$4.75 per agent-hour of wall-clock time, metered by the second."
+      },
+      "models": {
+        "path": null,
+        "static": [
+          "nova-act-latest"
+        ]
+      },
+      "docsUrl": "https://docs.aws.amazon.com/nova-act/latest/APIReference/Welcome.html",
+      "verifiedOn": "2026-10-24",
+      "notes": "The AWS service API (SigV4, IAM nova-act:*), client-actuated: Brio runs each step's browser actions on Chromium in the attempt's browser sandbox, reaching only the task's sites. A UI takeover (sign-in, captcha) is refused."
     }
   }
 }

@@ -377,7 +377,7 @@ describe("Browser Use Cloud", () => {
 
   it("covers every browser service in the registry", () => {
     const browsers = Object.entries(registry().services).filter(([, s]) => s.kind === "browser");
-    expect(browsers.map(([k]) => k).sort()).toEqual(["anthropic-computer-use", "browser-use"]);
+    expect(browsers.map(([k]) => k).sort()).toEqual(["anthropic-computer-use", "browser-use", "nova-act"]);
     for (const [k, s] of browsers) expect(ADAPTERS[s.adapter], k).toBeDefined();
   });
 });
