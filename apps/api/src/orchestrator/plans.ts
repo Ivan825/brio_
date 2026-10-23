@@ -42,7 +42,7 @@ export async function storePlan(
   tx: DbOrTx,
   mission: typeof missions.$inferSelect,
   graph: PlanGraph,
-  origin: "planner" | "user" | "replan",
+  origin: "planner" | "user" | "replan" | "supplied",
   actor: Actor,
 ): Promise<{ plan: PlanRow; lint: LintResult }> {
   const lint = lintPlan(graph, {
@@ -67,6 +67,7 @@ export async function storePlan(
     .returning();
   if (!plan) throw new Error("plan insert returned nothing");
   const type: EventType = origin === "user" ? "plan.edited" : "plan.proposed";
+  // (A supplied plan is proposed like a planner's: made elsewhere, approved here.)
   await ctx.events.append(tx, {
     workspaceId: mission.workspaceId,
     missionId: mission.id,
@@ -85,6 +86,7 @@ export async function storePlan(
       lint: { errors: lint.errors.length, warnings: lint.warnings.length, fixes: lint.fixes.length },
       estimate: lint.estimate,
       ...(origin === "replan" ? { replan: true } : {}),
+      ...(origin === "supplied" ? { supplied: true } : {}),
     },
   });
   return { plan, lint };

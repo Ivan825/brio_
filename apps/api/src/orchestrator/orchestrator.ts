@@ -28,6 +28,7 @@ import {
   routeLearned,
   type SchedTask,
   seeded,
+  staticRoute,
   stepInstructions,
   verdict,
 } from "@brio/core";
@@ -73,8 +74,10 @@ export interface TaskRoute {
   rationale: string;
   degraded?: string;
   estUsd: number;
-  /** Attempts created from here on belong to this route (a person's revise or a replan routes again). */
+  /** When it was routed (for people; the attempts that belong to it carry its id). */
   startedAt: string;
+  /** Stamped on every attempt the route's mode starts, so a re-route never mixes with an earlier one. */
+  id: string;
 }
 /** The attempt a multi-agent mode settled on, which the verifier then checks like a single attempt. */
 export interface ModeResult {
@@ -604,6 +607,7 @@ export class Orchestrator {
       ...(decision.degraded ? { degraded: decision.degraded } : {}),
       estUsd: decision.estUsd,
       startedAt: new Date().toISOString(),
+      id: randomUUID(),
     };
     const said =
       revising && previous
@@ -672,6 +676,27 @@ export class Orchestrator {
     /** A reroute runs one agent on its own. */
     single = false,
   ): Promise<LearnedDecision> {
+    const contractSensitivity = contract.sensitivity;
+    // The mission's routing strategy: the static router (no learning, no modes), or one agent alone.
+    if (m.routing.strategy === "static") {
+      const r = staticRoute(
+        { key: t.key, type: t.type, sensitivity: contractSensitivity, pinnedAgentId, mode: "single" },
+        agents,
+      );
+      if (!r.ok) return r;
+      return {
+        ok: true,
+        mode: "single",
+        agents: [{ agentId: r.agentId, role: "maker" }],
+        rationale: `${r.rationale} (static routing)`,
+        estUsd: agents.find((a) => a.id === r.agentId)?.estUsd ?? 0,
+        ...(r.degraded ? { degraded: r.degraded } : {}),
+      };
+    }
+    if (m.routing.strategy === "single") {
+      pinnedAgentId = m.routing.agentId;
+      single = true;
+    }
     const now = new Date();
     const scored = await this.scores.get(
       m.workspaceId,
@@ -777,7 +802,7 @@ export class Orchestrator {
     const rows = await this.ctx.db
       .select()
       .from(attempts)
-      .where(and(eq(attempts.taskId, t.id), gte(attempts.createdAt, new Date(route.startedAt))))
+      .where(and(eq(attempts.taskId, t.id), sql`${attempts.dispatch}->'mode'->>'routeId' = ${route.id}`))
       .orderBy(asc(attempts.createdAt));
     const state: ModeAttempt[] = [];
     for (const a of rows) {
@@ -981,7 +1006,7 @@ export class Orchestrator {
         agentId: action.agentId,
         actor: "system",
         role: action.role,
-        mode: { purpose: action.purpose, of: action.of, step: action.step },
+        mode: { purpose: action.purpose, of: action.of, step: action.step, routeId: route.id },
         rationale: `${route.mode.replaceAll("_", " ")}: ${action.purpose}${action.step ? ` (step ${action.step + 1})` : ""}`,
         ...(reader
           ? { sandboxTaskType: "review.result" }
@@ -1055,7 +1080,7 @@ export class Orchestrator {
     const rows = await this.ctx.db
       .select()
       .from(attempts)
-      .where(and(eq(attempts.taskId, t.id), gte(attempts.createdAt, new Date(route.startedAt))));
+      .where(and(eq(attempts.taskId, t.id), sql`${attempts.dispatch}->'mode'->>'routeId' = ${route.id}`));
     const revised = new Set(
       rows.flatMap((a) => {
         const mode = (a.dispatch as Dispatch | null)?.mode;
@@ -1206,7 +1231,12 @@ export class Orchestrator {
     const checks = await this.verifier.advance(m, t, a);
     if (!checks) return;
     const p = paramsOf(t);
-    const v = verdict({ items: checks.items, revisions: t.revisions, reroutes: p.reroutes ?? 0 });
+    const v = verdict({
+      items: checks.items,
+      revisions: t.revisions,
+      reroutes: p.reroutes ?? 0,
+      ...limitsOf(m),
+    });
     if (v.kind === "wait") return;
     if (v.kind === "pass") return this.completeTask(m, t, a, checks, v.softFailures);
     await this.verifier.cancelOpen(a);
@@ -1305,6 +1335,7 @@ export class Orchestrator {
       ],
       revisions: t.revisions,
       reroutes: paramsOf(t).reroutes ?? 0,
+      ...limitsOf(m),
     });
     if (v.kind === "revise" || v.kind === "reroute" || v.kind === "fail")
       await this.sendBack(m, t, a, v.kind, v.reasons);
@@ -1428,7 +1459,8 @@ export class Orchestrator {
    */
   private async proposeReplan(m: Mission, rows: Task[], reason: string): Promise<boolean> {
     const report = (m.report ?? {}) as { replans?: number };
-    if ((report.replans ?? 0) >= MAX_REPLANS) return false;
+    // One agent alone gets one shot: no revised plans either.
+    if (m.routing.strategy === "single" || (report.replans ?? 0) >= MAX_REPLANS) return false;
     const failed = rows.find((t) => t.status === "failed");
     if (!failed) return false;
     // Let the rest of the plan settle first: its results are worth keeping.
@@ -1972,4 +2004,9 @@ function topoOrder<T extends Pick<Task, "id" | "dependsOn" | "createdAt">>(list:
     out.push(next);
   }
   return out;
+}
+
+/** Verdict limits by routing strategy: one agent alone gets one shot (no revisions, no other agent). */
+function limitsOf(m: Pick<Mission, "routing">): { maxRevisions?: number; maxReroutes?: number } {
+  return m.routing.strategy === "single" ? { maxRevisions: 0, maxReroutes: 0 } : {};
 }

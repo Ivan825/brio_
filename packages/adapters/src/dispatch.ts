@@ -49,6 +49,8 @@ export interface Dispatch {
     step: number;
     /** For purpose check: the index of the check item this attempt decides. */
     checkIndex?: number;
+    /** The task route (mode_params.route.id) that started it: a mode only counts its own route's attempts. */
+    routeId?: string;
   };
 }
 

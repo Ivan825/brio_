@@ -1,11 +1,12 @@
 import { type MissionReport, renderMissionReport } from "@brio/core";
 import { type DbOrTx, schema, streamMissionEvents } from "@brio/db";
-import { type Actor, MissionPriority } from "@brio/schema";
+import { type Actor, MissionPriority, MissionRouting, PlanGraph } from "@brio/schema";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { AppContext } from "../context";
 import { HttpError, one, requireMember, requireSession, workspaceFor } from "../http";
+import { storePlan } from "../orchestrator/plans";
 import { missionReport } from "../orchestrator/report";
 import { presentAttempt } from "./attempts";
 
@@ -23,6 +24,13 @@ const CreateMission = z.object({
   plannerAgentId: z.uuid().optional(),
   /** Start without waiting for approval when the plan is clean and small (≤ $5, ≤ 10 tasks). */
   autoApprove: z.boolean().default(false),
+  /** learned (default), static, or one agent alone (the eval baseline). */
+  routing: MissionRouting.default({ strategy: "learned" }),
+  /**
+   * A plan made elsewhere (another planner, a handoff, the eval harness): it becomes plan v1 for approval and no
+   * planner runs.
+   */
+  plan: PlanGraph.optional(),
 });
 const Params = z.object({ id: z.uuid() });
 
@@ -48,6 +56,13 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
         .where(and(eq(schema.projects.id, body.projectId), eq(schema.projects.workspaceId, workspaceId)));
       if (!p) throw new HttpError(404, "project not found", "not_found");
     }
+    if (body.routing.strategy === "single") {
+      const [agent] = await ctx.db
+        .select({ id: schema.agents.id })
+        .from(schema.agents)
+        .where(and(eq(schema.agents.id, body.routing.agentId), eq(schema.agents.workspaceId, workspaceId)));
+      if (!agent) throw new HttpError(422, "the single agent is not in this workspace", "unknown_agent");
+    }
     const mission = await ctx.db.transaction(async (tx) => {
       const m = one(
         await tx
@@ -61,7 +76,8 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
             budget: body.budget ?? {},
             plannerAgentId: body.plannerAgentId ?? null,
             autoApprove: body.autoApprove,
-            status: "planning",
+            routing: body.routing,
+            status: body.plan ? "awaiting_approval" : "planning",
             createdBy: s.userId,
           })
           .returning(),
@@ -72,11 +88,12 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
         missionId: m.id,
         type: "mission.created",
         actor,
-        payload: { title: m.title, goal: m.goal, priority: m.priority, budget: m.budget },
+        payload: { title: m.title, goal: m.goal, priority: m.priority, budget: m.budget, routing: m.routing },
       });
+      if (body.plan) await storePlan(ctx, tx, m, body.plan, "supplied", actor);
       return m;
     });
-    await ctx.orchestrator.startMission(mission);
+    if (!body.plan) await ctx.orchestrator.startMission(mission);
     return reply.status(201).send({ mission: present(mission) });
   });
 
@@ -232,6 +249,7 @@ function present(m: typeof missions.$inferSelect) {
     blockedReason: m.blockedReason,
     autoApprove: m.autoApprove,
     budget: m.budget,
+    routing: m.routing,
     createdAt: m.createdAt,
   };
 }
