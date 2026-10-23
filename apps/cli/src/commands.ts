@@ -425,6 +425,9 @@ export const USAGE = `brio — run missions across your agents
                       [--move key=before] [--json]
   brio board <mission> [--once]
   brio approve [<mission>|<approval>] [--deny] [--reason r]
+  brio runner register --name laptop [--host [--yes]]
+  brio runner start [--api https://api.brio.example] [--dir path]
+  brio runner status
   brio mcp                       Brio's MCP tools over stdio (BRIO_URL, BRIO_TOKEN)
 `;
 

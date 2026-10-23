@@ -8,7 +8,19 @@ export interface Args {
 }
 
 /** Options that never take a value. */
-const BOOLEAN = new Set(["quick", "watch", "once", "deny", "json", "as-is", "help", "no-open", "approve"]);
+const BOOLEAN = new Set([
+  "quick",
+  "watch",
+  "once",
+  "deny",
+  "json",
+  "as-is",
+  "help",
+  "no-open",
+  "approve",
+  "host",
+  "yes",
+]);
 
 export function parseArgs(argv: string[]): Args {
   const out: Args = { _: [], flags: {}, all: {} };

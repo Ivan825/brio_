@@ -12,6 +12,8 @@ export interface CliConfig {
   email: string;
   workspaceId: string | null;
   workspaceName: string | null;
+  /** This machine as a local runner (M8): its id and token from `brio runner register`. */
+  runner?: { id: string; name: string; token: string; mode: "docker" | "host" };
 }
 
 export function configPath(env: NodeJS.ProcessEnv = process.env): string {
@@ -30,6 +32,7 @@ export async function loadConfig(path: string): Promise<CliConfig | null> {
       email: c.email ?? "",
       workspaceId: c.workspaceId ?? null,
       workspaceName: c.workspaceName ?? null,
+      ...(c.runner ? { runner: c.runner } : {}),
     };
   } catch {
     return null;

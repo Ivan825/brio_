@@ -3,7 +3,19 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { approve, board, type Io, login, logout, missions, parseArgs, plan, run, whoami } from "@brio/cli";
+import {
+  approve,
+  board,
+  type Io,
+  login,
+  logout,
+  missions,
+  parseArgs,
+  plan,
+  run,
+  runner,
+  whoami,
+} from "@brio/cli";
 import { hasTestDatabase } from "@brio/db/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client, type Harness, startHarness } from "./helpers";
@@ -143,6 +155,19 @@ describe.skipIf(!hasTestDatabase)("M8 acceptance: the brio CLI", () => {
     await missions(parseArgs(["missions"]), io);
     expect(said()).toMatch(new RegExp(`${missionId}\\s+done\\s+Summarise agent orchestration`));
   }, 120_000);
+
+  it("registers this machine as a local runner; host mode needs consent", async () => {
+    await expect(runner(parseArgs(["runner", "register", "--name", "laptop", "--host"]), io)).rejects.toThrow(
+      /needs your consent/,
+    );
+    out.length = 0;
+    await runner(parseArgs(["runner", "register", "--name", "laptop", "--host", "--yes"]), io);
+    expect(said()).toContain("without a container");
+    expect(said()).toContain("Registered laptop (host)");
+    out.length = 0;
+    await runner(parseArgs(["runner", "status"]), io);
+    expect(said()).toMatch(/\* laptop\s+host\s+offline/);
+  });
 
   it("logs out: the session ends on the server too", async () => {
     const { session } = JSON.parse(await (await import("node:fs/promises")).readFile(io.configPath, "utf8"));

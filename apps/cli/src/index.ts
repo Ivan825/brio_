@@ -5,3 +5,4 @@ export * from "./client";
 export * from "./commands";
 export * from "./config";
 export { type ProxyOptions, proxyOptionsFromEnv, runMcpProxy } from "./mcp-proxy";
+export { runner } from "./runner";

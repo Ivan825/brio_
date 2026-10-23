@@ -6,6 +6,7 @@ import { BrioError } from "./client";
 import { COMMANDS, type Io, USAGE, UsageError } from "./commands";
 import { configPath } from "./config";
 import { proxyOptionsFromEnv, runMcpProxy } from "./mcp-proxy";
+import { runner } from "./runner";
 
 const args = parseArgs(process.argv.slice(2));
 const [command] = args._;
@@ -19,7 +20,7 @@ if (command === "mcp") {
     process.exit(1);
   }
 } else {
-  const run = command ? COMMANDS[command] : undefined;
+  const run = command === "runner" ? runner : command ? COMMANDS[command] : undefined;
   if (!run || args.flags.help) {
     process.stdout.write(USAGE);
     process.exit(command && !args.flags.help ? 1 : 0);
