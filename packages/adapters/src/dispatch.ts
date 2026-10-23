@@ -32,6 +32,11 @@ export interface Dispatch {
   /** Attach the repository's file list (the planner's repo map). */
   repoMap?: boolean;
   /**
+   * A merge task: bases that conflict are merged with the conflict markers left in the files for the agent to resolve
+   * (instead of failing the attempt).
+   */
+  keepConflicts?: boolean;
+  /**
    * Whether this attempt drives its task's status (single mode and direct runs). In multi-agent modes the orchestrator
    * owns the task's status and the runner leaves it alone.
    */

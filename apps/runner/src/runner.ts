@@ -12,8 +12,16 @@ import { CheckExecutor } from "./checks";
 import { docker, removeByLabel } from "./docker";
 import { AttemptExecutor } from "./executor";
 import type { ImageSet } from "./images";
+import { IntegrationExecutor, type IntegrationJob } from "./integrate";
 import { MailboxMcpServer } from "./mailbox-mcp";
-import { ATTEMPT_QUEUE, type AttemptJob, CANCEL_CHANNEL, CHECK_QUEUE, enqueueAttempt } from "./queue";
+import {
+  ATTEMPT_QUEUE,
+  type AttemptJob,
+  CANCEL_CHANNEL,
+  CHECK_QUEUE,
+  enqueueAttempt,
+  INTEGRATE_QUEUE,
+} from "./queue";
 
 const { attempts, tasks } = schema;
 
@@ -46,6 +54,7 @@ export class Runner {
   readonly id: string;
   private readonly executor: AttemptExecutor;
   private readonly checks: CheckExecutor;
+  private readonly integrations: IntegrationExecutor;
   private readonly mailboxServer = new MailboxMcpServer();
   private readonly running = new Map<string, { abort: AbortController; done: Promise<void> }>();
   private listener: pg.Client | null = null;
@@ -56,6 +65,7 @@ export class Runner {
     this.id = o.runnerId ?? `runner-${randomBytes(4).toString("hex")}`;
     this.executor = new AttemptExecutor({ ...o, runnerId: this.id, mailboxServer: this.mailboxServer });
     this.checks = new CheckExecutor({ ...o, runnerId: this.id });
+    this.integrations = new IntegrationExecutor({ ...o, runnerId: this.id });
   }
 
   get active(): string[] {
@@ -76,6 +86,13 @@ export class Runner {
       { localConcurrency: this.o.concurrency ?? 2, batchSize: 1, pollingIntervalSeconds: 0.5 },
       async ([job]) => {
         if (job && !this.stopped) await this.checks.run(job.data.attemptId, job.signal);
+      },
+    );
+    await this.o.boss.work<IntegrationJob>(
+      INTEGRATE_QUEUE,
+      { localConcurrency: 1, batchSize: 1, pollingIntervalSeconds: 0.5 },
+      async ([job]) => {
+        if (job && !this.stopped) await this.integrations.run(job.data, job.signal);
       },
     );
     this.listener = new pg.Client({ connectionString: this.o.databaseUrl });
@@ -218,6 +235,7 @@ export class Runner {
     for (const t of this.timers) clearInterval(t);
     await this.o.boss.offWork(ATTEMPT_QUEUE).catch(() => {});
     await this.o.boss.offWork(CHECK_QUEUE).catch(() => {});
+    await this.o.boss.offWork(INTEGRATE_QUEUE).catch(() => {});
     for (const r of this.running.values()) r.abort.abort();
     await Promise.all([...this.running.values()].map((r) => r.done));
     await this.listener?.end().catch(() => {});

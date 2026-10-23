@@ -172,7 +172,9 @@ export class AttemptExecutor {
           taskKey: dispatch.taskKey,
           repo: dispatch.repo,
           ...(dispatch.bases?.length ? { bases: dispatch.bases } : {}),
+          ...(dispatch.keepConflicts ? { keepConflicts: true } : {}),
         });
+        // (A merge task's conflicts are in its instructions; the markers are in the files.)
         // What Brio hands the agent (handoff packets, the contract) goes in .brio/, which never enters the diff.
         for (const f of dispatch.files ?? []) {
           const target = join(worktree.path, ".brio", f.path.replace(/^\.brio\//, ""));

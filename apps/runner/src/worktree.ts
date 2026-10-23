@@ -67,6 +67,21 @@ export interface CollectedResult {
 
 export const LIMITS = { diffBytes: 5 * 1024 * 1024, fileBytes: 1024 * 1024, files: 500 };
 
+export interface MergeConflict {
+  /** The two branches whose merge conflicted (the first is the merge of everything before it). */
+  between: [string, string];
+  files: string[];
+}
+
+export class MergeConflictError extends GitError {
+  constructor(
+    message: string,
+    readonly conflict: MergeConflict,
+  ) {
+    super(message);
+  }
+}
+
 const STATUS: Record<string, ChangedFile["status"]> = {
   A: "added",
   M: "modified",
@@ -200,12 +215,18 @@ export class Worktrees {
     bases?: string[];
     /** Use an existing cache (check runs on a branch the cache already holds). */
     cacheOverride?: string;
-  }): Promise<PreparedWorktree> {
+    /** A merge task: conflicting bases are merged with their conflict markers left in the files to resolve. */
+    keepConflicts?: boolean;
+  }): Promise<PreparedWorktree & { conflicts: MergeConflict[] }> {
     const cache =
       i.cacheOverride ?? (await this.cache(i.repo ? { repo: i.repo } : { missionId: i.missionId }));
     let base: string;
-    if (i.bases?.length) base = await this.mergeBases(cache, i.bases);
-    else {
+    let conflicts: MergeConflict[] = [];
+    if (i.bases?.length) {
+      const merged = await this.mergeBranches(cache, i.bases, { keepConflicts: i.keepConflicts ?? false });
+      base = merged.commit;
+      conflicts = merged.conflicts;
+    } else {
       const ref = i.repo?.branch
         ? `refs/heads/${i.repo.branch}`
         : (await this.text(["--git-dir", cache, "symbolic-ref", "HEAD"]).catch(() => "refs/heads/main")) ||
@@ -218,50 +239,89 @@ export class Worktrees {
     await mkdir(join(this.root, "worktrees"), { recursive: true });
     await this.git(["clone", "-q", "--no-hardlinks", "--no-checkout", "--", cache, path]);
     await this.git(["-C", path, "checkout", "-q", "-B", branch, base]);
-    return { path, branch, base, cache };
+    return { path, branch, base, cache, conflicts };
   }
 
   /**
-   * One commit holding all the given branches: the branch itself for one, else their merge, computed in the trusted
-   * cache without a worktree. Throws on a conflict.
+   * One commit holding all the given branches, merged in order in the trusted cache without a worktree: the branch
+   * itself for one. A conflict throws, unless `keepConflicts`: then the merge commit carries the conflict markers
+   * (for a merge task to resolve) and the conflicts are listed.
    */
-  async mergeBases(cache: string, branches: string[]): Promise<string> {
+  async mergeBranches(
+    cache: string,
+    branches: string[],
+    opts: { keepConflicts?: boolean } = {},
+  ): Promise<{ commit: string; conflicts: MergeConflict[] }> {
     const heads = await Promise.all(
       branches.map((b) =>
         this.text(["--git-dir", cache, "rev-parse", "--verify", `refs/heads/${b}^{commit}`]),
       ),
     );
     let commit = heads[0] as string;
+    const conflicts: MergeConflict[] = [];
     for (let k = 1; k < heads.length; k++) {
       const other = heads[k] as string;
-      const merged = await this.git([
-        "--git-dir",
-        cache,
-        "merge-tree",
-        "--write-tree",
-        "--no-messages",
-        commit,
-        other,
-      ]).catch((e: Error) => {
-        throw new GitError(
-          `the upstream changes conflict (${branches[0]} and ${branches[k]}); a merge task is needed: ${e.message}`,
-        );
-      });
-      const tree = merged.stdout.toString("utf8").trim().split("\n")[0] as string;
+      const merged = await this.mergeTree(cache, commit, other);
+      if (merged.conflicted.length) {
+        const conflict: MergeConflict = {
+          between: [branches[k - 1] as string, branches[k] as string],
+          files: merged.conflicted,
+        };
+        if (!opts.keepConflicts)
+          throw new MergeConflictError(
+            `the changes conflict (${conflict.between.join(" and ")}: ${conflict.files.slice(0, 10).join(", ")}); a merge task is needed`,
+            conflict,
+          );
+        conflicts.push(conflict);
+      }
       commit = await this.text([
         "--git-dir",
         cache,
         "commit-tree",
-        tree,
+        merged.tree,
         "-p",
         commit,
         "-p",
         other,
         "-m",
-        `Merge upstream: ${branches.join(", ")}`,
+        `Merge ${branches[k]}${merged.conflicted.length ? " (with conflicts to resolve)" : ""}`,
       ]);
     }
-    return commit;
+    return { commit, conflicts };
+  }
+
+  /** `git merge-tree --write-tree`: the merged tree (with conflict markers in conflicted files) and their paths. */
+  private mergeTree(cache: string, a: string, b: string): Promise<{ tree: string; conflicted: string[] }> {
+    return new Promise((resolve, reject) => {
+      execFile(
+        "git",
+        [
+          ...SAFE_CONFIG,
+          "--git-dir",
+          cache,
+          "merge-tree",
+          "--write-tree",
+          "--name-only",
+          "--no-messages",
+          "-z",
+          a,
+          b,
+        ],
+        { cwd: this.root, env: this.env(), encoding: "buffer", maxBuffer: 64 * 1024 * 1024 },
+        (err, stdout, stderr) => {
+          // Exit 1 is a merge with conflicts: the tree is still written. Anything else is an error.
+          const code = (err as (Error & { code?: number }) | null)?.code;
+          if (err && code !== 1)
+            return reject(
+              new GitError(`git merge-tree failed: ${stderr.toString("utf8").trim().slice(-500)}`),
+            );
+          const parts = stdout.toString("utf8").split("\0").filter(Boolean);
+          const [tree, ...files] = parts;
+          if (!tree) return reject(new GitError("git merge-tree wrote no tree"));
+          resolve({ tree: tree.trim(), conflicted: err ? [...new Set(files)] : [] });
+        },
+      );
+    });
   }
 
   /** The repository's files at a commit (the planner's repo map). */

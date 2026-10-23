@@ -165,5 +165,23 @@ describe("upstream bases", () => {
       }),
     ).rejects.toThrow(/conflict/);
     expect(await wt.listFiles(a.cache, a.branch)).toEqual(["a.txt"]);
+
+    // A merge task gets the conflict in its files, with markers to resolve, and the list of what conflicted.
+    const resolving = await wt.prepare({
+      attemptId: "0192b3c4-5d6e-7f80-9a1b-000000000106",
+      missionId: mission,
+      taskKey: "merge",
+      bases: [a.branch, b.branch, c.branch],
+      keepConflicts: true,
+    });
+    expect(resolving.conflicts).toEqual([{ between: [b.branch, c.branch], files: ["a.txt"] }]);
+    const marked = await readFile(join(resolving.path, "a.txt"), "utf8");
+    expect(marked).toMatch(/^<<<<<<< [\s\S]*\na\n=======\nconflict\n>>>>>>> /);
+    expect(await readFile(join(resolving.path, "b.txt"), "utf8")).toBe("b\n");
+    // Resolving it gives a branch that merges cleanly with everything.
+    await writeFile(join(resolving.path, "a.txt"), "a and conflict\n");
+    await wt.collect(resolving, "x6", "merge");
+    const clean = await wt.mergeBranches(a.cache, [resolving.branch]);
+    expect(clean.conflicts).toEqual([]);
   });
 });
