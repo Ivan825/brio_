@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Runs the CLI from source through tsx until M8 ships a bundled binary.
+// Runs the CLI from source through tsx (a dependency of the package), so `pnpm link` or `npx` gives a working `brio`.
 import { register } from "tsx/esm/api";
 
 register();
