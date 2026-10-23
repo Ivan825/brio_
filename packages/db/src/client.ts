@@ -15,6 +15,9 @@ export interface DbHandle {
 
 export function createDb(url: string, options: { max?: number } = {}): DbHandle {
   const pool = new pg.Pool({ connectionString: url, max: options.max ?? 10 });
+  // An idle connection the server drops (a restart, a failover, a dropped test database) must not crash the process:
+  // the pool discards it and the next query opens a fresh one.
+  pool.on("error", () => {});
   const db = drizzle({ client: pool, schema, casing: "snake_case" }) as Db;
   return { db, pool, close: () => pool.end() };
 }
