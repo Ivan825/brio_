@@ -51,11 +51,19 @@ export interface SandboxChoiceInput {
   maxMinutes: number;
 }
 
-/** Whether an API-model attempt needs a sandbox at all: only when it works on files (code and data tasks). */
+/**
+ * Whether an API-model attempt needs a sandbox at all: only when it works on files (code, design artefacts such as
+ * contracts and schemas, and data tasks).
+ */
 export function needsSandbox(i: Pick<SandboxChoiceInput, "route" | "taskType" | "agentSetting">): boolean {
   if (i.route === "cli") return true;
   if (i.agentSetting === "none") return false;
-  return i.taskType.startsWith("code.") || i.taskType === "merge.integrate" || i.taskType.startsWith("data.");
+  return (
+    i.taskType.startsWith("code.") ||
+    i.taskType === "merge.integrate" ||
+    i.taskType.startsWith("data.") ||
+    i.taskType.startsWith("design.")
+  );
 }
 
 const unique = (xs: readonly string[]) => [...new Set(xs.map((h) => h.toLowerCase()))].sort();
