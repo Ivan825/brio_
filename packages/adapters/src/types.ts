@@ -63,6 +63,8 @@ export interface RunInput {
   handoffs: HandoffPacket[];
   brief: MemoryBrief;
   workdir?: string;
+  /** The project repository the task works on (hosted agents clone it in their own sandbox when they can reach it). */
+  repo?: { url: string; branch: string | null } | null;
   attachments: AttachmentRef[];
   limits: RunLimits;
   mcpServers: McpServerConfig[];
@@ -287,6 +289,11 @@ export interface InboxMessage {
 export interface Mailbox {
   /** Asks the agent working on another task; waits a while for the answer. */
   askAgent(taskKey: string, question: string): Promise<string>;
+  /**
+   * Asks a person (a hosted agent's question or approval request) and waits up to `waitMs` for the answer; null when
+   * nobody answered in time (callers then fail closed: no answer is no approval).
+   */
+  askUser(question: string, opts?: { waitMs?: number }): Promise<string | null>;
   /** Questions and notes addressed to this task that have not been read yet; reading marks them read. */
   inbox(): Promise<InboxMessage[]>;
   answer(messageId: string, text: string): Promise<void>;

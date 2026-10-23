@@ -93,6 +93,17 @@ export class RunnerMailbox implements Mailbox {
     return `no answer yet from ${to === "user" ? "the user" : taskKey}; carry on with your best assumption and say what you assumed`;
   }
 
+  async askUser(question: string, opts: { waitMs?: number } = {}): Promise<string | null> {
+    const q = await this.send("user", "question", question);
+    const until = Date.now() + (opts.waitMs ?? this.opts.answerWaitMs);
+    while (Date.now() < until && !this.opts.signal?.aborted) {
+      const [answer] = await this.db.select().from(messages).where(eq(messages.replyToId, q.id)).limit(1);
+      if (answer) return answer.body;
+      await new Promise((r) => setTimeout(r, this.opts.pollMs ?? 500));
+    }
+    return null;
+  }
+
   async inbox(): Promise<InboxMessage[]> {
     const rows = await this.db
       .select({ m: messages, from: tasks.key })

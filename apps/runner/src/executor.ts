@@ -206,7 +206,7 @@ export class AttemptExecutor {
         abort.signal.addEventListener("abort", () => void sandbox?.kill(), { once: true });
       }
 
-      const input = { ...dispatch.input, attemptId: attempt.id };
+      const input = { ...dispatch.input, attemptId: attempt.id, repo: dispatch.repo ?? null };
       if (dispatch.repoMap) {
         // The planner's repo map: the repository's file list, read from the runner's trusted cache.
         const cache = await this.worktrees.cache(

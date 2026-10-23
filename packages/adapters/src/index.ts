@@ -1,12 +1,14 @@
 // AgentAdapter implementations, one folder per connector family (docs/ADAPTER_SPEC.md).
 import { ADAPTERS_BY_FAMILY } from "./api-family-registry";
 import { CLI_ADAPTERS } from "./cli/index";
+import { HOSTED_ADAPTERS } from "./services/index";
 import type { AgentAdapter } from "./types";
 
 /** Registration: adapter key → adapter. packages/registry checks every planned connector resolves here. */
 export const ADAPTERS: Readonly<Record<string, AgentAdapter>> = {
   ...ADAPTERS_BY_FAMILY,
   ...Object.fromEntries(CLI_ADAPTERS.map((a) => [a.key, a])),
+  ...Object.fromEntries(HOSTED_ADAPTERS.map((a) => [a.key, a])),
 };
 
 export const IMPLEMENTED_FAMILIES: ReadonlySet<string> = new Set(Object.keys(ADAPTERS));
@@ -36,6 +38,7 @@ export * from "./http";
 export * from "./logger";
 export * from "./models";
 export * from "./net";
+export * from "./services/index";
 export * from "./tool-loop";
 export * from "./tools";
 export * from "./types";

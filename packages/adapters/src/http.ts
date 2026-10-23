@@ -66,7 +66,7 @@ const sleep = (ms: number, signal: AbortSignal) =>
 export interface JsonRequest {
   fetch: FetchLike;
   url: string;
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "DELETE" | "PUT" | "PATCH";
   headers?: Record<string, string>;
   body?: unknown;
   signal?: AbortSignal;
