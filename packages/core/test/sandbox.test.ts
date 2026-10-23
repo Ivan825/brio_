@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CODE_HOSTS, chooseSandbox, hostAllowed, needsSandbox, PROFILES } from "../src/index";
+import { browseHostsOf, CODE_HOSTS, chooseSandbox, hostAllowed, needsSandbox, PROFILES } from "../src/index";
 
 const base = { vendorHosts: [], maxMinutes: 60 } as const;
 
@@ -82,5 +82,73 @@ describe("host allowlist", () => {
     expect(hostAllowed("githubusercontent.com", allow)).toBe(false);
     expect(hostAllowed("evil-api.anthropic.com", allow)).toBe(false);
     expect(hostAllowed("api.anthropic.com.evil.test", allow)).toBe(false);
+  });
+});
+
+describe("browser sandboxes", () => {
+  const contract = (o: Partial<Parameters<typeof browseHostsOf>[0]> = {}) => ({
+    objective: "",
+    constraints: [],
+    inputs: [],
+    ...o,
+  });
+
+  it("lets a browser task reach only the sites it names, with their subdomains", () => {
+    const hosts = browseHostsOf(
+      contract({
+        objective: "Compare https://www.shop.example.com/p/1 with the price on https://example.co.uk/item",
+        inputs: [
+          { kind: "url", ref: "https://docs.brio.dev/start" },
+          { kind: "file", ref: "https://ignored.example" },
+        ],
+      }),
+    );
+    expect(hosts).toEqual([
+      ".brio.dev",
+      ".example.co.uk",
+      ".example.com",
+      "brio.dev",
+      "docs.brio.dev",
+      "example.co.uk",
+      "example.com",
+      "www.shop.example.com",
+    ]);
+    expect(hostAllowed("cdn.example.com", hosts)).toBe(true);
+    expect(hostAllowed("evil.com", hosts)).toBe(false);
+  });
+
+  it("never allows addresses or localhost, and nothing when the task names no site", () => {
+    expect(
+      browseHostsOf(
+        contract({ objective: "see http://127.0.0.1:8080 and http://localhost/x and http://[::1]/" }),
+      ),
+    ).toEqual([]);
+    expect(browseHostsOf(contract({ objective: "find the cheapest flight" }))).toEqual([]);
+  });
+
+  it("puts browser agents in the browser profile, worktree read-only, network only to those sites", () => {
+    const spec = chooseSandbox({
+      route: "browser",
+      taskType: "browser.task",
+      agentSetting: "standard",
+      vendorHosts: [],
+      browseHosts: ["example.com", ".example.com"],
+      maxMinutes: 120,
+    });
+    expect(spec).toEqual({
+      profile: "browser",
+      ...PROFILES.browser,
+      network: { mode: "allowlist", hosts: [".example.com", "example.com"] },
+      worktree: "ro",
+    });
+    expect(
+      chooseSandbox({
+        route: "browser",
+        taskType: "browser.task",
+        agentSetting: "none",
+        vendorHosts: [],
+        maxMinutes: 5,
+      })?.network,
+    ).toEqual({ mode: "none" });
   });
 });

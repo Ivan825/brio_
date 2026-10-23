@@ -51,6 +51,8 @@ export interface SandboxChoiceInput {
   maxMinutes: number;
   /** The task's contract changes repository files (a footprint, or diff/file outputs), whatever its type. */
   writesFiles?: boolean;
+  /** Browser agents: the sites the task may visit (browseHostsOf); everything else stays unreachable. */
+  browseHosts?: readonly string[];
 }
 
 /**
@@ -60,7 +62,7 @@ export interface SandboxChoiceInput {
 export function needsSandbox(
   i: Pick<SandboxChoiceInput, "route" | "taskType" | "agentSetting" | "writesFiles">,
 ): boolean {
-  if (i.route === "cli") return true;
+  if (i.route === "cli" || i.route === "browser") return true;
   if (i.agentSetting === "none") return false;
   return (
     i.writesFiles === true ||
@@ -79,6 +81,17 @@ const unique = (xs: readonly string[]) => [...new Set(xs.map((h) => h.toLowerCas
  */
 export function chooseSandbox(i: SandboxChoiceInput): SandboxSpec | null {
   if (!needsSandbox(i)) return null;
+  if (i.route === "browser") {
+    const hosts = unique([...i.vendorHosts, ...(i.browseHosts ?? [])]);
+    return {
+      profile: "browser",
+      ...PROFILES.browser,
+      timeoutMinutes: Math.max(1, Math.min(PROFILES.browser.timeoutMinutes, i.maxMinutes)),
+      network: hosts.length ? { mode: "allowlist", hosts } : { mode: "none" },
+      // The browser reads nothing from the repository and writes nothing to it.
+      worktree: "ro",
+    };
+  }
   const heavy = i.taskType === "code.infra_devops" || i.taskType === "code.data_pipeline";
   const profile: SandboxProfileName =
     i.route === "cli" || i.taskType.startsWith("code.") || i.taskType === "merge.integrate"
@@ -107,4 +120,40 @@ export function hostAllowed(host: string, allow: readonly string[]): boolean {
   return allow.some((rule) =>
     rule.startsWith(".") ? h.endsWith(rule) && h.length > rule.length : h === rule,
   );
+}
+
+const URL_IN_TEXT = /https?:\/\/[^\s<>"')\]]+/g;
+
+/** Second-level labels under which registrations sit one level deeper (example.co.uk). */
+const SECOND_LEVEL = new Set(["co", "com", "net", "org", "gov", "ac", "edu"]);
+
+/**
+ * The sites a browser task may visit (SECURITY_GOVERNANCE §3: a per-task URL allowlist): the hosts of its url inputs
+ * and of the links in its objective and constraints, each with its own subdomains (www., cdn.) so pages load their
+ * assets. Nothing else is reachable.
+ */
+export function browseHostsOf(contract: {
+  objective: string;
+  constraints: readonly string[];
+  inputs: ReadonlyArray<{ kind: string; ref: string }>;
+}): string[] {
+  const urls = [
+    ...contract.inputs.filter((i) => i.kind === "url").map((i) => i.ref),
+    ...([contract.objective, ...contract.constraints].join(" ").match(URL_IN_TEXT) ?? []),
+  ];
+  const hosts: string[] = [];
+  for (const u of urls) {
+    let host: string;
+    try {
+      host = new URL(u).hostname.toLowerCase();
+    } catch {
+      continue;
+    }
+    if (!host || /^[\d.]+$/.test(host) || host.includes(":") || host === "localhost") continue;
+    const labels = host.split(".");
+    const keep = labels.length > 2 && SECOND_LEVEL.has(labels.at(-2) as string) ? 3 : 2;
+    const site = labels.slice(-keep).join(".");
+    hosts.push(host, site, `.${site}`);
+  }
+  return unique(hosts);
 }
