@@ -24,67 +24,145 @@
     {
       "id": "frontier",
       "name": "Frontier model APIs",
-      "description": "The labs whose own models you call directly. These are the brains your router picks between."
+      "description": "The labs whose own models you call directly. These are the brains your router picks between.",
+      "taskTypes": [
+        "code.*",
+        "design.*",
+        "research.*",
+        "write.*",
+        "data.*",
+        "plan.*",
+        "judge.*",
+        "review.*",
+        "merge.*"
+      ]
     },
     {
       "id": "open",
       "name": "Open-weight & regional models",
-      "description": "Cheaper, often OpenAI-compatible APIs, plus models you can host yourself. Strong for bulk and utility steps."
+      "description": "Cheaper, often OpenAI-compatible APIs, plus models you can host yourself. Strong for bulk and utility steps.",
+      "taskTypes": [
+        "code.*",
+        "design.*",
+        "research.*",
+        "write.*",
+        "data.*",
+        "plan.*",
+        "judge.*",
+        "review.*",
+        "merge.*"
+      ]
     },
     {
       "id": "gateway",
       "name": "Gateways & clouds",
-      "description": "One key or one bill reaching many models. Use for fallback, price routing and enterprise buyers."
+      "description": "One key or one bill reaching many models. Use for fallback, price routing and enterprise buyers.",
+      "taskTypes": [
+        "code.*",
+        "design.*",
+        "research.*",
+        "write.*",
+        "data.*",
+        "plan.*",
+        "judge.*",
+        "review.*",
+        "merge.*"
+      ]
     },
     {
       "id": "coding",
       "name": "Coding agents",
-      "description": "Full agents (not just models) that edit repos. Driven headless, by SDK, or as cloud tasks."
+      "description": "Full agents (not just models) that edit repos. Driven headless, by SDK, or as cloud tasks.",
+      "taskTypes": [
+        "code.*",
+        "design.api_contract",
+        "design.schema",
+        "design.architecture",
+        "review.rubric",
+        "merge.integrate",
+        "plan.decompose"
+      ]
     },
     {
       "id": "hosted",
       "name": "Hosted agent runtimes",
-      "description": "Vendor-run sandboxes you send a task to over REST and get results back. Best way to run other labs' agents at scale."
+      "description": "Vendor-run sandboxes you send a task to over REST and get results back. Best way to run other labs' agents at scale.",
+      "taskTypes": [
+        "code.*",
+        "research.*",
+        "data.*",
+        "browser.*",
+        "write.doc"
+      ]
     },
     {
       "id": "browser",
       "name": "Computer-use & browser agents",
-      "description": "For sites and apps with no API. Slower and riskier, so use only where no API exists."
+      "description": "For sites and apps with no API. Slower and riskier, so use only where no API exists.",
+      "taskTypes": [
+        "browser.*",
+        "research.web"
+      ]
     },
     {
       "id": "research",
       "name": "Research & search",
-      "description": "Deep research agents and search APIs that feed facts and citations to every other agent."
+      "description": "Deep research agents and search APIs that feed facts and citations to every other agent.",
+      "taskTypes": [
+        "research.*",
+        "write.summary"
+      ]
     },
     {
       "id": "general",
       "name": "General autonomous agents",
-      "description": "Do-anything agents. Few have real APIs, so most are reachable only through their apps."
+      "description": "Do-anything agents. Few have real APIs, so most are reachable only through their apps.",
+      "taskTypes": [
+        "research.*",
+        "data.*",
+        "browser.task",
+        "write.*"
+      ]
     },
     {
       "id": "media",
       "name": "Image, video, voice & music",
-      "description": "Specialists the router hands creative sub-tasks to."
+      "description": "Specialists the router hands creative sub-tasks to.",
+      "taskTypes": [
+        "media.*"
+      ]
     },
     {
       "id": "design",
       "name": "Design & workspace tools",
-      "description": "Where outputs land and get edited: design canvases, docs, workspaces."
+      "description": "Where outputs land and get edited: design canvases, docs, workspaces.",
+      "taskTypes": [
+        "design.ui_mockup",
+        "media.image"
+      ]
     },
     {
       "id": "enterprise",
       "name": "Enterprise agent platforms",
-      "description": "Company agent stacks that already speak A2A. Your orchestrator can delegate to them, or be delegated to."
+      "description": "Company agent stacks that already speak A2A. Your orchestrator can delegate to them, or be delegated to.",
+      "taskTypes": [
+        "code.*",
+        "research.*",
+        "write.*",
+        "data.*"
+      ]
     },
     {
       "id": "proto",
       "name": "Protocols & frameworks",
-      "description": "The plumbing: open protocols to talk to agents, and frameworks to build your own specialist agents."
+      "description": "The plumbing: open protocols to talk to agents, and frameworks to build your own specialist agents.",
+      "taskTypes": []
     },
     {
       "id": "hub",
       "name": "Automation & app hubs",
-      "description": "Thousands of apps behind one auth layer, so agents can act in Gmail, Slack, CRMs and more."
+      "description": "Thousands of apps behind one auth layer, so agents can act in Gmail, Slack, CRMs and more.",
+      "taskTypes": []
     }
   ],
   "connectors": [
@@ -105,7 +183,8 @@
       "plannedAdapter": "openai-compatible:openai",
       "buildMilestone": "M1",
       "subscriptionUse": null,
-      "supported": true
+      "supported": true,
+      "verifiedOn": "2026-10-23"
     },
     {
       "id": "claude-api",
@@ -124,7 +203,8 @@
       "plannedAdapter": "anthropic",
       "buildMilestone": "M1",
       "subscriptionUse": null,
-      "supported": true
+      "supported": true,
+      "verifiedOn": "2026-10-23"
     },
     {
       "id": "gemini-api",
@@ -143,7 +223,8 @@
       "plannedAdapter": "gemini",
       "buildMilestone": "M1",
       "subscriptionUse": null,
-      "supported": true
+      "supported": true,
+      "verifiedOn": "2026-10-23"
     },
     {
       "id": "grok-api",
@@ -162,7 +243,8 @@
       "plannedAdapter": "openai-compatible:xai",
       "buildMilestone": "M1",
       "subscriptionUse": null,
-      "supported": true
+      "supported": true,
+      "verifiedOn": "2026-10-23"
     },
     {
       "id": "meta-model-api-muse-spark",
@@ -180,7 +262,9 @@
       "plannedAdapter": "openai-compatible:meta",
       "buildMilestone": "M1",
       "subscriptionUse": null,
-      "supported": true
+      "supported": true,
+      "regionLimited": "Preview · region-limited",
+      "verifiedOn": "2026-10-23"
     },
     {
       "id": "mistral-api",
@@ -199,7 +283,8 @@
       "plannedAdapter": "openai-compatible:mistral",
       "buildMilestone": "M1",
       "subscriptionUse": null,
-      "supported": true
+      "supported": true,
+      "verifiedOn": "2026-10-23"
     },
     {
       "id": "cohere-api",
@@ -291,7 +376,8 @@
       "plannedAdapter": "openai-compatible:deepseek",
       "buildMilestone": "M1",
       "subscriptionUse": null,
-      "supported": true
+      "supported": true,
+      "verifiedOn": "2026-10-23"
     },
     {
       "id": "qwen-model-studio",
@@ -311,7 +397,8 @@
       "plannedAdapter": "openai-compatible:qwen",
       "buildMilestone": "M1",
       "subscriptionUse": null,
-      "supported": true
+      "supported": true,
+      "verifiedOn": "2026-10-23"
     },
     {
       "id": "kimi-api",
@@ -331,7 +418,8 @@
       "plannedAdapter": "openai-compatible:kimi",
       "buildMilestone": "M1",
       "subscriptionUse": null,
-      "supported": true
+      "supported": true,
+      "verifiedOn": "2026-10-23"
     },
     {
       "id": "glm-api",
@@ -350,7 +438,8 @@
       "plannedAdapter": "openai-compatible:glm",
       "buildMilestone": "M1",
       "subscriptionUse": null,
-      "supported": true
+      "supported": true,
+      "verifiedOn": "2026-10-23"
     },
     {
       "id": "minimax-api",
@@ -388,7 +477,16 @@
       "plannedAdapter": "openai-compatible:sarvam",
       "buildMilestone": "M1",
       "subscriptionUse": null,
-      "supported": true
+      "supported": true,
+      "taskTypes": [
+        "write.*",
+        "research.web",
+        "data.extraction",
+        "data.analysis",
+        "plan.decompose",
+        "review.rubric"
+      ],
+      "verifiedOn": "2026-10-23"
     },
     {
       "id": "local-models",
@@ -404,10 +502,11 @@
       "statusKey": "e",
       "tier": "P1",
       "notes": "Private or offline mode: route sensitive sub-tasks to a model on the user's machine.",
-      "plannedAdapter": "openai-compatible:local",
+      "plannedAdapter": "openai-compatible:ollama",
       "buildMilestone": "M1",
       "subscriptionUse": null,
-      "supported": true
+      "supported": true,
+      "verifiedOn": "2026-10-23"
     },
     {
       "id": "nvidia-nim",
@@ -444,7 +543,8 @@
       "plannedAdapter": "openai-compatible:openrouter",
       "buildMilestone": "M1",
       "subscriptionUse": null,
-      "supported": true
+      "supported": true,
+      "verifiedOn": "2026-10-23"
     },
     {
       "id": "litellm",
@@ -463,7 +563,8 @@
       "plannedAdapter": "openai-compatible:litellm",
       "buildMilestone": "M1",
       "subscriptionUse": null,
-      "supported": true
+      "supported": true,
+      "verifiedOn": "2026-10-23"
     },
     {
       "id": "amazon-bedrock",
@@ -537,7 +638,8 @@
       "plannedAdapter": "openai-compatible:groq",
       "buildMilestone": "M1",
       "subscriptionUse": null,
-      "supported": true
+      "supported": true,
+      "verifiedOn": "2026-10-23"
     },
     {
       "id": "together-fireworks-deepinfra",
@@ -555,7 +657,8 @@
       "plannedAdapter": "openai-compatible:together",
       "buildMilestone": "M1",
       "subscriptionUse": null,
-      "supported": true
+      "supported": true,
+      "verifiedOn": "2026-10-23"
     },
     {
       "id": "vercel-ai-gateway-cloudflare-ai-gateway",
@@ -1914,6 +2017,641 @@
       "supported": true
     }
   ],
+  "presets": {
+    "openai": {
+      "regions": {
+        "us": "https://us.api.openai.com/v1",
+        "eu": "https://eu.api.openai.com/v1",
+        "au": "https://au.api.openai.com/v1",
+        "ca": "https://ca.api.openai.com/v1",
+        "jp": "https://jp.api.openai.com/v1",
+        "in": "https://in.api.openai.com/v1",
+        "sg": "https://sg.api.openai.com/v1",
+        "kr": "https://kr.api.openai.com/v1",
+        "gb": "https://gb.api.openai.com/v1",
+        "ae": "https://ae.api.openai.com/v1"
+      },
+      "baseUrlEditable": false,
+      "extraHeaders": {},
+      "apiStyles": [
+        "responses",
+        "chat"
+      ],
+      "tools": true,
+      "maxTokensParam": "max_completion_tokens",
+      "requestExtras": {},
+      "pricing": {
+        "openrouterPrefix": "openai",
+        "free": false
+      },
+      "reportsCost": false,
+      "local": false,
+      "verifiedOn": "2026-10-23",
+      "connector": "openai-api",
+      "name": "OpenAI",
+      "family": "openai-compatible",
+      "baseUrl": "https://api.openai.com/v1",
+      "auth": "bearer",
+      "models": {
+        "path": "/models",
+        "shape": "openai",
+        "fromOrigin": false,
+        "static": []
+      },
+      "docsUrl": "https://developers.openai.com/api/docs/models",
+      "notes": "Regional hosts need data-residency approval and add 10% for models released since 2026-03-05.",
+      "responsesExtras": {
+        "store": false,
+        "include": [
+          "reasoning.encrypted_content"
+        ]
+      }
+    },
+    "anthropic": {
+      "regions": {},
+      "baseUrlEditable": false,
+      "extraHeaders": {},
+      "apiStyles": [],
+      "tools": true,
+      "maxTokensParam": "max_tokens",
+      "requestExtras": {},
+      "pricing": {
+        "openrouterPrefix": "anthropic",
+        "free": false
+      },
+      "reportsCost": false,
+      "local": false,
+      "verifiedOn": "2026-10-23",
+      "connector": "claude-api",
+      "name": "Anthropic",
+      "family": "anthropic",
+      "baseUrl": "https://api.anthropic.com/v1",
+      "auth": "bearer",
+      "models": {
+        "path": "/models",
+        "shape": "anthropic",
+        "fromOrigin": false,
+        "static": []
+      },
+      "docsUrl": "https://platform.claude.com/docs/en/api/overview",
+      "notes": "Native Messages API pinned to anthropic-version 2023-06-01 (2026-10-21 rejects sampling parameters). The OpenAI-compatible layer is test-only and is not used."
+    },
+    "gemini": {
+      "regions": {},
+      "baseUrlEditable": false,
+      "extraHeaders": {},
+      "apiStyles": [],
+      "tools": true,
+      "maxTokensParam": "max_tokens",
+      "requestExtras": {},
+      "pricing": {
+        "openrouterPrefix": "google",
+        "free": false
+      },
+      "reportsCost": false,
+      "local": false,
+      "verifiedOn": "2026-10-23",
+      "connector": "gemini-api",
+      "name": "Google Gemini",
+      "family": "gemini",
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+      "auth": "x-goog-api-key",
+      "models": {
+        "path": "/models",
+        "shape": "gemini",
+        "fromOrigin": false,
+        "static": []
+      },
+      "docsUrl": "https://ai.google.dev/api/generate-content",
+      "notes": "Some prices step up on scheduled dates; refresh prices."
+    },
+    "xai": {
+      "regions": {
+        "us": "https://us.api.x.ai/v1"
+      },
+      "baseUrlEditable": false,
+      "extraHeaders": {},
+      "apiStyles": [
+        "responses",
+        "chat"
+      ],
+      "tools": true,
+      "maxTokensParam": "max_tokens",
+      "requestExtras": {},
+      "pricing": {
+        "openrouterPrefix": "x-ai",
+        "free": false
+      },
+      "reportsCost": true,
+      "local": false,
+      "verifiedOn": "2026-10-23",
+      "connector": "grok-api",
+      "name": "xAI Grok",
+      "family": "openai-compatible",
+      "baseUrl": "https://api.x.ai/v1",
+      "auth": "bearer",
+      "models": {
+        "path": "/models",
+        "shape": "xai",
+        "fromOrigin": false,
+        "static": []
+      },
+      "docsUrl": "https://docs.x.ai/docs/api-reference",
+      "notes": "Chat Completions is legacy at xAI; Responses is primary. Every response carries its exact cost.",
+      "responsesExtras": {
+        "store": false,
+        "include": [
+          "reasoning.encrypted_content"
+        ]
+      }
+    },
+    "meta": {
+      "regions": {},
+      "baseUrlEditable": false,
+      "extraHeaders": {},
+      "apiStyles": [
+        "responses",
+        "chat"
+      ],
+      "tools": true,
+      "maxTokensParam": "max_tokens",
+      "requestExtras": {},
+      "pricing": {
+        "openrouterPrefix": "meta",
+        "free": false
+      },
+      "reportsCost": false,
+      "local": false,
+      "verifiedOn": "2026-10-23",
+      "connector": "meta-model-api-muse-spark",
+      "name": "Meta Model API",
+      "family": "openai-compatible",
+      "baseUrl": "https://api.meta.ai/v1",
+      "auth": "bearer",
+      "models": {
+        "path": "/models",
+        "shape": "openai",
+        "fromOrigin": false,
+        "static": []
+      },
+      "regionLimited": "Preview · region-limited",
+      "docsUrl": "https://dev.meta.ai/docs/api-reference.md",
+      "notes": "Public preview. Availability follows Meta's geographic use policy; 'contributor' models let Meta train on your data."
+    },
+    "mistral": {
+      "regions": {
+        "eu": "https://api.eu.mistral.ai/v1",
+        "us": "https://api.us.mistral.ai/v1"
+      },
+      "baseUrlEditable": false,
+      "extraHeaders": {},
+      "apiStyles": [
+        "chat"
+      ],
+      "tools": true,
+      "maxTokensParam": "max_tokens",
+      "requestExtras": {},
+      "pricing": {
+        "openrouterPrefix": "mistralai",
+        "free": false
+      },
+      "reportsCost": false,
+      "local": false,
+      "verifiedOn": "2026-10-23",
+      "connector": "mistral-api",
+      "name": "Mistral",
+      "family": "openai-compatible",
+      "baseUrl": "https://api.mistral.ai/v1",
+      "auth": "bearer",
+      "models": {
+        "path": "/models",
+        "shape": "openai",
+        "fromOrigin": false,
+        "static": []
+      },
+      "docsUrl": "https://docs.mistral.ai/inference/pricing.md",
+      "notes": "Regional hosts add 10% and support function calling only."
+    },
+    "deepseek": {
+      "regions": {},
+      "baseUrlEditable": false,
+      "extraHeaders": {},
+      "apiStyles": [
+        "chat"
+      ],
+      "tools": true,
+      "maxTokensParam": "max_tokens",
+      "requestExtras": {},
+      "pricing": {
+        "openrouterPrefix": "deepseek",
+        "free": false
+      },
+      "reportsCost": false,
+      "local": false,
+      "verifiedOn": "2026-10-23",
+      "connector": "deepseek-api",
+      "name": "DeepSeek",
+      "family": "openai-compatible",
+      "baseUrl": "https://api.deepseek.com",
+      "auth": "bearer",
+      "models": {
+        "path": "/models",
+        "shape": "openai",
+        "fromOrigin": false,
+        "static": []
+      },
+      "docsUrl": "https://api-docs.deepseek.com/quick_start/pricing",
+      "notes": "Peak/off-peak pricing by UTC time of day; thinking is on by default."
+    },
+    "kimi": {
+      "regions": {
+        "cn": "https://api.moonshot.cn/v1"
+      },
+      "baseUrlEditable": false,
+      "extraHeaders": {},
+      "apiStyles": [
+        "chat",
+        "responses"
+      ],
+      "tools": true,
+      "maxTokensParam": "max_tokens",
+      "requestExtras": {},
+      "pricing": {
+        "openrouterPrefix": "moonshotai",
+        "free": false
+      },
+      "reportsCost": false,
+      "local": false,
+      "verifiedOn": "2026-10-23",
+      "connector": "kimi-api",
+      "name": "Moonshot Kimi",
+      "family": "openai-compatible",
+      "baseUrl": "https://api.moonshot.ai/v1",
+      "auth": "bearer",
+      "models": {
+        "path": "/models",
+        "shape": "openai",
+        "fromOrigin": false,
+        "static": []
+      },
+      "docsUrl": "https://platform.kimi.ai/docs/api/overview.md",
+      "notes": "International and China accounts use different keys and hosts."
+    },
+    "glm": {
+      "regions": {
+        "cn": "https://open.bigmodel.cn/api/paas/v4"
+      },
+      "baseUrlEditable": false,
+      "extraHeaders": {},
+      "apiStyles": [
+        "chat"
+      ],
+      "tools": true,
+      "maxTokensParam": "max_tokens",
+      "requestExtras": {},
+      "pricing": {
+        "openrouterPrefix": "z-ai",
+        "free": false
+      },
+      "reportsCost": false,
+      "local": false,
+      "verifiedOn": "2026-10-23",
+      "connector": "glm-api",
+      "name": "Z.ai GLM",
+      "family": "openai-compatible",
+      "baseUrl": "https://api.z.ai/api/paas/v4",
+      "auth": "bearer",
+      "models": {
+        "path": null,
+        "shape": "none",
+        "fromOrigin": false,
+        "static": [
+          "glm-5.3",
+          "glm-5.3-flash",
+          "glm-5.3-flashx",
+          "glm-5.2",
+          "glm-5.1",
+          "glm-5",
+          "glm-4.7",
+          "glm-4.6"
+        ]
+      },
+      "health": {
+        "kind": "probe",
+        "path": "/chat/completions"
+      },
+      "docsUrl": "https://docs.z.ai/api-reference/llm/chat-completion.md",
+      "notes": "No model-list endpoint: the documented models are listed here. China (bigmodel.cn) uses separate keys."
+    },
+    "qwen": {
+      "regions": {
+        "cn-beijing": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "cn-hongkong": "https://cn-hongkong.dashscope.aliyuncs.com/compatible-mode/v1"
+      },
+      "baseUrlEditable": true,
+      "extraHeaders": {},
+      "apiStyles": [
+        "chat",
+        "responses"
+      ],
+      "tools": true,
+      "maxTokensParam": "max_tokens",
+      "requestExtras": {},
+      "pricing": {
+        "openrouterPrefix": "qwen",
+        "free": false
+      },
+      "reportsCost": false,
+      "local": false,
+      "verifiedOn": "2026-10-23",
+      "connector": "qwen-model-studio",
+      "name": "Qwen Model Studio",
+      "family": "openai-compatible",
+      "baseUrl": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+      "auth": "bearer",
+      "models": {
+        "path": "/api/v1/models",
+        "shape": "dashscope",
+        "fromOrigin": true,
+        "static": []
+      },
+      "health": {
+        "kind": "models"
+      },
+      "docsUrl": "https://www.alibabacloud.com/help/en/model-studio/compatibility-of-openai-with-dashscope",
+      "notes": "Keys are region-bound. New workspaces get a workspace URL (https://<workspace>.<region>.maas.aliyuncs.com/compatible-mode/v1); paste it as the base URL."
+    },
+    "sarvam": {
+      "regions": {
+        "v2": "https://api.sarvam.ai/v2"
+      },
+      "baseUrlEditable": false,
+      "extraHeaders": {},
+      "apiStyles": [
+        "chat"
+      ],
+      "tools": true,
+      "maxTokensParam": "max_tokens",
+      "requestExtras": {},
+      "pricing": {
+        "openrouterPrefix": null,
+        "free": false
+      },
+      "reportsCost": false,
+      "local": false,
+      "verifiedOn": "2026-10-23",
+      "connector": "sarvam-ai-api",
+      "name": "Sarvam AI",
+      "family": "openai-compatible",
+      "baseUrl": "https://api.sarvam.ai/v1",
+      "auth": "bearer",
+      "models": {
+        "path": "/models",
+        "shape": "openai",
+        "fromOrigin": false,
+        "static": []
+      },
+      "health": {
+        "kind": "probe",
+        "path": "/chat/completions"
+      },
+      "docsUrl": "https://docs.sarvam.ai/api-reference/chat/chat-completions-v1.md",
+      "notes": "Prices are in INR. The model list is public, so the key is checked with a free probe. v2 serves open-weight models too."
+    },
+    "openrouter": {
+      "regions": {
+        "eu": "https://eu.openrouter.ai/api/v1",
+        "us": "https://us.openrouter.ai/api/v1"
+      },
+      "baseUrlEditable": false,
+      "extraHeaders": {
+        "X-OpenRouter-Title": "Brio"
+      },
+      "apiStyles": [
+        "chat",
+        "responses"
+      ],
+      "tools": true,
+      "maxTokensParam": "max_tokens",
+      "requestExtras": {},
+      "pricing": {
+        "openrouterPrefix": null,
+        "free": false
+      },
+      "reportsCost": true,
+      "local": false,
+      "verifiedOn": "2026-10-23",
+      "connector": "openrouter",
+      "name": "OpenRouter",
+      "family": "openai-compatible",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "auth": "bearer",
+      "models": {
+        "path": "/models",
+        "shape": "openrouter",
+        "fromOrigin": false,
+        "static": []
+      },
+      "health": {
+        "kind": "get",
+        "path": "/key"
+      },
+      "docsUrl": "https://openrouter.ai/docs/api/reference/overview",
+      "notes": "Every response carries its cost. In-region hosts need a Business plan."
+    },
+    "litellm": {
+      "regions": {},
+      "baseUrlEditable": true,
+      "extraHeaders": {},
+      "apiStyles": [
+        "chat",
+        "responses"
+      ],
+      "tools": true,
+      "maxTokensParam": "max_tokens",
+      "requestExtras": {},
+      "pricing": {
+        "openrouterPrefix": null,
+        "free": false
+      },
+      "reportsCost": true,
+      "local": false,
+      "verifiedOn": "2026-10-23",
+      "connector": "litellm",
+      "name": "LiteLLM proxy",
+      "family": "openai-compatible",
+      "baseUrl": null,
+      "auth": "optional-bearer",
+      "models": {
+        "path": "/models",
+        "shape": "openai",
+        "fromOrigin": false,
+        "static": []
+      },
+      "costHeader": "x-litellm-response-cost",
+      "docsUrl": "https://docs.litellm.ai/docs/proxy/user_keys",
+      "notes": "Your own proxy: give its /v1 URL. Cost comes from LiteLLM's response header; set a price on the agent if your proxy has no cost map."
+    },
+    "ollama": {
+      "regions": {},
+      "baseUrlEditable": true,
+      "extraHeaders": {},
+      "apiStyles": [
+        "chat",
+        "responses"
+      ],
+      "tools": true,
+      "maxTokensParam": "max_tokens",
+      "requestExtras": {},
+      "pricing": {
+        "openrouterPrefix": null,
+        "free": true
+      },
+      "reportsCost": false,
+      "local": true,
+      "verifiedOn": "2026-10-23",
+      "connector": "local-models",
+      "name": "Ollama",
+      "family": "openai-compatible",
+      "baseUrl": "http://localhost:11434/v1",
+      "auth": "optional-bearer",
+      "models": {
+        "path": "/models",
+        "shape": "openai",
+        "fromOrigin": false,
+        "static": []
+      },
+      "docsUrl": "https://docs.ollama.com/api/openai-compatibility.md",
+      "notes": "Runs on your machine; free."
+    },
+    "vllm": {
+      "regions": {},
+      "baseUrlEditable": true,
+      "extraHeaders": {},
+      "apiStyles": [
+        "chat",
+        "responses"
+      ],
+      "tools": true,
+      "maxTokensParam": "max_tokens",
+      "requestExtras": {},
+      "pricing": {
+        "openrouterPrefix": null,
+        "free": true
+      },
+      "reportsCost": false,
+      "local": true,
+      "verifiedOn": "2026-10-23",
+      "connector": "local-models",
+      "name": "vLLM",
+      "family": "openai-compatible",
+      "baseUrl": "http://localhost:8000/v1",
+      "auth": "optional-bearer",
+      "models": {
+        "path": "/models",
+        "shape": "openai",
+        "fromOrigin": false,
+        "static": []
+      },
+      "docsUrl": "https://docs.vllm.ai/en/latest/serving/online_serving/",
+      "notes": "Your own server; tool calls need --enable-auto-tool-choice and a --tool-call-parser."
+    },
+    "groq": {
+      "regions": {},
+      "baseUrlEditable": false,
+      "extraHeaders": {},
+      "apiStyles": [
+        "chat",
+        "responses"
+      ],
+      "tools": true,
+      "maxTokensParam": "max_tokens",
+      "requestExtras": {},
+      "pricing": {
+        "openrouterPrefix": null,
+        "free": false
+      },
+      "reportsCost": false,
+      "local": false,
+      "verifiedOn": "2026-10-23",
+      "connector": "groq-cerebras",
+      "name": "Groq",
+      "family": "openai-compatible",
+      "baseUrl": "https://api.groq.com/openai/v1",
+      "auth": "bearer",
+      "models": {
+        "path": "/models",
+        "shape": "openai",
+        "fromOrigin": false,
+        "static": []
+      },
+      "docsUrl": "https://console.groq.com/docs/api-reference",
+      "notes": "Prices are per hosted model; see the Groq models page."
+    },
+    "together": {
+      "regions": {},
+      "baseUrlEditable": false,
+      "extraHeaders": {},
+      "apiStyles": [
+        "chat"
+      ],
+      "tools": true,
+      "maxTokensParam": "max_tokens",
+      "requestExtras": {},
+      "pricing": {
+        "openrouterPrefix": null,
+        "free": false
+      },
+      "reportsCost": false,
+      "local": false,
+      "verifiedOn": "2026-10-23",
+      "connector": "together-fireworks-deepinfra",
+      "name": "Together AI",
+      "family": "openai-compatible",
+      "baseUrl": "https://api.together.ai/v1",
+      "auth": "bearer",
+      "models": {
+        "path": "/models",
+        "shape": "together",
+        "fromOrigin": false,
+        "static": []
+      },
+      "docsUrl": "https://docs.together.ai/docs/inference/openai-compatibility.md",
+      "notes": "The model list carries prices when Together publishes them."
+    },
+    "fireworks": {
+      "regions": {},
+      "baseUrlEditable": false,
+      "extraHeaders": {},
+      "apiStyles": [
+        "chat",
+        "responses"
+      ],
+      "tools": true,
+      "maxTokensParam": "max_tokens",
+      "requestExtras": {},
+      "pricing": {
+        "openrouterPrefix": null,
+        "free": false
+      },
+      "reportsCost": false,
+      "local": false,
+      "verifiedOn": "2026-10-23",
+      "connector": "together-fireworks-deepinfra",
+      "name": "Fireworks AI",
+      "family": "openai-compatible",
+      "baseUrl": "https://api.fireworks.ai/inference/v1",
+      "auth": "bearer",
+      "models": {
+        "path": "/models",
+        "shape": "openai",
+        "fromOrigin": false,
+        "static": []
+      },
+      "docsUrl": "https://docs.fireworks.ai/api-reference/post-chatcompletions.md",
+      "notes": "Model ids look like accounts/fireworks/models/<slug>."
+    }
+  },
   "sources": [
     {
       "title": "Meta opens Muse Spark 1.1 via Model API (Axios)",
