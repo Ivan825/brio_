@@ -6,7 +6,14 @@
 import { execFile } from "node:child_process";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { type AgentAdapter, adapterFor, type CheckItem, type FetchLike, type Logger } from "@brio/adapters";
+import {
+  type AgentAdapter,
+  adapterFor,
+  type CheckItem,
+  type FetchLike,
+  LimitExceeded,
+  type Logger,
+} from "@brio/adapters";
 import { Redactor } from "@brio/vault";
 import { runAttemptWork, type WorkSandbox } from "../attempt-work";
 import { CHECK_SANDBOX, isCommand, runCommandCheck } from "../checks";
@@ -168,7 +175,9 @@ export class LocalRunner {
   private handle(m: ServerMessage) {
     switch (m.t) {
       case "cancel":
-        this.running.get(m.attemptId)?.abort();
+        this.running
+          .get(m.attemptId)
+          ?.abort(m.reason?.startsWith("budget") ? new LimitExceeded(m.reason) : undefined);
         return;
       case "list_files":
         void this.listFiles(m);

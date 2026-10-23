@@ -37,7 +37,8 @@ export type ServerMessage =
   | { t: "merge"; row: MergeInput; commands: string[] }
   | { t: "deliver"; deliveryId: string; repo: string; branch: string; commit: string }
   | { t: "list_files"; requestId: string; repo: { url: string; branch: string | null } }
-  | { t: "cancel"; attemptId: string }
+  /** A budget reached ("budget…") ends the attempt as limit_exceeded; anything else cancels it. */
+  | { t: "cancel"; attemptId: string; reason?: string }
   | { t: "error"; message: string };
 
 /** A produced file or changed file's bytes, as base64. */

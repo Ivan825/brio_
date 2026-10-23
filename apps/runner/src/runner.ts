@@ -1,7 +1,7 @@
 // The runner process (ARCHITECTURE §2, §6): pulls attempt jobs, executes them with bounded concurrency, heartbeats
 // while they run, cancels them on request within seconds, and reaps what other runners left behind.
 import { randomBytes } from "node:crypto";
-import type { AgentAdapter, FetchLike, Logger } from "@brio/adapters";
+import { type AgentAdapter, type FetchLike, LimitExceeded, type Logger } from "@brio/adapters";
 import { type Db, type EventWriter, schema } from "@brio/db";
 import type { Ledger } from "@brio/governance";
 import type { Redactor, Vault } from "@brio/vault";
@@ -112,7 +112,7 @@ export class Runner {
     this.listener.on("error", (err) => this.o.log.warn({ err: err.message }, "cancel listener error"));
     await this.listener.connect();
     this.listener.on("notification", (n) => {
-      if (n.channel === CANCEL_CHANNEL && n.payload) this.cancelLocal(n.payload);
+      if (n.channel === CANCEL_CHANNEL && n.payload) void this.cancelWithReason(n.payload);
     });
     await this.listener.query(`LISTEN ${CANCEL_CHANNEL}`);
     this.timers.push(setInterval(() => void this.heartbeat(), this.o.heartbeatMs ?? 10_000));
@@ -139,11 +139,22 @@ export class Runner {
     await done;
   }
 
-  cancelLocal(attemptId: string): boolean {
+  /** Stops a running attempt here; a budget reached ends it as limit_exceeded, anything else as cancelled. */
+  cancelLocal(attemptId: string, reason?: string | null): boolean {
     const r = this.running.get(attemptId);
     if (!r) return false;
-    r.abort.abort();
+    r.abort.abort(reason?.startsWith("budget") ? new LimitExceeded(reason) : undefined);
     return true;
+  }
+
+  private async cancelWithReason(attemptId: string): Promise<void> {
+    if (!this.running.has(attemptId)) return;
+    const [row] = await this.o.db
+      .select({ reason: attempts.cancelReason })
+      .from(attempts)
+      .where(eq(attempts.id, attemptId))
+      .catch(() => []);
+    this.cancelLocal(attemptId, row?.reason ?? null);
   }
 
   /** Signs of life for running attempts; also picks up cancels missed by LISTEN. */
@@ -155,8 +166,8 @@ export class Runner {
         .update(attempts)
         .set({ heartbeatAt: new Date() })
         .where(and(inArray(attempts.id, ids), eq(attempts.runnerId, this.id)))
-        .returning({ id: attempts.id, cancel: attempts.cancelRequestedAt });
-      for (const r of rows) if (r.cancel) this.cancelLocal(r.id);
+        .returning({ id: attempts.id, cancel: attempts.cancelRequestedAt, reason: attempts.cancelReason });
+      for (const r of rows) if (r.cancel) this.cancelLocal(r.id, r.reason);
     } catch (err) {
       this.o.log.warn({ err: (err as Error).message }, "heartbeat failed");
     }
@@ -259,8 +270,14 @@ export class Runner {
   }
 }
 
-/** For the API: ask whichever runner holds the attempt to cancel it. */
-export async function requestCancel(db: Db, attemptId: string): Promise<void> {
-  await db.update(attempts).set({ cancelRequestedAt: new Date() }).where(eq(attempts.id, attemptId));
+/**
+ * For the API: ask whichever runner holds the attempt to stop it. A reason starting with "budget" ends it as
+ * limit_exceeded (a budget reached, M9); otherwise it is cancelled.
+ */
+export async function requestCancel(db: Db, attemptId: string, reason?: string): Promise<void> {
+  await db
+    .update(attempts)
+    .set({ cancelRequestedAt: new Date(), ...(reason ? { cancelReason: reason.slice(0, 500) } : {}) })
+    .where(eq(attempts.id, attemptId));
   await db.execute(sql`select pg_notify(${CANCEL_CHANNEL}, ${attemptId})`);
 }

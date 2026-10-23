@@ -204,8 +204,17 @@ export function dbSink(
       );
   };
   return {
-    event: (type: EventType, payload, actor = agentActor) =>
-      then(() => deps.events.append(deps.db, { ...base, type, actor, payload }), type),
+    event: (type: EventType, payload, actor = agentActor) => {
+      // Spend is live on the attempt, recorded before its event so the budget guard the event wakes sees it (M9).
+      if (type === "attempt.cost" && typeof payload.totalUsd === "number") {
+        const usd = payload.totalUsd;
+        then(
+          () => deps.db.update(attempts).set({ costUsd: usd }).where(eq(attempts.id, attempt.id)),
+          "live cost",
+        );
+      }
+      then(() => deps.events.append(deps.db, { ...base, type, actor, payload }), type);
+    },
     vendorRun: (id) =>
       then(
         () => deps.db.update(attempts).set({ transcriptRef: id }).where(eq(attempts.id, attempt.id)),
