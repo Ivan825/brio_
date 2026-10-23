@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useId, useState } from "react";
 import { Button } from "@/components/button";
+import { Chip } from "@/components/chip";
 import { FormError, Label, Select } from "@/components/field";
 import { StatusChip } from "@/components/status-chip";
 import { api } from "@/lib/api";
@@ -105,6 +106,41 @@ function Answer({ attempt }: { attempt: AttemptSummary }) {
   );
 }
 
+/** Thumbs up or down on a result: it moves the agent's score on this task type (once per person). */
+function Rate({ attempt }: { attempt: AttemptSummary }) {
+  const [rated, setRated] = useState<1 | -1 | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const rate = async (rating: 1 | -1) => {
+    setError(null);
+    try {
+      await api(`/v1/attempts/${attempt.id}/rating`, { method: "POST", body: { rating } });
+      setRated(rating);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+  if (rated !== null)
+    return (
+      <span className="mt-1 self-center text-fg-subtle" data-testid="rated">
+        rated {rated > 0 ? "up" : "down"}
+      </span>
+    );
+  return (
+    <div className="mt-1 flex items-center gap-1">
+      <Button size="sm" variant="ghost" aria-label="Rate up" onClick={() => rate(1)}>
+        +1
+      </Button>
+      <Button size="sm" variant="ghost" aria-label="Rate down" onClick={() => rate(-1)}>
+        −1
+      </Button>
+      <FormError>{error}</FormError>
+    </div>
+  );
+}
+
+/** Results people rate: made, revised and merged work (not reviews or judgements). */
+const RATABLE = new Set(["make", "revise", "merge"]);
+
 /** Run a task now with a chosen agent (M1 direct run), and follow its attempts. */
 export function TaskRunner({
   task,
@@ -186,6 +222,8 @@ export function TaskRunner({
               <li key={a.id} className="font-mono text-2xs" data-testid="attempt" data-status={a.status}>
                 <div className="flex flex-wrap items-center gap-2 text-fg-muted">
                   <span className="text-fg">{agentName(a.agentId)}</span>
+                  {a.purpose && <Chip>{a.purpose}</Chip>}
+                  {task.result?.attemptId === a.id && <Chip tone="success">chosen</Chip>}
                   <StatusChip status={a.status} />
                   <span className="tabular-nums" data-testid="attempt-cost">
                     {usd(cost ?? 0)}
@@ -205,6 +243,7 @@ export function TaskRunner({
                   <div className="flex flex-wrap gap-2">
                     <Answer attempt={a} />
                     <Diff attempt={a} />
+                    {(a.purpose === null || RATABLE.has(a.purpose)) && <Rate attempt={a} />}
                   </div>
                 )}
               </li>

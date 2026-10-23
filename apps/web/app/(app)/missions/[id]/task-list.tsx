@@ -90,10 +90,22 @@ export function TaskList({
             </div>
             <p className="mt-1.5">{t.title}</p>
             <p className="mt-1 font-mono text-2xs text-fg-subtle">
-              {t.type} · {t.mode}
+              {t.type} · {(t.route?.mode ?? t.mode).replaceAll("_", " ")}
               {t.dependsOn.length ? ` · after ${t.dependsOn.map((d) => keyOf.get(d) ?? "?").join(", ")}` : ""}
               {t.revisions ? ` · revision ${t.revisions}` : ""}
             </p>
+            {t.route && (
+              <p className="mt-1 font-mono text-2xs text-fg-muted" data-testid="rationale">
+                <span className="select-none text-fg-subtle">↳ </span>
+                {t.route.rationale}
+                {t.route.degraded && <span className="text-warning"> · {t.route.degraded}</span>}
+              </p>
+            )}
+            {t.result && (
+              <p className="mt-1 font-mono text-2xs text-success" data-testid="mode-result">
+                {t.result.note}
+              </p>
+            )}
             {t.blockedReason && (
               <p className="mt-1 font-mono text-2xs text-warning">
                 {t.blockedReason.replace(/^lease:\s*/, "")}

@@ -40,6 +40,15 @@ export interface MissionTask {
   revisions: number;
   pinnedAgentId: string | null;
   sensitivity: string;
+  /** How the router staffed the task and why (null until it is dispatched). */
+  route: {
+    mode: string;
+    agents: { agentId: string; role: string }[];
+    rationale: string;
+    degraded: string | null;
+  } | null;
+  /** The attempt a multi-agent mode chose. */
+  result: { attemptId: string; note: string } | null;
   attempts: AttemptSummary[];
 }
 
@@ -57,7 +66,7 @@ type Connection = "connecting" | "live" | "reconnecting";
 
 /** Events that change the mission's shape (plan, task states, messages): the page re-reads its data on them. */
 const STRUCTURAL =
-  /^(plan|task|mission|message|review|approval|check|handoff|contract|lease)\.|^attempt\.(queued|started|finished)$/;
+  /^(plan|task|mission|message|review|judge|approval|check|handoff|contract|lease)\.|^attempt\.(queued|started|finished)$/;
 
 function summarise(e: BoardEvent): string {
   const p = e.payload;
@@ -79,6 +88,10 @@ function summarise(e: BoardEvent): string {
     case "task.ready":
     case "task.done":
       return String(p.taskKey ?? "") + (p.agent ? ` · ${p.agent} · ${usd(p.costUsd as number)}` : "");
+    case "task.routed":
+      return `${p.taskKey} · ${String(p.mode ?? "").replaceAll("_", " ")} · ${p.rationale ?? ""}${p.degraded ? ` · ${p.degraded}` : ""}`;
+    case "judge.verdict":
+      return `${p.taskKey} · winner ${p.winner ?? "unreadable"}${p.reasons ? ` · ${p.reasons}` : ""}`;
     case "task.blocked":
     case "task.failed":
       return `${p.taskKey} · ${p.reason ?? (p.reasons as string[] | undefined)?.join("; ") ?? ""}`;

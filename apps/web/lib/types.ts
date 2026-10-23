@@ -115,4 +115,6 @@ export interface AttemptSummary {
   tokensIn: number;
   tokensOut: number;
   exitReason: string | null;
+  purpose: "make" | "revise" | "review" | "judge" | "merge" | null;
+  scored: "pass" | "revise" | "fail" | null;
 }
