@@ -13,6 +13,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import { users } from "./auth";
@@ -209,4 +210,44 @@ export const reviews = pgTable(
     index().on(t.taskId),
     check("reviews_one_reviewer", sql`num_nonnulls(${t.reviewerAgentId}, ${t.reviewerUserId}) = 1`),
   ],
+);
+
+/**
+ * The merge engine's integration runs (ROUTING §4, BUILD_PLAN M5): every finished code task's branch merged in plan
+ * order onto one integration branch, then every hard command check run on the result. A conflict becomes a
+ * merge.integrate task and a failing check a fix task; each round is a row.
+ */
+export const integrations = pgTable(
+  "integrations",
+  {
+    id: id(),
+    workspaceId: ws(),
+    missionId: uuid()
+      .notNull()
+      .references(() => missions.id),
+    planVersion: integer().notNull(),
+    round: integer().notNull(),
+    /** queued, running, passed, failed (a check failed), conflict (the branches do not merge). */
+    status: text().notNull().default("queued"),
+    /** The branches merged, in order: each finished code task's result. */
+    refs: jsonb().$type<Array<{ taskId: string; taskKey: string; ref: string }>>().notNull(),
+    /** The repository the branches live in (null: the mission's own empty repository). */
+    repo: jsonb().$type<{ url: string; branch: string | null } | null>(),
+    branch: text(),
+    commit: text(),
+    base: text(),
+    conflicts: jsonb()
+      .$type<Array<{ between: [string, string]; files: string[] }>>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    /** The commands run on the merged result and how each went. */
+    checks: jsonb()
+      .$type<Array<{ command: string; passed: boolean; exitCode: number | null; output: string }>>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    diffArtifactId: uuid().references(() => artifacts.id),
+    error: text(),
+    ...timestamps(),
+  },
+  (t) => [uniqueIndex().on(t.missionId, t.planVersion, t.round)],
 );

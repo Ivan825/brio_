@@ -100,6 +100,7 @@ All tables have `id` (uuid v7), `workspace_id`, `created_at`, `updated_at` unles
 - `contracts` — shared interface contracts: `project_id`, `name`, `version`, `spec` jsonb or text (OpenAPI, TS types, schema), `owner_task_id`, `status`.
 - `leases` — `task_id`, `resource_kind` (path|glob|symbol|contract|external), `resource`, `mode` (exclusive|shared), `expires_at` (heartbeat-renewed), `released_at`.
 - `messages` — agent mailbox: `mission_id`, `from_attempt_id`, `to_task_id` or `to_attempt_id` or `to_user`, `kind` (question|answer|review_request|blocker|note), `body`, `status`.
+- `integrations` — the merge engine's rounds per mission and plan version: the finished code branches merged in plan order (`refs`), `status` (queued|running|passed|failed|conflict), the integration `branch` and `commit`, `conflicts`, the `checks` run on the result, and the integration diff artifact.
 - `handoffs` — `from_task_id`, `to_task_id`, `packet` jsonb (schema `HandoffPacket`).
 
 **Learning**
