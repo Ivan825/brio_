@@ -154,3 +154,14 @@ export interface AttemptSummary {
   purpose: "make" | "revise" | "review" | "judge" | "merge" | null;
   scored: "pass" | "revise" | "fail" | null;
 }
+
+export interface ProjectSummary {
+  id: string;
+  name: string;
+  kind: string;
+  repoUrl: string | null;
+  defaultBranch: string | null;
+  hasToken: boolean;
+  githubRepo: string | null;
+  createdAt: string;
+}

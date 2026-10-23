@@ -3,6 +3,7 @@ import { expect, test } from "./fixtures";
 const SCREENS = [
   { path: "/missions", nav: "Missions", heading: "Create a workspace first" },
   { path: "/inbox", nav: "Inbox", heading: "Nothing is waiting for you" },
+  { path: "/projects", nav: "Projects", heading: "Create a workspace first" },
   { path: "/connectors", nav: "Connectors", heading: "Connectors" },
   { path: "/agents", nav: "Agents", heading: "Agents" },
   { path: "/scoreboard", nav: "Scoreboard", heading: "Nothing to score yet" },
