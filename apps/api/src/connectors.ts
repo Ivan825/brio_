@@ -144,7 +144,7 @@ export async function meteringOf(
         estUsd: unit === "usd" ? est : 0,
         priceKind: unit === "usd" ? "vendor_reported" : "unmetered",
       };
-    const usd = Number(agent.options.usdPerUnit);
+    const usd = Number(agent.options.usdPerUnit ?? cc.service.pricing.usdPerUnit);
     return Number.isFinite(usd) && usd >= 0
       ? {
           price: null,

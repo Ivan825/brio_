@@ -160,6 +160,9 @@ export class Registry {
         problems.push(`service ${key}: token pricing needs a pricePreset`);
       if (sv.pricing.pricePreset && !this.presets[sv.pricing.pricePreset])
         problems.push(`service ${key}: unknown pricePreset ${sv.pricing.pricePreset}`);
+      for (const t of sv.taskTypes ?? [])
+        if (!c || !this.taskTypesOf(c.id).includes(t as TaskType))
+          problems.push(`service ${key}: task type ${t} is not one its connector takes`);
       for (const m of sv.baseUrl.matchAll(/\{(\w+)\}/g))
         if (!sv.settings.some((x) => x.key === m[1]))
           problems.push(`service ${key}: base URL uses unknown setting ${m[1]}`);

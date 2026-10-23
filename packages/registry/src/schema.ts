@@ -206,6 +206,8 @@ export const Service = z.object({
   vendor: z.string().regex(/^[a-z0-9-]+$/),
   kind: ServiceKind,
   adapter: z.string().min(1),
+  /** The task types it takes, when narrower than its connector's category (an image API takes media.image only). */
+  taskTypes: z.array(z.string()).optional(),
   /** With {setting} placeholders when it depends on the install (a region, a project endpoint). */
   baseUrl: z.string().min(1),
   auth: ServiceAuth,
@@ -221,11 +223,14 @@ export const Service = z.object({
     .nullable(),
   /**
    * What a run is billed in. token: priced like the model preset in `pricePreset`; usd: the vendor reports dollars;
-   * credit/acu/image/second/character/request: the agent's options.usdPerUnit converts; unmetered: bounded by time.
+   * credit/acu/image/second/character/request: the agent's options.usdPerUnit (or the service's own fixed rate)
+   * converts; unmetered: bounded by time.
    */
   pricing: z.object({
     unit: z.enum(["token", "usd", "credit", "acu", "image", "second", "character", "request", "unmetered"]),
     pricePreset: z.string().optional(),
+    /** USD per unit when it is a fixed rate (credits at a cent, Recraft's 1,000 units a dollar); agents may override. */
+    usdPerUnit: z.number().nonnegative().optional(),
     note: z.string().min(1),
   }),
   /** Agents, models or voices it offers: a list path, or the documented ids. */

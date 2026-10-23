@@ -3020,6 +3020,402 @@
       "docsUrl": "https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/runtime-components",
       "verifiedOn": "2026-10-23",
       "notes": "Entra auth: the key is JSON {tenantId, clientId, clientSecret} for a service principal. Runs use the Responses API in background mode."
+    },
+    "openai-image": {
+      "connector": "openai-image-voice",
+      "name": "OpenAI Images",
+      "vendor": "openai",
+      "kind": "media",
+      "adapter": "openai-image",
+      "taskTypes": [
+        "media.image"
+      ],
+      "baseUrl": "https://api.openai.com/v1",
+      "auth": {
+        "scheme": "bearer"
+      },
+      "health": {
+        "method": "GET",
+        "path": "/models"
+      },
+      "pricing": {
+        "unit": "image",
+        "usdPerUnit": 0.2,
+        "note": "GPT Image 2.5 bills image tokens ($30 per 1M output); there is no flat per-image price, so runs are metered at an estimated $0.20 per image (high quality, 1536 px). Set the agent's USD per image for your size and quality."
+      },
+      "models": {
+        "path": null,
+        "static": [
+          "gpt-image-2.5-flare",
+          "gpt-image-2.5-sunburst",
+          "gpt-image-2"
+        ]
+      },
+      "docsUrl": "https://developers.openai.com/api/docs/guides/image-generation",
+      "notes": "Synchronous, base64 results. gpt-image-1 shut down 23 Oct 2026; gpt-image-1.5 and -1-mini shut down 1 Dec 2026.",
+      "verifiedOn": "2026-10-23"
+    },
+    "openai-speech": {
+      "connector": "openai-image-voice",
+      "name": "OpenAI Speech",
+      "vendor": "openai",
+      "kind": "media",
+      "adapter": "openai-speech",
+      "taskTypes": [
+        "media.voice"
+      ],
+      "baseUrl": "https://api.openai.com/v1",
+      "auth": {
+        "scheme": "bearer"
+      },
+      "health": {
+        "method": "GET",
+        "path": "/models"
+      },
+      "pricing": {
+        "unit": "character",
+        "usdPerUnit": 3e-05,
+        "note": "tts-1-hd's $30 per 1M characters, the highest rate, as the default; tts-1 is $15 and gpt-4o-mini-tts about $12 per 1M audio tokens."
+      },
+      "models": {
+        "path": null,
+        "static": [
+          "gpt-4o-mini-tts",
+          "tts-1-hd",
+          "tts-1"
+        ]
+      },
+      "docsUrl": "https://developers.openai.com/api/docs/guides/text-to-speech",
+      "notes": "Every /audio/speech model shuts down on 6 Jan 2027; the replacement is Realtime-only. Voice: options.voice (default alloy). 4,096 characters per call.",
+      "verifiedOn": "2026-10-23"
+    },
+    "gemini-video": {
+      "connector": "google-veo-nano-banana",
+      "name": "Gemini Omni video",
+      "vendor": "gemini",
+      "kind": "media",
+      "adapter": "google-media",
+      "taskTypes": [
+        "media.video"
+      ],
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+      "auth": {
+        "scheme": "header",
+        "header": "x-goog-api-key"
+      },
+      "health": {
+        "method": "GET",
+        "path": "/models?pageSize=1"
+      },
+      "pricing": {
+        "unit": "second",
+        "usdPerUnit": 0.1,
+        "note": "Omni Flash video is about $0.10 per second at 720p (5,792 output tokens a second at $17.50 per 1M); higher resolutions cost more."
+      },
+      "models": {
+        "path": null,
+        "static": [
+          "gemini-omni-1.1-flash"
+        ]
+      },
+      "docsUrl": "https://ai.google.dev/gemini-api/docs/omni",
+      "notes": "Through the Interactions API. Veo left the Gemini API on 22 Oct 2026 (GA Veo is Vertex-only). Paid tier only.",
+      "verifiedOn": "2026-10-23"
+    },
+    "gemini-image": {
+      "connector": "google-veo-nano-banana",
+      "name": "Gemini Nano Banana images",
+      "vendor": "gemini",
+      "kind": "media",
+      "adapter": "google-media",
+      "taskTypes": [
+        "media.image"
+      ],
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+      "auth": {
+        "scheme": "header",
+        "header": "x-goog-api-key"
+      },
+      "health": {
+        "method": "GET",
+        "path": "/models?pageSize=1"
+      },
+      "pricing": {
+        "unit": "image",
+        "usdPerUnit": 0.0504,
+        "note": "Nano Banana 2.1 is about $0.034 (1K), $0.050 (2K) and $0.113 (4K) per image; metered at the 2K rate."
+      },
+      "models": {
+        "path": null,
+        "static": [
+          "gemini-nano-banana-2.1",
+          "gemini-3.1-flash-image",
+          "gemini-3-pro-image"
+        ]
+      },
+      "docsUrl": "https://ai.google.dev/gemini-api/docs/image-generation",
+      "notes": "Through the Interactions API. Imagen shut down 17 Aug 2026.",
+      "verifiedOn": "2026-10-23"
+    },
+    "flux": {
+      "connector": "black-forest-labs-flux",
+      "name": "FLUX (BFL API)",
+      "vendor": "bfl",
+      "kind": "media",
+      "adapter": "flux",
+      "taskTypes": [
+        "media.image",
+        "media.video"
+      ],
+      "baseUrl": "https://api.bfl.ai",
+      "auth": {
+        "scheme": "header",
+        "header": "x-key"
+      },
+      "health": {
+        "method": "GET",
+        "path": "/v1/credits"
+      },
+      "pricing": {
+        "unit": "credit",
+        "usdPerUnit": 0.01,
+        "note": "BFL reports each job's cost in credits at $0.01 each."
+      },
+      "models": {
+        "path": null,
+        "static": [
+          "flux-3-image",
+          "flux-3-image-klein",
+          "flux-3-video",
+          "flux-2-pro",
+          "flux-2-max",
+          "flux-2-flex",
+          "flux-kontext-pro",
+          "flux-pro-1.1-ultra"
+        ]
+      },
+      "docsUrl": "https://docs.bfl.ml/api_integration/integration_guidelines",
+      "notes": "The model is the path. Results are signed URLs that live minutes; Brio downloads them at once. Regional hosts api.eu.bfl.ai and api.us.bfl.ai work as a base URL.",
+      "verifiedOn": "2026-10-23"
+    },
+    "runway": {
+      "connector": "runway",
+      "name": "Runway API",
+      "vendor": "runway",
+      "kind": "media",
+      "adapter": "runway",
+      "taskTypes": [
+        "media.video",
+        "media.image"
+      ],
+      "baseUrl": "https://api.dev.runwayml.com",
+      "auth": {
+        "scheme": "bearer"
+      },
+      "extraHeaders": {
+        "X-Runway-Version": "2024-11-06"
+      },
+      "health": {
+        "method": "GET",
+        "path": "/v1/organization"
+      },
+      "pricing": {
+        "unit": "credit",
+        "usdPerUnit": 0.01,
+        "note": "Tasks report their cost in credits at $0.01 each (gen4.5 is 12 credits a second). Moderated failures are charged."
+      },
+      "models": {
+        "path": null,
+        "static": [
+          "gen4.5",
+          "veo3.1",
+          "veo3.1_fast",
+          "gemini_omni_flash_1.1",
+          "kling3.0_pro",
+          "seedance2",
+          "gen4_image",
+          "gen4_image_turbo"
+        ]
+      },
+      "docsUrl": "https://docs.dev.runwayml.com/",
+      "notes": "Ratios and durations are per model; defaults are gen4.5's (1280:720 or 720:1280, 2–10 s). Set options.ratios / options.durations for other models.",
+      "verifiedOn": "2026-10-23"
+    },
+    "luma": {
+      "connector": "luma-kling",
+      "name": "Luma Agents API",
+      "vendor": "luma",
+      "kind": "media",
+      "adapter": "luma",
+      "taskTypes": [
+        "media.video",
+        "media.image"
+      ],
+      "baseUrl": "https://agents.lumalabs.ai/v1",
+      "auth": {
+        "scheme": "bearer"
+      },
+      "health": {
+        "method": "GET",
+        "path": "/files?limit=1"
+      },
+      "pricing": {
+        "unit": "request",
+        "usdPerUnit": 0.9,
+        "note": "Luma reports no cost. Metered per generation at $0.90 (ray-3.2 720p, 10 s); 5 s is $0.30, 1080p 10 s $3.60, uni-1 images $0.04. Set the agent's USD per generation for what it makes."
+      },
+      "models": {
+        "path": null,
+        "static": [
+          "ray-3.2",
+          "uni-1",
+          "uni-1-max"
+        ]
+      },
+      "docsUrl": "https://docs.agents.lumalabs.ai/",
+      "notes": "The Dream Machine API (ray-2) is legacy. Results are presigned for an hour.",
+      "verifiedOn": "2026-10-23"
+    },
+    "kling": {
+      "connector": "luma-kling",
+      "name": "Kling API",
+      "vendor": "kling",
+      "kind": "media",
+      "adapter": "kling",
+      "taskTypes": [
+        "media.video"
+      ],
+      "baseUrl": "https://api-singapore.klingai.com",
+      "auth": {
+        "scheme": "bearer"
+      },
+      "health": null,
+      "pricing": {
+        "unit": "second",
+        "usdPerUnit": 0.168,
+        "note": "Charges in billing[] are metered as reported when in US dollars; otherwise by seconds made at $0.168 (kling-v3 pro with audio; 4.0 prices are unpublished)."
+      },
+      "models": {
+        "path": null,
+        "static": [
+          "kling-4.0",
+          "kling-4.0-flash",
+          "kling-3.0-turbo",
+          "kling-2.6"
+        ]
+      },
+      "docsUrl": "https://kling.ai/document-api/apiReference/commonInfo",
+      "notes": "The model is in the path (/text-to-video/kling-4.0). No free key check: the first run checks the key. China accounts use https://api-beijing.klingai.com.",
+      "verifiedOn": "2026-10-23"
+    },
+    "elevenlabs": {
+      "connector": "elevenlabs",
+      "name": "ElevenLabs text to speech",
+      "vendor": "elevenlabs",
+      "kind": "media",
+      "adapter": "elevenlabs",
+      "taskTypes": [
+        "media.voice"
+      ],
+      "baseUrl": "https://api.elevenlabs.io",
+      "auth": {
+        "scheme": "header",
+        "header": "xi-api-key"
+      },
+      "health": {
+        "method": "GET",
+        "path": "/v1/user"
+      },
+      "pricing": {
+        "unit": "character",
+        "usdPerUnit": 8e-05,
+        "note": "Billed per character (the character-cost header): $0.08 per 1K for v3, v4 and Multilingual v2; Flash and Turbo are $0.04."
+      },
+      "models": {
+        "path": "/v1/models",
+        "static": [
+          "eleven_v4",
+          "eleven_v4_turbo",
+          "eleven_v3",
+          "eleven_multilingual_v2",
+          "eleven_flash_v2_5"
+        ]
+      },
+      "docsUrl": "https://elevenlabs.io/docs/api-reference/text-to-speech/convert",
+      "notes": "Voice: options.voiceId (a default library voice otherwise). Regional and data-residency hosts work as a base URL.",
+      "verifiedOn": "2026-10-23"
+    },
+    "ideogram": {
+      "connector": "ideogram-recraft",
+      "name": "Ideogram API",
+      "vendor": "ideogram",
+      "kind": "media",
+      "adapter": "ideogram",
+      "taskTypes": [
+        "media.image"
+      ],
+      "baseUrl": "https://api.ideogram.ai",
+      "auth": {
+        "scheme": "header",
+        "header": "Api-Key"
+      },
+      "health": {
+        "method": "GET",
+        "path": "/v2/account/usage"
+      },
+      "pricing": {
+        "unit": "image",
+        "usdPerUnit": 0.1,
+        "note": "Metered as reported (usage_cost_usd_micros) when Ideogram returns it, else at an estimated $0.10 per image."
+      },
+      "models": {
+        "path": null,
+        "static": [
+          "ideogram-4-5",
+          "ideogram-4",
+          "ideogram-4-transparent",
+          "ideogram-3"
+        ]
+      },
+      "docsUrl": "https://developer.ideogram.ai/v2/ideogram-api/api-overview",
+      "notes": "Strong at text inside images. Unsafe results come back without a URL.",
+      "verifiedOn": "2026-10-23"
+    },
+    "recraft": {
+      "connector": "ideogram-recraft",
+      "name": "Recraft API",
+      "vendor": "recraft",
+      "kind": "media",
+      "adapter": "recraft",
+      "taskTypes": [
+        "media.image"
+      ],
+      "baseUrl": "https://external.api.recraft.ai/v1",
+      "auth": {
+        "scheme": "bearer"
+      },
+      "health": {
+        "method": "GET",
+        "path": "/users/me"
+      },
+      "pricing": {
+        "unit": "credit",
+        "usdPerUnit": 0.001,
+        "note": "Each answer reports the API units charged; 1,000 units are $1 (v4.1 is 35 units an image)."
+      },
+      "models": {
+        "path": null,
+        "static": [
+          "recraftv4_1",
+          "recraftv4_1_flash",
+          "recraftv4_1_vector",
+          "recraftv4_1_pro",
+          "recraftv3"
+        ]
+      },
+      "docsUrl": "https://www.recraft.ai/docs/api-reference/clients",
+      "notes": "Vector models return SVG. Needs a positive API-unit balance.",
+      "verifiedOn": "2026-10-23"
     }
   }
 }
