@@ -2,6 +2,7 @@ import type { TaskType } from "@brio/schema";
 import { TASK_TYPES } from "@brio/schema";
 import data from "../../../registry/connectors.json" with { type: "json" };
 import {
+  AdapterFamily,
   type Category,
   type ConnectorEntry,
   type Preset,
@@ -15,6 +16,9 @@ export class RegistryError extends Error {
 }
 
 const milestoneNumber = (m: string) => Number.parseInt(m.slice(1), 10);
+
+/** The model-API families, whose vendors are registry presets (D-27). */
+export const isApiFamily = (family: string) => AdapterFamily.safeParse(family).success;
 
 /** "openai-compatible:xai" → { family: "openai-compatible", preset: "xai" }; "anthropic" → preset "anthropic". */
 export function parsePlannedAdapter(planned: string): { family: string; preset: string } {
@@ -87,12 +91,16 @@ export class Registry {
       .sort((a, b) => tierRank(a.tier) - tierRank(b.tier) || a.name.localeCompare(b.name));
   }
 
-  /** True when the connector's planned adapter family exists and (for family:preset) the preset is in the registry. */
+  /**
+   * True when the connector's planned adapter exists, and, for the model-API families (whose vendors are data), its
+   * preset is in the registry. Other adapters (coding CLIs) carry their vendor specifics in code.
+   */
   isImplemented(connectorId: string, implementedFamilies: ReadonlySet<string>): boolean {
     const c = this.byId.get(connectorId);
     if (!c?.supported || !c.plannedAdapter) return false;
     const { family } = parsePlannedAdapter(c.plannedAdapter);
-    return implementedFamilies.has(family) && this.presetsFor(c.id).length > 0;
+    if (!implementedFamilies.has(family)) return false;
+    return !isApiFamily(family) || this.presetsFor(c.id).length > 0;
   }
 
   /**
@@ -108,7 +116,7 @@ export class Registry {
       const { family, preset } = parsePlannedAdapter(c.plannedAdapter);
       if (!implementedFamilies.has(family))
         gaps.push({ connector: c.id, plannedAdapter: c.plannedAdapter, reason: "no adapter" });
-      else if (!this.presets[preset] || this.presets[preset]?.connector !== c.id)
+      else if (isApiFamily(family) && (!this.presets[preset] || this.presets[preset]?.connector !== c.id))
         gaps.push({ connector: c.id, plannedAdapter: c.plannedAdapter, reason: "no preset" });
     }
     return gaps;
