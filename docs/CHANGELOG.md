@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-23 — M2 Runner and coding CLIs
+Pushed in small steps (CLAUDE.md rule 9, D-17).
+- **Runner:** `apps/runner` consumes attempt jobs from pg-boss, claims each atomically, heartbeats it, honours cancel within seconds (Postgres NOTIFY plus the heartbeat), and reaps attempts whose runner died and jobs that were lost. The API now resolves a dispatch plan per attempt and queues it (D-38).
+- **Sandboxes:** one container per attempt from the profiles in ARCHITECTURE §5 (chosen by pure logic in `@brio/core`): non-root, read-only root, writable worktree and tmp only, no capabilities, CPU/memory/PID limits, no Docker socket. Network is none, or an internal network whose only exit is a per-attempt egress proxy that forwards to allow-listed hosts and never to private or metadata addresses (D-39). Images are built from `apps/runner/images` and tagged by a hash of their source.
+- **Worktrees and artifacts:** a git worktree per attempt on `brio/<mission>/<task>/<attempt>`, from the project repository or an empty one; results committed from the runner's own repository with hooks and agent config ignored (D-40); diff and changed files stored content-addressed with sha256; output containing a secret is stored redacted and quarantined.
+- **Coding CLIs:** `CliAdapterBase` and adapters for Claude Code, Codex, Cursor Agent, Antigravity, OpenCode, Aider and Goose, each flag verified against the CLI's own `--help` in the sandbox image (D-36, D-42); keys only through the environment; prompts too long for argv handed over as a file; Antigravity judged by its result event (issue 548); Cursor unmetered (D-37).
+- **API models code too:** model-API agents on code and data tasks get a network-less sandbox with read, write, list and run tools.
+- **API and web:** CLI connectors installable with their vendor's key; artifact listing and safe content serving; the board shows queued/running attempts, sandbox profile, file edits and the diff.
+- **Acceptance evidence:** Docker integration tests (an API model writes a function and its test and `node --test` passes inside the sandbox; a CLI through the base produces a diff; cancel kills process and container in under 10 s; a cost breach ends with `limit_exceeded`; a sandbox cannot reach a non-allow-listed host or the metadata address; a key printed by the agent never reaches events or logs and secret-bearing output is quarantined; the reaper fails lost attempts); worktree safety tests (a booby-trapped `.git` never runs on the host); fixture tests for every CLI; API dispatch tests; Playwright.
+- **Not yet verified live:** real CLI runs need the owner's keys (`pnpm --filter @brio/runner test:live`).
+
 ## 2026-10-23 — M1 Connectors and model APIs
 Pushed in small steps (CLAUDE.md rule 9, D-17).
 - **Registry:** `@brio/registry` validates `registry/connectors.json` (98 connectors, 13 categories with task types), looks up capable connectors by task type, and fails CI when a planned P0/P1 connector has no adapter. Vendor presets are data (D-27): 18 presets (OpenAI, Anthropic, Gemini, xAI, Meta, Mistral, DeepSeek, Kimi, GLM, Qwen, Sarvam, OpenRouter, LiteLLM, Ollama, vLLM, Groq, Together, Fireworks), each checked against the vendor's docs on 23 Oct 2026.

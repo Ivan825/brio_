@@ -26,7 +26,7 @@ Give Brio one goal. It plans the work, hands each piece to the agent best at it,
 
 ---
 
-> **Pre-alpha, being built in the open.** M0 (foundation) and M1 (connectors and model APIs) are done; coding agents in sandboxes come next. This README describes
+> **Pre-alpha, being built in the open.** M0 (foundation), M1 (connectors and model APIs) and M2 (sandboxed coding agents) are done; missions that plan and coordinate come next. This README describes
 > the product Brio is being built to be; the [roadmap](docs/BUILD_PLAN.md) shows what is done, and anything
 > not built yet is marked **planned** below.
 
@@ -90,7 +90,7 @@ done      PR ready · $1.12 · 6m40s_
 
 ## Run it locally
 
-Node 22, pnpm 10 and Docker (for Postgres with pgvector).
+Node 22, pnpm 10 and Docker (Postgres with pgvector, and the sandboxes agents run in).
 
 ```bash
 git clone https://github.com/Ivan825/brio_.git && cd brio_
@@ -98,7 +98,7 @@ pnpm install
 cp .env.example .env          # then fill BETTER_AUTH_SECRET and BRIO_VAULT_LOCAL_KEK (openssl rand -base64 32)
 docker compose up -d --wait   # Postgres + pgvector on :5433
 pnpm db:migrate && pnpm db:seed
-pnpm dev                      # Postgres, API on :4000, web on http://localhost:3000
+pnpm dev                      # Postgres, API on :4000, runner, web on http://localhost:3000
 ```
 
 Sign in with any email. Without an email provider, the sign-in link is printed in the API log (and available at `/v1/dev/outbox` while `BRIO_DEV_OUTBOX=true`).
@@ -137,7 +137,7 @@ Every vendor call goes through one `AgentAdapter` interface ([`docs/ADAPTER_SPEC
 
 ## Status
 
-Pre-alpha. Built milestone by milestone in dependency order, each production-grade with tests, types and migrations. **Done:** M0, the foundation (monorepo and CI, database, sign-in and workspaces, the vault and redactor, the event spine with live SSE, the hash-chained ledger, the branded web app), and M1, connectors and model APIs (18 vendor presets behind one adapter interface, live model lists, metered cost per call, the connector catalogue and agent builder, and running a task with a chosen agent). Next is **M2**: sandboxed coding agents. Planning is a labelled stub until M3. See the [roadmap](docs/BUILD_PLAN.md) and [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
+Pre-alpha. Built milestone by milestone in dependency order, each production-grade with tests, types and migrations. **Done:** M0, the foundation (monorepo and CI, database, sign-in and workspaces, the vault and redactor, the event spine with live SSE, the hash-chained ledger, the branded web app), M1, connectors and model APIs (18 vendor presets behind one adapter interface, live model lists, metered cost per call, the connector catalogue and agent builder, and running a task with a chosen agent), and M2, the runner (one hardened Docker sandbox per attempt with an egress allowlist, a git worktree per attempt, diffs as artifacts, and Claude Code, Codex, Cursor, Antigravity, OpenCode, Aider and Goose driven headless). Next is **M3**: the planner, task graph and agent coordination. Planning is a labelled stub until then. See the [roadmap](docs/BUILD_PLAN.md) and [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
 
 ## Licence
 

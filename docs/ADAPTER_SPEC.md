@@ -96,20 +96,20 @@ Native APIs (called with `fetch`, D-28) for features compat layers lose: prompt 
 ### 2.3 Coding CLIs (route: cli) — run official binaries headless inside the sandbox
 All share a `CliAdapterBase`: spawn process in `workdir`, parse NDJSON/stream-json stdout into `AdapterEvent`s, enforce timeout, capture exit code, inject MCP config file, pass credentials via env only.
 
-Cursor and Antigravity flags below were checked against 2026 sources on 23 Oct 2026; the rest are the commonly documented forms. Confirm every flag with `<binary> --help` before implementing.
+Every flag below was checked against the CLI's own `--help` inside the sandbox image on 23 Oct 2026 (versions in D-36). Implementations: `packages/adapters/src/cli/`.
 
-| Adapter key | Binary & headless invocation | Auth in cloud runner | Notes |
+| Adapter key | Headless invocation (as implemented) | Key (env) | Notes |
 |---|---|---|---|
-| `claude-code` | `claude -p "<prompt>" --output-format stream-json` (or Claude Agent SDK in-process: `@anthropic-ai/claude-agent-sdk`) | `ANTHROPIC_API_KEY` | Prefer the Agent SDK for structured events. Subscription limits are not allowed for third-party agents; use API keys. Hooks file can enforce Brio leases on writes. |
-| `codex` | `codex exec "<prompt>" --json` (or Codex SDK, TypeScript) | `OPENAI_API_KEY` | API-key mode runs locally only; Codex Cloud tasks need the user's ChatGPT plan → model it as a separate `codex-cloud` hosted adapter, local-runner only. |
-| `cursor-agent` | `cursor agent -p --trust --output-format stream-json "<prompt>"`; `--force` for unattended edits; `-w <name>` worktree; `--approve-mcps` | `CURSOR_API_KEY` | `-p` and `--trust` are mandatory headless or it hangs. Supports ACP. |
-| `antigravity` | `agy -p "<prompt>" --output-format stream-json --non-interactive [--model <id>]` | Antigravity SDK with API key/Vertex in cloud; `agy` signed in by the user only in local runner | Can serve Claude and GPT-OSS models too. Known headless issue: permissions allowlist ignored and denied runs report success (issue #548) → always verify via diff + checks, set explicit tool profile. Never copy agy's OAuth token file. |
-| `opencode` | `opencode run "<prompt>" --format json` | any provider key | Model-agnostic; good default for cheap open models. |
-| `aider` | `aider --message "<prompt>" --yes` | provider key | Non-streaming; parse final output + git diff. |
-| `goose` | `goose run -t "<prompt>"` | provider key | |
-| `copilot-cli` | GitHub Copilot CLI non-interactive mode | GitHub token with Copilot seat | Verify flags at build time. |
-| `grok-build` | Grok Build CLI | xAI key | Availability was waitlisted in spring 2026; implement when GA. |
-| `kiro-cli`, `qwen-code`, `kimi-cli`, `cline-cli`, `amp`, `droid`, `junie`, `warp` | each vendor's headless flag | vendor key | P2; same base class. |
+| `claude-code` | `claude -p --output-format stream-json --verbose --permission-mode bypassPermissions --model <m> --max-turns <n> --max-budget-usd <usd> --setting-sources "" --strict-mcp-config --no-session-persistence` (prompt on stdin) | `ANTHROPIC_API_KEY` | Reports cost. `is_error`, not `subtype`, signals failure. Bypass mode refuses root (sandboxes are non-root). D-42 |
+| `codex` | `codex exec --json --skip-git-repo-check --ephemeral --dangerously-bypass-approvals-and-sandbox --model <m> --cd /work -c check_for_update_on_startup=false -c analytics.enabled=false <prompt>` | `CODEX_API_KEY` | Tokens per turn, no cost (priced from the OpenAI table). Only `turn.failed` is fatal. Needs ca-certificates |
+| `cursor-agent` | `cursor-agent -p --output-format stream-json --force --trust --approve-mcps --sandbox disabled --workspace /work --model <m> <prompt>` | `CURSOR_API_KEY` | `-p --trust` or it hangs; `--force` or it only proposes. No usage or cost: unmetered (D-37). Commit attribution turned off |
+| `antigravity` | `agy -p <prompt> --output-format stream-json --dangerously-skip-permissions --model <m> --print-timeout <n>m --add-dir /work` | `GEMINI_API_KEY` + settings `{"modelProvider":"gemini"}` | Exit status untrusted (issue 548): the result event, diff and checks decide. API-key mode, so it also runs in cloud sandboxes; a user's signed-in `agy` is for the local runner only (M8), and its OAuth token is never copied |
+| `opencode` | `opencode run --format json --auto --pure --model openrouter/<m> --dir /work <prompt>` | `OPENROUTER_API_KEY` | Cost per step |
+| `aider` | `aider --model anthropic/<m> --message <prompt> --yes-always --no-auto-commits --no-attribute-author …` | `ANTHROPIC_API_KEY` | No structured output: text lines, its session-cost line, and the runner's diff |
+| `goose` | `goose run --no-session --quiet --output-format stream-json --provider anthropic --model <m> --max-turns <n> --no-profile --with-builtin developer --text <prompt>` | `ANTHROPIC_API_KEY` | Repo moved to aaif-goose/goose; cost in the `complete` event |
+| `copilot-cli`, `grok-build`, `kiro-cli`, `qwen-code`, `kimi-cli`, `cline-cli`, `amp`, `droid`, `junie`, `warp` | each vendor's headless flag | vendor key | Later (P1/P2); same base |
+
+Prompts longer than 100 KB go to the agent as `.brio/prompt.md` (one argv element is capped at 128 KiB). Keys reach the CLI only through a 0600 env file read by `docker exec`, never argv. Each CLI's vendor host is its only egress besides package registries and git (D-39).
 
 Lease enforcement for CLIs: generate the agent's own hook config (Claude Code `.claude/settings.json` PreToolUse, Cursor `.cursor/hooks.json`, Codex `.codex/hooks.json`, Antigravity `.agents/hooks.json`) that calls the local runner's lease endpoint before writes — the same mechanism Relay uses, but checking task leases and contracts.
 
