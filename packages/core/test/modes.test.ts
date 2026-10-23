@@ -46,7 +46,7 @@ describe("best of n", () => {
     ]);
   });
 
-  it("accepts the judges' agreed winner, and treats disagreement as a tie won by the cheaper", () => {
+  it("accepts the judges' agreed winner; a disagreement goes to the likelier-right agent (cheaper only on a cheap mission)", () => {
     const both = [att({ id: "A", agentId: "a", costUsd: 0.3 }), att({ id: "B", agentId: "b", costUsd: 0.1 })];
     const agree = [
       ...both,
@@ -62,7 +62,16 @@ describe("best of n", () => {
       att({ id: "J1", agentId: "j", role: "judge", purpose: "judge", of: ["A", "B"], winner: "A" }),
       att({ id: "J2", agentId: "j", role: "judge", purpose: "judge", of: ["B", "A"], winner: "B" }),
     ];
+    // No scores yet: equal priors, so the cheaper result.
     expect(nextStep(state("best_of_n", agents, split))[1]).toMatchObject({ kind: "accept", attemptId: "B" });
+    // The scoreboard says agent a passes far more often: its result wins the tie, though it cost more.
+    const informed = { ...state("best_of_n", agents, split), priors: { a: 0.9, b: 0.4 } };
+    expect(nextStep(informed)[1]).toMatchObject({ kind: "accept", attemptId: "A" });
+    // A mission on the cheap priority keeps the cheaper result.
+    expect(nextStep({ ...informed, preferCheaper: true })[1]).toMatchObject({
+      kind: "accept",
+      attemptId: "B",
+    });
   });
 
   it("tests outrank the judge: one passing candidate wins without judging; none passing fails", () => {

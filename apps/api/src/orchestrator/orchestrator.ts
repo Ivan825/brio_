@@ -23,6 +23,7 @@ import {
   parseJudgment,
   parsePlan,
   parseVerdict,
+  passRate,
   plannerInstructions,
   reviewInstructions,
   routeLearned,
@@ -35,7 +36,7 @@ import {
 import { type DbOrTx, schema } from "@brio/db";
 import { enqueueIntegration } from "@brio/runner";
 import { type Actor, type EventType, type HandoffPacket, TaskContract } from "@brio/schema";
-import { and, asc, desc, eq, gt, gte, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { RUNNABLE_TASK, renderInstructions } from "../attempts";
 import type { AppContext } from "../context";
 import { HttpError } from "../http";
@@ -835,6 +836,12 @@ export class Orchestrator {
       agents: route.agents,
       attempts: state,
       maxRevisions: MAX_REVISIONS,
+      priors: await this.priorsOf(
+        m,
+        t,
+        route.agents.map((x) => x.agentId),
+      ),
+      preferCheaper: m.priority === "cheap",
     });
     const byId = new Map(rows.map((a) => [a.id, a]));
     for (const action of actions) {
@@ -854,6 +861,18 @@ export class Orchestrator {
         return this.failModeTask(m, t, action.reason);
       }
     }
+  }
+
+  /** Each agent's pass rate on the task's type (the scoreboard, decayed): what a tie between passing results goes by. */
+  private async priorsOf(m: Mission, t: Task, agentIds: string[]): Promise<Record<string, number>> {
+    const agents = (await routeAgents(this.ctx, m.workspaceId)).filter((a) => agentIds.includes(a.id));
+    const scores = await this.scores.get(m.workspaceId, [...new Set(agents.map((a) => a.scoreKey))], t.type);
+    return Object.fromEntries(
+      agents.map((a) => {
+        const sc = scores.get(a.scoreKey);
+        return [a.id, sc ? passRate(sc) : 0.5];
+      }),
+    );
   }
 
   /** A made result's hard checks, summarised for the engine. People's checks wait until a result is chosen. */

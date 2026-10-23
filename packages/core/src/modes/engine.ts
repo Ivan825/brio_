@@ -34,6 +34,12 @@ export interface ModeState {
   agents: Assignment[];
   attempts: ModeAttempt[];
   maxRevisions: number;
+  /**
+   * How likely each agent's work is to be right on this task type (its scoreboard pass rate): what decides a tie
+   * between passing results. Under the "cheap" priority the cheaper result wins a tie instead.
+   */
+  priors?: Record<string, number>;
+  preferCheaper?: boolean;
 }
 
 export type ModeAction =
@@ -67,11 +73,7 @@ function judge(
   b: ModeAttempt,
 ): ModeAction[] | { winner: ModeAttempt; loser: ModeAttempt | null; tie: boolean } {
   const judgeAgent = byRole(s, "judge")[0] ?? byRole(s, "merger")[0];
-  if (!judgeAgent) {
-    // No judge available: the cheaper of two passing results wins.
-    const [w, l] = a.costUsd <= b.costUsd ? [a, b] : [b, a];
-    return { winner: w, loser: l, tie: true };
-  }
+  if (!judgeAgent) return tieBreak(s, a, b);
   const judgments = of(s, "judge").filter((j) => j.of.includes(a.id) && j.of.includes(b.id));
   const order = (x: string, y: string) => judgments.find((j) => j.of[0] === x && j.of[1] === y);
   const ab = order(a.id, b.id);
@@ -103,8 +105,25 @@ function judge(
     const winner = w1 === a.id ? a : b;
     return { winner, loser: winner === a ? b : a, tie: false };
   }
-  // Disagreement, ties or a failed judge: tests already passed for both, so the cheaper one wins.
-  const [w, l] = a.costUsd <= b.costUsd ? [a, b] : [b, a];
+  // Disagreement, ties or a failed judge: tests already passed for both, so the likelier-right one wins.
+  return tieBreak(s, a, b);
+}
+
+/**
+ * Two passing results nobody could separate: the one from the agent likelier to be right on this kind of task wins
+ * (its pass rate), then the cheaper. Under the "cheap" priority, the cheaper wins first.
+ */
+function tieBreak(
+  s: ModeState,
+  a: ModeAttempt,
+  b: ModeAttempt,
+): { winner: ModeAttempt; loser: ModeAttempt; tie: true } {
+  const pa = s.priors?.[a.agentId] ?? 0.5;
+  const pb = s.priors?.[b.agentId] ?? 0.5;
+  const byCost = a.costUsd - b.costUsd;
+  const byPrior = pb - pa;
+  const order = s.preferCheaper ? byCost || byPrior : byPrior || byCost;
+  const [w, l] = order <= 0 ? [a, b] : [b, a];
   return { winner: w, loser: l, tie: true };
 }
 

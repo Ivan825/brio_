@@ -244,7 +244,10 @@ async function scoreMission(
       .from(artifacts)
       .innerJoin(blobs, and(eq(blobs.workspaceId, artifacts.workspaceId), eq(blobs.sha256, artifacts.sha256)))
       .where(and(eq(artifacts.attemptId, a.id), eq(artifacts.kind, "report")));
-    return scoreAnswer(m.scorer, report?.bytes.toString("utf8") ?? "");
+    const answer = report?.bytes.toString("utf8") ?? "";
+    const r = scoreAnswer(m.scorer, answer);
+    // A failed answer is quoted (briefly) so the run says what was produced.
+    return r.passed ? r : { ...r, reason: `${r.reason} — answer: ${JSON.stringify(answer.slice(0, 300))}` };
   }
 
   // Code: the integration branch when one passed; otherwise every task's latest result merged.
