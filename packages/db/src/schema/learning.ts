@@ -1,9 +1,11 @@
+import type { EvalRun } from "@brio/schema";
 import { sql } from "drizzle-orm";
 import {
   check,
   doublePrecision,
   index,
   integer,
+  jsonb,
   numeric,
   pgTable,
   smallint,
@@ -85,4 +87,21 @@ export const ratings = pgTable(
     index().on(t.attemptId),
     check("ratings_range", sql`${t.rating} between -1 and 1`),
   ],
+);
+
+/** Golden-mission eval runs (BUILD_PLAN M5): the whole run (schema EvalRun) for the evals dashboard. */
+export const evalRuns = pgTable(
+  "eval_runs",
+  {
+    id: id(),
+    workspaceId: uuid()
+      .notNull()
+      .references(() => workspaces.id),
+    /** offline (simulated agents) or live (real agents and keys). */
+    mode: text().notNull(),
+    run: jsonb().$type<EvalRun>().notNull(),
+    createdBy: uuid().references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [index().on(t.workspaceId, t.createdAt)],
 );

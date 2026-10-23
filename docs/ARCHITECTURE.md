@@ -106,6 +106,7 @@ All tables have `id` (uuid v7), `workspace_id`, `created_at`, `updated_at` unles
 **Learning**
 - `scores` — `scope` (workspace|global), `agent_key` (connector+model), `task_type`, `alpha`, `beta` (Beta posterior for pass), `elo`, `avg_cost`, `p50_latency_s`, `n`, `updated_at`.
 - `ratings` — user feedback on attempts.
+- `eval_runs` — golden-mission eval runs (offline or live): every mission under every routing strategy, the per-strategy summary and the PRD verdict, for the evals dashboard.
 - `score_history` — one point per score update (pass rate, Elo, n) for the scoreboard's trend lines.
 
 **Governance**
