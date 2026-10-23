@@ -179,6 +179,37 @@ export class AttemptRunner {
       limits,
       mcpServers: [],
     };
+    // The agent's MCP servers: named here, their credentials added by the runner; CLIs may reach their hosts.
+    const mcp: NonNullable<Dispatch["mcp"]> = [];
+    for (const t of (agent.tools ?? []) as Array<{ connectorId?: string }>) {
+      if (!t.connectorId) continue;
+      const [row] = await ctx.db
+        .select()
+        .from(schema.connectors)
+        .where(
+          and(eq(schema.connectors.id, t.connectorId), eq(schema.connectors.workspaceId, input.workspaceId)),
+        );
+      if (!row || row.deletedAt || row.status === "disabled") continue;
+      const tcc = connectorConfig(row);
+      if (tcc.service?.kind !== "mcp") continue;
+      mcp.push({
+        connectorId: row.id,
+        name:
+          row.displayName
+            .toLowerCase()
+            .replace(/[^a-z0-9_-]+/g, "-")
+            .slice(0, 40) || "mcp",
+        url: tcc.baseUrl,
+        credentialRef: row.credentialRef,
+      });
+    }
+    const mcpHosts = mcp.flatMap((m) => {
+      try {
+        return [new URL(m.url).hostname];
+      } catch {
+        return [];
+      }
+    });
     // A computer-use agent on a cloud browser needs no local one (the cloud session holds the site allowlist itself).
     const cloudBrowser = adapter.route === "browser" && agent.options?.browser === "cloud";
     const sandbox = cloudBrowser
@@ -187,7 +218,7 @@ export class AttemptRunner {
           route: adapter.route,
           taskType: input.sandboxTaskType ?? taskType,
           agentSetting: agent.sandboxProfile as AgentSandboxSetting,
-          vendorHosts: cli?.egressHosts ?? [],
+          vendorHosts: [...(cli?.egressHosts ?? []), ...(adapter.route === "cli" ? mcpHosts : [])],
           ...(adapter.route === "browser" ? { browseHosts: browseHostsOf(contract) } : {}),
           maxMinutes: limits.maxMinutes,
           // Reviewers and judges only read; makers of a contract that changes files get a worktree.
@@ -259,6 +290,7 @@ export class AttemptRunner {
         ...(input.bases?.length ? { bases: input.bases } : {}),
         ...(input.files?.length ? { files: input.files } : {}),
         ...(tools ? { tools } : {}),
+        ...(mcp.length ? { mcp } : {}),
         ...(input.repoMap ? { repoMap: true } : {}),
         ...(input.keepConflicts ? { keepConflicts: true } : {}),
         ...(concurrent ? { manageTask: false, mode: input.mode } : {}),

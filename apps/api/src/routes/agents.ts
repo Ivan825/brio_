@@ -19,6 +19,11 @@ const AgentBody = z.object({
   options: z.record(z.string(), z.unknown()).default({}),
   sandboxProfile: SandboxProfile.default("standard"),
   tags: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
+  /** MCP servers (MCP connectors of the workspace) the agent may call as tools. */
+  tools: z
+    .array(z.object({ connectorId: z.uuid() }))
+    .max(10)
+    .default([]),
 });
 const UpdateAgent = AgentBody.omit({ connectorId: true }).partial();
 const Params = z.object({ id: z.uuid() });
@@ -35,6 +40,15 @@ export async function agentRoutes(app: FastifyInstance, ctx: AppContext) {
       );
     if (!row) throw new HttpError(404, "connector not found", "not_found");
     return row;
+  };
+
+  /** Tools must be MCP connectors of the same workspace. */
+  const checkTools = async (workspaceId: string, tools: Array<{ connectorId: string }>) => {
+    for (const t of tools) {
+      const c = await connectorFor(workspaceId, t.connectorId);
+      if (connectorConfig(c).service?.kind !== "mcp")
+        throw new HttpError(422, `${c.displayName} is not an MCP server`, "not_a_tool");
+    }
   };
 
   /** Each agent with its connector and the price a run would use (null: set one before running). */
@@ -110,12 +124,13 @@ export async function agentRoutes(app: FastifyInstance, ctx: AppContext) {
     const body = AgentBody.parse(req.body);
     const connector = await connectorFor(workspaceId, body.connectorId);
     const kind = connectorConfig(connector).service?.kind;
-    if (kind === "search" || kind === "fetch" || kind === "cloud-browser")
+    if (kind === "search" || kind === "fetch" || kind === "cloud-browser" || kind === "mcp")
       throw new HttpError(
         422,
-        `${connector.displayName} is a ${kind === "cloud-browser" ? "cloud browser" : kind} tool agents use, not an agent`,
+        `${connector.displayName} is a ${kind === "cloud-browser" ? "cloud browser" : kind === "mcp" ? "MCP server" : kind} tool agents use, not an agent`,
         "tool_connector",
       );
+    await checkTools(workspaceId, body.tools);
     const row = one(
       await ctx.db
         .insert(agents)
@@ -132,6 +147,7 @@ export async function agentRoutes(app: FastifyInstance, ctx: AppContext) {
     await requireMember(ctx, workspaceId, s, ["owner", "admin", "member"]);
     const row = await load(workspaceId, Params.parse(req.params).id);
     const body = UpdateAgent.parse(req.body);
+    if (body.tools) await checkTools(workspaceId, body.tools);
     const updated = one(
       await ctx.db
         .update(agents)

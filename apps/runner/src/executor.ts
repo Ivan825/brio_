@@ -290,6 +290,21 @@ export class AttemptExecutor {
         else if (kind === "fetch") research.fetch = fetchProvider(binding, toolCtx);
         else research.browser = cloudBrowserProvider(binding, toolCtx);
       }
+      // The agent's MCP servers, with their credentials from the vault (in memory only; the redactor knows them).
+      for (const m of dispatch.mcp ?? []) {
+        const cred = m.credentialRef
+          ? await deps.vault.reveal(deps.db, attempt.workspaceId, m.credentialRef)
+          : null;
+        input.mcpServers = [
+          ...input.mcpServers,
+          {
+            name: m.name,
+            transport: "http",
+            url: m.url,
+            ...(cred ? { headers: { Authorization: `Bearer ${cred.reveal()}` } } : {}),
+          },
+        ];
+      }
       if (mailboxToken)
         input.mcpServers = [
           ...input.mcpServers,
