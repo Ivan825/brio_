@@ -33,7 +33,6 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
-    "tsx": "4.23.15",
-    "@brio/evals": "workspace:*"
+    "tsx": "4.23.15"
   }
 }

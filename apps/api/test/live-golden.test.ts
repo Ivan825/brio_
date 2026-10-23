@@ -5,17 +5,26 @@
 // planned, run with two vendors, and finished with its checks passing. Since M4 the tasks are routed by the learned
 // router with the default modes (a debate for the contract, best-of-n or maker-checker for code). Needs Docker.
 import { execFileSync } from "node:child_process";
-import { cpSync, mkdtempSync, rmSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readEventsSince, schema } from "@brio/db";
 import { hasTestDatabase } from "@brio/db/testing";
-import { loadGolden } from "@brio/evals";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { Client, startHarness } from "./helpers";
 
 const enabled = process.env.LIVE_GOLDEN === "1";
+
+/** The golden mission's fixture (apps/evals/golden/oauth-login), read by path so the API does not depend on evals. */
+function loadGolden(key: string) {
+  const dir = join(import.meta.dirname, "..", "..", "evals", "golden", key);
+  const mission = JSON.parse(readFileSync(join(dir, "mission.json"), "utf8")) as {
+    goal: string;
+    expect: { minTasks: number; contractTask: boolean; vendors: number };
+  };
+  return { ...mission, repoDir: join(dir, "repo") };
+}
 
 describe.skipIf(!enabled || !hasTestDatabase)("live golden mission: oauth-login", () => {
   it(
