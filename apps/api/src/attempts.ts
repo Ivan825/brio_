@@ -7,7 +7,7 @@ import { schema } from "@brio/db";
 import { enqueueAttempt, requestCancel } from "@brio/runner";
 import { type Actor, type HandoffPacket, TaskContract, TaskType } from "@brio/schema";
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import { adapterOf, connectorConfig } from "./connectors";
+import { adapterOf, connectorConfig, meteringOf } from "./connectors";
 import type { AppContext } from "./context";
 import { HttpError, one } from "./http";
 
@@ -116,13 +116,11 @@ export class AttemptRunner {
       throw new HttpError(409, "the connector is disabled", "connector_disabled");
 
     const adapter = adapterOf(connector);
-    if (adapter.route !== "api" && adapter.route !== "cli")
-      throw new HttpError(422, `${adapter.route} agents arrive in a later milestone`, "route_unavailable");
     const contract = TaskContract.parse(task.contract);
     const taskType = TaskType.parse(task.type);
     const cc = connectorConfig(connector);
     // Fail closed until the policy engine (M9): confidential work stays on the user's own machine.
-    if (contract.sensitivity === "confidential" && !cc.preset.local)
+    if (contract.sensitivity === "confidential" && !cc.preset?.local)
       throw new HttpError(
         422,
         "confidential tasks can only run on local models until data-routing policies arrive",
@@ -130,13 +128,13 @@ export class AttemptRunner {
       );
 
     const cli = (adapter as { spec?: CliSpec }).spec;
-    const resolved = await ctx.pricing.lookup({
-      presetKey: cc.presetKey,
+    const metering = await meteringOf(ctx, cc, adapter, {
       model: agent.model,
-      override: agent.priceOverride ?? null,
+      priceOverride: agent.priceOverride ?? null,
+      options: agent.options ?? {},
     });
-    if (resolved.kind === "unknown" && !cc.preset.reportsCost && !cli?.reportsCost && !cli?.unmetered)
-      throw new HttpError(422, `no price is known for ${agent.model}; set one on the agent`, "price_unknown");
+    if (!metering.runnable)
+      throw new HttpError(422, metering.reason ?? `no price is known for ${agent.model}`, "price_unknown");
 
     const agentLimits = agent.limits as { maxCostUsd?: number; maxMinutes?: number; maxTokens?: number };
     const caps = [agentLimits.maxCostUsd, task.budget.usd, contract.budget?.usd].filter(
@@ -159,7 +157,8 @@ export class AttemptRunner {
       model: agent.model,
       rolePrompt: agent.rolePrompt,
       connector: cc,
-      price: resolved.kind === "unknown" ? null : resolved.price,
+      price: metering.price,
+      unitPrice: metering.unitPrice,
       options: agent.options,
     };
     const runInput: Omit<RunInput, "attemptId"> = {
@@ -264,13 +263,21 @@ export class AttemptRunner {
         payload: {
           taskKey: task.key,
           agent: { id: agent.id, name: agent.name, model: agent.model },
-          connector: { id: connector.id, registryKey: connector.registryKey, preset: cc.presetKey },
+          connector: {
+            id: connector.id,
+            registryKey: connector.registryKey,
+            preset: cc.presetKey ?? null,
+            service: cc.serviceKey ?? null,
+          },
           adapter: adapter.key,
           route: adapter.route,
-          price:
-            resolved.kind === "unknown"
-              ? { kind: "vendor_reported" }
-              : { kind: resolved.kind, ...resolved.price },
+          price: {
+            kind: metering.priceKind,
+            ...(metering.price ?? {}),
+            ...(metering.unitPrice
+              ? { unit: metering.unitPrice.unit, usdPerUnit: metering.unitPrice.usd }
+              : {}),
+          },
           estimate,
           limits,
           sandbox: sandbox ? { profile: sandbox.profile, network: sandbox.network } : null,

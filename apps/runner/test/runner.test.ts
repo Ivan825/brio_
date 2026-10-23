@@ -46,6 +46,83 @@ const g = (cwd: string, ...a: string[]) =>
     },
   });
 
+/** PNG and WAV headers of a known size and length (all the probes read). */
+const be32 = (n: number) => [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255];
+const le32 = (n: number) => [n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255];
+const PNG = Uint8Array.from(
+  [0x89, ..."PNG\r\n\x1a\n"]
+    .map((c) => (typeof c === "number" ? c : c.charCodeAt(0)))
+    .concat(
+      be32(13),
+      [..."IHDR"].map((c) => c.charCodeAt(0)),
+      be32(1200),
+      be32(630),
+      [8, 6, 0, 0, 0],
+    ),
+);
+const WAV = Uint8Array.from([
+  ...[..."RIFF"].map((c) => c.charCodeAt(0)),
+  ...le32(36 + 32000 * 2),
+  ...[..."WAVEfmt "].map((c) => c.charCodeAt(0)),
+  ...le32(16),
+  1,
+  0,
+  1,
+  0,
+  ...le32(16000),
+  ...le32(32000),
+  2,
+  0,
+  16,
+  0,
+  ...[..."data"].map((c) => c.charCodeAt(0)),
+  ...le32(32000 * 2),
+]);
+
+/** A media adapter: an image for the repo and a voiceover that is only an artifact. */
+const fakeMedia: AgentAdapter = {
+  key: "fake-media",
+  route: "api",
+  capabilities: () => ({
+    taskTypes: [],
+    editsFiles: false,
+    runsCode: false,
+    browses: false,
+    producesMedia: ["image", "audio"],
+    streaming: false,
+    supportsMcpTools: false,
+    supportsResume: false,
+    runnerModes: ["cloud"],
+  }),
+  healthCheck: async () => ({ ok: true, latencyMs: 0 }),
+  estimate: async () => ({ usd: 0.04, minutes: 1 }),
+  run: async () => ({
+    status: "completed",
+    summary: "made a hero image and a voiceover",
+    output: "Hero image and voiceover.",
+    artifacts: [],
+    files: [
+      {
+        kind: "image",
+        name: "hero.png",
+        contentType: "image/png",
+        bytes: PNG,
+        path: "web/hero.png",
+        meta: { model: "fake-image-1" },
+      },
+      { kind: "audio", name: "voiceover.wav", contentType: "audio/wav", bytes: WAV },
+    ],
+    usage: { usd: 0.04, tokensIn: 0, tokensOut: 0, seconds: 1 },
+    tokens: {
+      inputTokens: 0,
+      outputTokens: 0,
+      cachedInputTokens: 0,
+      cacheWriteTokens: 0,
+      reasoningTokens: 0,
+    },
+  }),
+};
+
 const fakeCli = createCliAdapter({
   key: "fake-cli",
   connector: "claude-code",
@@ -200,9 +277,11 @@ describe.skipIf(!hasTestDatabase || !hasDocker)("runner on Docker (M2 acceptance
       resolveAdapter: (k) =>
         (k === "fake-cli"
           ? fakeCli
-          : k === "openai-compatible"
-            ? ADAPTERS["openai-compatible"]
-            : undefined) as AgentAdapter | undefined,
+          : k === "fake-media"
+            ? fakeMedia
+            : k === "openai-compatible"
+              ? ADAPTERS["openai-compatible"]
+              : undefined) as AgentAdapter | undefined,
     });
     await runner.start();
   });
@@ -215,7 +294,7 @@ describe.skipIf(!hasTestDatabase || !hasDocker)("runner on Docker (M2 acceptance
   });
 
   async function queue(opts: {
-    adapter: "fake-cli" | "openai-compatible";
+    adapter: "fake-cli" | "openai-compatible" | "fake-media";
     key: string;
     cliMode?: string;
     maxCostUsd?: number;
@@ -270,7 +349,7 @@ describe.skipIf(!hasTestDatabase || !hasDocker)("runner on Docker (M2 acceptance
       },
       price: { inputPerM: 1, outputPerM: 2, cachedInputPerM: null, cacheWritePerM: null },
     };
-    const route = opts.adapter === "fake-cli" ? "cli" : "api";
+    const route: "cli" | "api" = opts.adapter === "fake-cli" ? "cli" : "api";
     const dispatch: Dispatch = {
       version: 1,
       adapterKey: opts.adapter,
@@ -355,6 +434,29 @@ describe.skipIf(!hasTestDatabase || !hasDocker)("runner on Docker (M2 acceptance
     });
     // The container is gone after the run.
     expect((await docker(["ps", "-aq", "--filter", `label=brio.attempt=${id}`])).stdout.trim()).toBe("");
+  });
+
+  it("generated media becomes artifacts with what their headers say, and lands in the repo where the contract puts it", async () => {
+    const id = await queue({ adapter: "fake-media", key: "hero" });
+    await enqueueAttempt(boss, id);
+    const a = await waitFor(id);
+    expect(a.status, a.exitReason ?? "").toBe("succeeded");
+    const arts = await db.db.select().from(artifacts).where(eq(artifacts.attemptId, id));
+    const image = arts.find((x) => x.kind === "image");
+    const audio = arts.find((x) => x.kind === "audio");
+    expect(image?.meta).toMatchObject({
+      name: "hero.png",
+      path: "web/hero.png",
+      media: { format: "png", width: 1200, height: 630 },
+      model: "fake-image-1",
+    });
+    expect(audio?.meta).toMatchObject({ name: "voiceover.wav", media: { format: "wav", durationS: 2 } });
+    // The image is in the diff (it belongs in the repo); the voiceover is only an artifact.
+    const diff = arts.find((x) => x.kind === "diff");
+    const files = (diff?.meta as { files?: { path: string }[] } | undefined)?.files ?? [];
+    expect(files.map((f) => f.path)).toEqual(["web/hero.png"]);
+    const [t] = await db.db.select().from(tasks).where(eq(tasks.id, a.taskId));
+    expect(t?.resultArtifactId).toBe(diff?.id);
   });
 
   it("a CLI agent runs headless in the sandbox through CliAdapterBase and produces a diff", async () => {

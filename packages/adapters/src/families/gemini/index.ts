@@ -4,6 +4,7 @@ import { type TokenUsage, ZERO_USAGE } from "@brio/core";
 import { createApiAdapter } from "../../api-adapter";
 import { AdapterError } from "../../errors";
 import { authHeaders, joinUrl, requestJson } from "../../http";
+import { presetOf } from "../../preset";
 import type { Driver, ToolCall, Turn, TurnRequest } from "../../tool-loop";
 import type { ConnectorConfig, JsonSchema, SecretHandle } from "../../types";
 
@@ -104,7 +105,7 @@ export function parseGenerateContent(body: unknown): Turn {
 }
 
 function headers(c: ConnectorConfig, credential: SecretHandle | null): Record<string, string> {
-  return { ...c.preset.extraHeaders, ...c.extraHeaders, ...authHeaders(c.preset.auth, credential) };
+  return { ...presetOf(c).extraHeaders, ...c.extraHeaders, ...authHeaders(presetOf(c).auth, credential) };
 }
 
 /** Function declarations take the full JSON Schema via parametersJsonSchema. */
@@ -122,7 +123,7 @@ export const gemini = createApiAdapter({
     return async (req, signal) => {
       const { generationConfig, ...rest } = req.options as { generationConfig?: Obj };
       const body: Obj = {
-        ...c.preset.requestExtras,
+        ...presetOf(c).requestExtras,
         ...rest,
         systemInstruction: { parts: [{ text: req.system }] },
         contents: contents(req),

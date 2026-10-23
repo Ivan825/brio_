@@ -3,6 +3,7 @@ import { type TokenUsage, ZERO_USAGE } from "@brio/core";
 import { createApiAdapter } from "../../api-adapter";
 import { AdapterError } from "../../errors";
 import { authHeaders, joinUrl, requestJson } from "../../http";
+import { presetOf } from "../../preset";
 import type { Driver, ToolCall, Turn, TurnRequest } from "../../tool-loop";
 import type { AgentConfig, ConnectorConfig, RunContext, SecretHandle } from "../../types";
 
@@ -129,13 +130,13 @@ function chatDriver(config: AgentConfig, ctx: RunContext): Driver {
   const c = config.connector;
   return async (req, signal) => {
     const body: Obj = {
-      ...c.preset.requestExtras,
+      ...presetOf(c).requestExtras,
       ...req.options,
       model: req.model,
       messages: chatMessages(req),
-      [c.preset.maxTokensParam]: req.maxOutputTokens,
+      [presetOf(c).maxTokensParam]: req.maxOutputTokens,
     };
-    if (req.tools.length && c.preset.tools)
+    if (req.tools.length && presetOf(c).tools)
       body.tools = req.tools.map((t) => ({
         type: "function",
         function: { name: t.name, description: t.description, parameters: t.parameters },
@@ -148,7 +149,7 @@ function chatDriver(config: AgentConfig, ctx: RunContext): Driver {
       signal,
     });
     const turn = parseChatResponse(res.data);
-    const fromHeader = headerCost(res.headers, c.preset.costHeader);
+    const fromHeader = headerCost(res.headers, presetOf(c).costHeader);
     return fromHeader !== undefined && turn.vendorCostUsd === undefined
       ? { ...turn, vendorCostUsd: fromHeader }
       : turn;
@@ -235,16 +236,16 @@ function responsesDriver(config: AgentConfig, ctx: RunContext): Driver {
   const c = config.connector;
   return async (req, signal) => {
     const body: Obj = {
-      ...c.preset.requestExtras,
+      ...presetOf(c).requestExtras,
       ...req.options,
       model: req.model,
       instructions: req.system,
       input: responsesInput(req),
       max_output_tokens: req.maxOutputTokens,
       // e.g. OpenAI: store nothing at the vendor and carry reasoning between turns encrypted.
-      ...c.preset.responsesExtras,
+      ...presetOf(c).responsesExtras,
     };
-    if (req.tools.length && c.preset.tools)
+    if (req.tools.length && presetOf(c).tools)
       body.tools = req.tools.map((t) => ({
         type: "function",
         name: t.name,
@@ -260,7 +261,7 @@ function responsesDriver(config: AgentConfig, ctx: RunContext): Driver {
       signal,
     });
     const turn = parseResponsesResponse(res.data);
-    const fromHeader = headerCost(res.headers, c.preset.costHeader);
+    const fromHeader = headerCost(res.headers, presetOf(c).costHeader);
     return fromHeader !== undefined && turn.vendorCostUsd === undefined
       ? { ...turn, vendorCostUsd: fromHeader }
       : turn;
@@ -268,15 +269,15 @@ function responsesDriver(config: AgentConfig, ctx: RunContext): Driver {
 }
 
 function headers(c: ConnectorConfig, credential: SecretHandle | null): Record<string, string> {
-  return { ...c.preset.extraHeaders, ...c.extraHeaders, ...authHeaders(c.preset.auth, credential) };
+  return { ...presetOf(c).extraHeaders, ...c.extraHeaders, ...authHeaders(presetOf(c).auth, credential) };
 }
 
 export const openaiCompatible = createApiAdapter({
   key: "openai-compatible",
   headers,
   driver(config, ctx) {
-    const style = config.connector.apiStyle ?? config.connector.preset.apiStyles[0];
-    if (!style || !config.connector.preset.apiStyles.includes(style))
+    const style = config.connector.apiStyle ?? presetOf(config.connector).apiStyles[0];
+    if (!style || !presetOf(config.connector).apiStyles.includes(style))
       throw new AdapterError(
         "misconfigured",
         `${config.connector.presetKey} does not support the ${style} API`,

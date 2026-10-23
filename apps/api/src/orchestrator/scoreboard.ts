@@ -37,7 +37,8 @@ export function attemptAgentKey(dispatch: unknown): string | null {
     agent?: { model: string; connector: { presetKey: string } };
   } | null;
   if (!d?.agent) return null;
-  return `${d.route === "cli" ? d.adapterKey : d.agent.connector.presetKey}/${d.agent.model}`;
+  const preset = d.agent.connector.presetKey;
+  return `${d.route === "api" && preset ? preset : d.adapterKey}/${d.agent.model}`;
 }
 
 export class Scoreboard {

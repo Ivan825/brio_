@@ -4,6 +4,7 @@ import { type TokenUsage, ZERO_USAGE } from "@brio/core";
 import { createApiAdapter } from "../../api-adapter";
 import { AdapterError } from "../../errors";
 import { authHeaders, joinUrl, requestJson } from "../../http";
+import { presetOf } from "../../preset";
 import type { Driver, ToolCall, Turn, TurnRequest } from "../../tool-loop";
 import type { ConnectorConfig, SecretHandle } from "../../types";
 
@@ -102,9 +103,9 @@ export function parseMessage(body: unknown): Turn {
 function headers(c: ConnectorConfig, credential: SecretHandle | null): Record<string, string> {
   return {
     "anthropic-version": ANTHROPIC_VERSION,
-    ...c.preset.extraHeaders,
+    ...presetOf(c).extraHeaders,
     ...c.extraHeaders,
-    ...authHeaders(c.preset.auth, credential),
+    ...authHeaders(presetOf(c).auth, credential),
   };
 }
 
@@ -115,7 +116,7 @@ export const anthropic = createApiAdapter({
     const c = config.connector;
     return async (req, signal) => {
       const body: Obj = {
-        ...c.preset.requestExtras,
+        ...presetOf(c).requestExtras,
         ...req.options,
         model: req.model,
         max_tokens: req.maxOutputTokens,

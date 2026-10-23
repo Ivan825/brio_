@@ -1,7 +1,7 @@
 // The one interface every connector is reached through (docs/ADAPTER_SPEC.md §1). Vendor quirks live only in
 // packages/adapters/src/families/<family>/.
 import type { ModelPrice, TokenUsage } from "@brio/core";
-import type { ApiStyle, Preset } from "@brio/registry";
+import type { ApiStyle, Preset, Service } from "@brio/registry";
 import type { HandoffPacket, TaskContract, TaskType } from "@brio/schema";
 
 export type Route = "api" | "cli" | "sdk" | "hosted" | "a2a" | "mcp" | "browser" | "local";
@@ -71,8 +71,13 @@ export interface RunInput {
 /** A connector as installed in a workspace: the registry preset plus the user's overrides. */
 export interface ConnectorConfig {
   registryKey: string;
-  presetKey: string;
-  preset: Preset;
+  /** Model-API connectors (and CLIs, by their vendor): the registry preset. Absent for service connectors. */
+  presetKey?: string;
+  preset?: Preset;
+  /** Service connectors (hosted agents, media, search, browsers): the registry service and the install's settings. */
+  serviceKey?: string;
+  service?: Service;
+  settings?: Record<string, string>;
   /** The effective base URL (preset default, region choice, or the user's own for local/proxy presets). */
   baseUrl: string;
   apiStyle?: ApiStyle;
@@ -88,6 +93,8 @@ export interface AgentConfig {
   connector: ConnectorConfig;
   /** The price used for cost events; null only when the preset is free (local) or the vendor reports cost. */
   price: ModelPrice | null;
+  /** Services billed in units (ACUs, credits, images, seconds, characters): USD per unit, from the agent. */
+  unitPrice?: { unit: string; usd: number } | null;
   /** Vendor-specific request options passed through (e.g. temperature, reasoning effort). */
   options?: Record<string, unknown>;
 }
@@ -164,12 +171,27 @@ export type AdapterEvent =
 
 export type RunStatus = "completed" | "failed" | "cancelled" | "limit_exceeded";
 
+/** A file an agent produced outside the worktree: generated media, a hosted agent's outputs. */
+export interface ProducedFile {
+  kind: "image" | "video" | "audio" | "file";
+  /** A display name (for the board and downloads). */
+  name: string;
+  contentType: string;
+  bytes: Uint8Array;
+  /** Where it belongs in the repository (the contract's output path); the runner places it in the worktree. */
+  path?: string;
+  /** What the vendor said about it: model, prompt, seed, duration… */
+  meta?: Record<string, unknown>;
+}
+
 export interface RunResult {
   status: RunStatus;
   summary: string;
   /** Text output the orchestrator stores as an artifact (the agent's answer). */
   output: string;
   artifacts: AttachmentRef[];
+  /** Files produced outside the worktree (media, hosted outputs): stored as artifacts by the runner. */
+  files?: ProducedFile[];
   usage: { usd: number; tokensIn: number; tokensOut: number; seconds: number };
   /** Detailed usage across every call of the run. */
   tokens: TokenUsage;

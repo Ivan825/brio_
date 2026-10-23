@@ -5,6 +5,7 @@ import { addUsage, costOf, roundUsd, type TokenUsage, ZERO_USAGE } from "@brio/c
 import { registry } from "@brio/registry";
 import { ADAPTERS_BY_FAMILY } from "../api-family-registry";
 import { AdapterError, isLimitAbort } from "../errors";
+import { presetOf } from "../preset";
 import { systemPrompt, userPrompt } from "../tool-loop";
 import type {
   AdapterCapabilities,
@@ -183,7 +184,7 @@ export function createCliAdapter(spec: CliSpec): AgentAdapter & { spec: CliSpec 
         } as RunResult);
 
       if (!outer.sandbox.available) return finish("failed", "CLI agents run only inside a sandbox");
-      if (!config.price && !spec.reportsCost && !spec.unmetered && !config.connector.preset.pricing.free)
+      if (!config.price && !spec.reportsCost && !spec.unmetered && !presetOf(config.connector).pricing.free)
         return finish("failed", `no price for ${config.model}: set one on the agent before running it`);
 
       const mcp = input.mcpServers.length && spec.mcp ? spec.mcp(input.mcpServers) : {};

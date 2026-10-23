@@ -7,6 +7,7 @@ import {
   type ConnectorConfig,
   type SecretHandle,
 } from "@brio/adapters";
+import type { ModelPrice } from "@brio/core";
 import type { schema } from "@brio/db";
 import {
   type ApiStyle,
@@ -14,6 +15,7 @@ import {
   type Preset,
   parsePlannedAdapter,
   registry,
+  type Service,
 } from "@brio/registry";
 import type { AppContext } from "./context";
 import { HttpError } from "./http";
@@ -25,7 +27,10 @@ export interface StoredConnectorConfig {
   /** The adapter, when it is not the preset's model-API family (a coding CLI). */
   adapter?: string;
   /** The model-API preset; for CLIs, the CLI vendor's (key checks, model lists, prices). */
-  preset: string;
+  preset?: string;
+  /** Service connectors (hosted agents, media, search, browsers): the registry service and its install settings. */
+  service?: string;
+  settings?: Record<string, string>;
   baseUrl: string;
   region?: string;
   apiStyle?: ApiStyle;
@@ -37,8 +42,24 @@ export function presetOf(key: string): Preset {
   return preset;
 }
 
+export function serviceOf(key: string): Service {
+  const service = registry().service(key);
+  if (!service) throw new HttpError(422, `unknown service ${key}`, "unknown_service");
+  return service;
+}
+
 export function connectorConfig(row: ConnectorRow): ConnectorConfig {
   const stored = row.config as unknown as StoredConnectorConfig;
+  if (stored.service)
+    return {
+      registryKey: row.registryKey,
+      serviceKey: stored.service,
+      service: serviceOf(stored.service),
+      settings: stored.settings ?? {},
+      baseUrl: stored.baseUrl,
+    };
+  if (!stored.preset)
+    throw new HttpError(422, `${row.registryKey} has neither a preset nor a service`, "misconfigured");
   const preset = presetOf(stored.preset);
   return {
     registryKey: row.registryKey,
@@ -51,9 +72,114 @@ export function connectorConfig(row: ConnectorRow): ConnectorConfig {
 
 export function adapterOf(row: ConnectorRow): AgentAdapter {
   const stored = row.config as unknown as StoredConnectorConfig;
-  const adapter = adapterFor(stored.adapter ?? connectorConfig(row).preset.family);
+  const cc = connectorConfig(row);
+  const key = stored.adapter ?? cc.service?.adapter ?? cc.preset?.family ?? "";
+  const adapter = adapterFor(key);
   if (!adapter) throw new HttpError(422, `no adapter for ${row.registryKey}`, "no_adapter");
   return adapter;
+}
+
+/** Who is behind a connector: the preset's vendor, or the service's (the vocabulary reviewers are diversified by). */
+export const vendorOf = (cc: ConnectorConfig): string => cc.service?.vendor ?? cc.presetKey ?? cc.registryKey;
+
+/** Typical cost of one run of a service agent before the scoreboard knows better (for budget fit and routing). */
+const SERVICE_ESTIMATE_USD: Record<string, number> = {
+  hosted: 1,
+  media: 0.2,
+  search: 0.02,
+  fetch: 0.01,
+  browser: 0.5,
+};
+
+export interface Metering {
+  /** Token price, for model APIs and services billed in tokens. */
+  price: ModelPrice | null;
+  /** USD per unit, for services billed in ACUs, credits, images, seconds or characters. */
+  unitPrice: { unit: string; usd: number } | null;
+  /** Can it run at all: a price is known, the vendor reports cost, or the run is bounded by time only. */
+  runnable: boolean;
+  /** Why not, when it cannot. */
+  reason: string | null;
+  estUsd: number;
+  /** Where the price comes from, for the attempt's record: override, table…, vendor_reported, unit, unmetered. */
+  priceKind: string;
+}
+
+/**
+ * How an agent's runs are metered (D-30, D-62): model presets by their token price; services by their unit — tokens at
+ * their price preset, USD the vendor reports, the agent's USD per unit, or nothing but the time limit.
+ */
+export async function meteringOf(
+  ctx: AppContext,
+  cc: ConnectorConfig,
+  adapter: AgentAdapter,
+  agent: { model: string; priceOverride: ModelPrice | null; options: Record<string, unknown> },
+): Promise<Metering> {
+  const cli = (adapter as { spec?: CliSpec }).spec;
+  if (cc.service) {
+    const unit = cc.service.pricing.unit;
+    const est = Number(agent.options.estimatedUsdPerRun ?? SERVICE_ESTIMATE_USD[cc.service.kind] ?? 0.5);
+    if (unit === "token") {
+      const resolved = await ctx.pricing.lookup({
+        presetKey: cc.service.pricing.pricePreset ?? "",
+        model: agent.model,
+        override: agent.priceOverride,
+      });
+      const price = resolved.kind === "unknown" ? null : resolved.price;
+      return {
+        price,
+        unitPrice: null,
+        runnable: price !== null,
+        reason: price ? null : `no price is known for ${agent.model}; set one on the agent`,
+        estUsd: est,
+        priceKind: resolved.kind,
+      };
+    }
+    if (unit === "usd" || unit === "unmetered")
+      return {
+        price: null,
+        unitPrice: null,
+        runnable: true,
+        reason: null,
+        estUsd: unit === "usd" ? est : 0,
+        priceKind: unit === "usd" ? "vendor_reported" : "unmetered",
+      };
+    const usd = Number(agent.options.usdPerUnit);
+    return Number.isFinite(usd) && usd >= 0
+      ? {
+          price: null,
+          unitPrice: { unit, usd },
+          runnable: true,
+          reason: null,
+          estUsd: est,
+          priceKind: "unit",
+        }
+      : {
+          price: null,
+          unitPrice: null,
+          runnable: false,
+          reason: `${cc.service.name} bills in ${unit}s; set the agent's USD per ${unit} (options.usdPerUnit)`,
+          estUsd: est,
+          priceKind: "unknown",
+        };
+  }
+  const preset = cc.preset as Preset;
+  const resolved = await ctx.pricing.lookup({
+    presetKey: cc.presetKey ?? "",
+    model: agent.model,
+    override: agent.priceOverride,
+  });
+  const price = resolved.kind === "unknown" ? null : resolved.price;
+  const runnable =
+    price !== null || preset.reportsCost || Boolean(cli?.reportsCost) || Boolean(cli?.unmetered);
+  return {
+    price,
+    unitPrice: null,
+    runnable,
+    reason: runnable ? null : `no price is known for ${agent.model}; set one on the agent`,
+    estUsd: 0,
+    priceKind: price ? resolved.kind : "vendor_reported",
+  };
 }
 
 export async function credentialOf(ctx: AppContext, row: ConnectorRow): Promise<SecretHandle | null> {

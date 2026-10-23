@@ -40,7 +40,8 @@ const secretLabel = (connectorId: string) => `connector:${connectorId}`;
 
 function present(row: ConnectorRow) {
   const cfg = row.config as unknown as StoredConnectorConfig;
-  const preset = registry().preset(cfg.preset);
+  const preset = cfg.preset ? registry().preset(cfg.preset) : undefined;
+  const service = cfg.service ? registry().service(cfg.service) : undefined;
   const entry = registry().connector(row.registryKey);
   return {
     id: row.id,
@@ -48,9 +49,12 @@ function present(row: ConnectorRow) {
     name: entry?.name ?? row.registryKey,
     displayName: row.displayName,
     route: row.route,
-    preset: cfg.preset,
-    presetName: preset?.name ?? cfg.preset,
-    adapter: cfg.adapter ?? preset?.family ?? null,
+    preset: cfg.preset ?? null,
+    presetName: preset?.name ?? service?.name ?? cfg.preset ?? null,
+    service: cfg.service ?? null,
+    serviceKind: service?.kind ?? null,
+    settings: cfg.settings ?? {},
+    adapter: cfg.adapter ?? service?.adapter ?? preset?.family ?? null,
     baseUrl: cfg.baseUrl,
     region: cfg.region ?? null,
     apiStyle: cfg.apiStyle ?? preset?.apiStyles[0] ?? null,
@@ -350,10 +354,10 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
       });
       await ctx.pricing.upsert(
         pricesFromModels(
-          cfg.presetKey,
+          cfg.presetKey ?? cfg.service?.pricing.pricePreset ?? "",
           live,
           "models_endpoint",
-          `${cfg.baseUrl}${cfg.preset.models.path ?? ""}`,
+          `${cfg.baseUrl}${cfg.preset?.models.path ?? cfg.service?.models.path ?? ""}`,
         ),
       );
       cached = await ctx.db
@@ -364,7 +368,7 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
     }
     const cfg = connectorConfig(row);
     const prices = await ctx.pricing.lookupMany(
-      cfg.presetKey,
+      cfg.presetKey ?? cfg.service?.pricing.pricePreset ?? "",
       cached.map((m) => m.model),
     );
     const models = cached.map((m, i) => {

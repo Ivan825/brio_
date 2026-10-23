@@ -3,7 +3,7 @@ import { AgentLimits, ModelPrice, SandboxProfile } from "@brio/schema";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { connectorConfig } from "../connectors";
+import { adapterOf, connectorConfig, meteringOf } from "../connectors";
 import type { AppContext } from "../context";
 import { HttpError, one, requireMember, requireSession, workspaceFor } from "../http";
 
@@ -41,13 +41,14 @@ export async function agentRoutes(app: FastifyInstance, ctx: AppContext) {
   const present = async (a: AgentRow) => {
     const [c] = await ctx.db.select().from(connectors).where(eq(connectors.id, a.connectorId));
     const cfg = c ? connectorConfig(c) : null;
-    const price = cfg
-      ? await ctx.pricing.lookup({
-          presetKey: cfg.presetKey,
-          model: a.model,
-          override: a.priceOverride ?? null,
-        })
-      : null;
+    const metering =
+      c && cfg
+        ? await meteringOf(ctx, cfg, adapterOf(c), {
+            model: a.model,
+            priceOverride: a.priceOverride ?? null,
+            options: (a.options ?? {}) as Record<string, unknown>,
+          }).catch(() => null)
+        : null;
     const [listed] = await ctx.db
       .select({ model: connectorModels.model })
       .from(connectorModels)
@@ -67,12 +68,15 @@ export async function agentRoutes(app: FastifyInstance, ctx: AppContext) {
             id: c.id,
             displayName: c.displayName,
             registryKey: c.registryKey,
-            preset: cfg?.presetKey,
+            preset: cfg?.presetKey ?? null,
+            service: cfg?.serviceKey ?? null,
             status: c.status,
           }
         : null,
-      price: !price || price.kind === "unknown" ? null : { kind: price.kind, ...price.price },
-      runnable: Boolean(c && price && (price.kind !== "unknown" || cfg?.preset.reportsCost)),
+      price: metering?.price ? { kind: metering.priceKind, ...metering.price } : null,
+      unitPrice: metering?.unitPrice ?? null,
+      runnable: Boolean(c && metering?.runnable),
+      notRunnableBecause: metering && !metering.runnable ? metering.reason : null,
       modelListed: Boolean(listed),
       createdAt: a.createdAt,
     };

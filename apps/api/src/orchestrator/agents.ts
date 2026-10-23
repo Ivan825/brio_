@@ -4,7 +4,7 @@ import { estimateCost, type RouteAgent } from "@brio/core";
 import { schema } from "@brio/db";
 import { registry } from "@brio/registry";
 import { and, eq, isNull } from "drizzle-orm";
-import { adapterOf, connectorConfig } from "../connectors";
+import { adapterOf, connectorConfig, meteringOf, vendorOf } from "../connectors";
 import type { AppContext } from "../context";
 
 export interface WorkspaceAgent extends RouteAgent {
@@ -37,34 +37,31 @@ export async function routeAgents(ctx: AppContext, workspaceId: string): Promise
       continue;
     }
     const cc = connectorConfig(connector);
-    const cli = (adapter as { spec?: CliSpec }).spec;
-    const price = await ctx.pricing.lookup({
-      presetKey: cc.presetKey,
+    const metering = await meteringOf(ctx, cc, adapter, {
       model: agent.model,
-      override: agent.priceOverride ?? null,
+      priceOverride: agent.priceOverride ?? null,
+      options: (agent.options ?? {}) as Record<string, unknown>,
     });
-    const priced = price.kind !== "unknown" || cc.preset.reportsCost || cli?.reportsCost || cli?.unmetered;
     const limits = agent.limits as { maxTokens?: number };
-    const estUsd =
-      price.kind === "unknown"
-        ? 0
-        : estimateCost(
-            { promptChars: 12_000, maxOutputTokens: Math.min(limits.maxTokens ?? 4000, 4000), turns: 3 },
-            price.price,
-          );
+    const estUsd = metering.price
+      ? estimateCost(
+          { promptChars: 12_000, maxOutputTokens: Math.min(limits.maxTokens ?? 4000, 4000), turns: 3 },
+          metering.price,
+        )
+      : metering.estUsd;
     const health = connector.health as { ok?: boolean };
     out.push({
-      scoreKey: `${adapter.route === "cli" ? adapter.key : cc.presetKey}/${agent.model}`,
+      scoreKey: `${adapter.route === "api" && cc.presetKey ? cc.presetKey : adapter.key}/${agent.model}`,
       healthy: health.ok !== false,
       estUsd,
       id: agent.id,
       name: agent.name,
       model: agent.model,
       route: adapter.route,
-      vendor: cc.presetKey,
+      vendor: vendorOf(cc),
       taskTypes: registry().taskTypesOf(connector.registryKey),
-      local: cc.preset.local,
-      runnable: Boolean(priced) && connector.status !== "disabled",
+      local: cc.preset?.local ?? false,
+      runnable: metering.runnable && connector.status !== "disabled",
     });
   }
   return out;

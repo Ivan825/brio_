@@ -16,6 +16,7 @@ import {
   type RunResult,
   type SandboxHandle,
 } from "@brio/adapters";
+import { probeMedia } from "@brio/core";
 import { type Db, type DbOrTx, type EventWriter, schema } from "@brio/db";
 import type { Ledger } from "@brio/governance";
 import type { Actor, EventType } from "@brio/schema";
@@ -286,6 +287,16 @@ export class AttemptExecutor {
     }
 
     if (sandbox) await sandbox.destroy().catch(() => {});
+    // Files the agent produced outside the worktree (generated media) that belong in the repository go in before
+    // the result is collected, so they are part of the diff the next tasks build on.
+    if (worktree && result.status === "completed")
+      for (const f of result.files ?? []) {
+        if (!f.path) continue;
+        const target = join(worktree.path, f.path);
+        if (!target.startsWith(`${worktree.path}/`) || f.path.split("/").includes(".git")) continue;
+        await mkdir(dirname(target), { recursive: true });
+        await writeFile(target, f.bytes);
+      }
     if (worktree) {
       try {
         collected = await this.worktrees.collect(
@@ -337,6 +348,26 @@ export class AttemptExecutor {
             { source: "agent answer" },
           )
         : null;
+      // Produced files (media, hosted outputs) are artifacts of their own kind, with what their headers say.
+      const producedIds: string[] = [];
+      for (const f of (result.files ?? []).slice(0, MAX_PRODUCED_FILES)) {
+        if (f.bytes.length > MAX_PRODUCED_BYTES) {
+          deps.log.warn(
+            { attemptId: attempt.id, name: f.name, bytes: f.bytes.length },
+            "produced file over the size limit; not stored",
+          );
+          continue;
+        }
+        const probe = f.kind === "file" ? null : probeMedia(f.bytes);
+        producedIds.push(
+          await this.store(tx, attempt, f.kind, Buffer.from(f.bytes), f.contentType, {
+            name: f.name,
+            ...(f.path ? { path: f.path } : {}),
+            ...(probe && probe.format !== "unknown" ? { media: probe } : {}),
+            ...(f.meta ?? {}),
+          }),
+        );
+      }
       let diffId: string | null = null;
       if (collected?.commit) {
         diffId = await this.store(tx, attempt, "diff", collected.diff, "text/x-diff; charset=utf-8", {
@@ -372,7 +403,9 @@ export class AttemptExecutor {
           .update(tasks)
           .set({
             status: status === "succeeded" ? "verifying" : status === "cancelled" ? "ready" : "failed",
-            ...((diffId ?? answerId) ? { resultArtifactId: diffId ?? answerId } : {}),
+            ...((diffId ?? producedIds[0] ?? answerId)
+              ? { resultArtifactId: diffId ?? producedIds[0] ?? answerId }
+              : {}),
           })
           .where(eq(tasks.id, attempt.taskId));
       if (!missionId) return;
@@ -433,7 +466,7 @@ export class AttemptExecutor {
   private async store(
     tx: DbOrTx,
     attempt: AttemptRow,
-    kind: "report" | "diff" | "file",
+    kind: "report" | "diff" | "file" | "image" | "video" | "audio",
     raw: Buffer,
     contentType: string,
     meta: Record<string, unknown>,
@@ -473,6 +506,10 @@ export class AttemptExecutor {
     return row.id;
   }
 }
+
+/** Produced files per attempt, and the size of each (blobs live in Postgres until object storage, D-35). */
+const MAX_PRODUCED_FILES = 20;
+const MAX_PRODUCED_BYTES = 50 * 1024 * 1024;
 
 function isProbablyText(b: Buffer): boolean {
   return !b.subarray(0, 8000).includes(0);

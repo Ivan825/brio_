@@ -2,6 +2,7 @@
 // it answers without tools or a limit is hit. Family drivers translate the neutral conversation to vendor formats.
 import { addUsage, costOf, roundUsd, type TokenUsage, ZERO_USAGE } from "@brio/core";
 import { AdapterError, isLimitAbort } from "./errors";
+import { presetOf } from "./preset";
 import { clip, toolsFor } from "./tools";
 import type { AgentConfig, RunContext, RunInput, RunResult, Tool, ToolSpec } from "./types";
 
@@ -102,7 +103,7 @@ export async function runToolLoop(
   }));
   const maxTurns = input.limits.maxTurns ?? DEFAULT_MAX_TURNS;
   const maxOutputTokens = input.limits.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS;
-  const free = config.connector.preset.pricing.free;
+  const free = presetOf(config.connector).pricing.free;
 
   const messages: Message[] = [{ role: "user", text: userPrompt(input) }];
   let tokens: TokenUsage = ZERO_USAGE;
@@ -134,7 +135,7 @@ export async function runToolLoop(
       : finish("cancelled", "cancelled");
   };
 
-  if (!config.price && !free && !config.connector.preset.reportsCost)
+  if (!config.price && !free && !presetOf(config.connector).reportsCost)
     return finish("failed", `no price for ${config.model}: set one on the agent before running it`);
 
   for (let turn = 1; turn <= maxTurns; turn++) {

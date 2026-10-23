@@ -5,6 +5,7 @@ import { registry } from "@brio/registry";
 import { AdapterError } from "./errors";
 import { joinUrl, requestJson } from "./http";
 import { listModelsFrom } from "./models";
+import { presetOf } from "./preset";
 import { DEFAULT_MAX_OUTPUT_TOKENS, DEFAULT_MAX_TURNS, type Driver, runToolLoop } from "./tool-loop";
 import type {
   AdapterCapabilities,
@@ -31,9 +32,9 @@ export function createApiAdapter(family: ApiFamily): AgentAdapter {
     config: ConnectorConfig,
     ctx: { credential: SecretHandle | null; fetch: FetchLike },
   ): Promise<{ models: ModelInfo[]; latencyMs: number }> {
-    const { path, shape, fromOrigin } = config.preset.models;
+    const { path, shape, fromOrigin } = presetOf(config).models;
     if (!path || shape === "none")
-      return { models: config.preset.models.static.map((id) => ({ id })), latencyMs: 0 };
+      return { models: presetOf(config).models.static.map((id) => ({ id })), latencyMs: 0 };
     return listModelsFrom({
       fetch: ctx.fetch,
       baseUrl: config.baseUrl,
@@ -66,7 +67,7 @@ export function createApiAdapter(family: ApiFamily): AgentAdapter {
     async healthCheck(config, ctx): Promise<HealthStatus> {
       const started = performance.now();
       try {
-        const health = config.preset.health;
+        const health = presetOf(config).health;
         if (health.kind === "models") {
           const { models, latencyMs } = await list(config, ctx);
           return { ok: true, latencyMs, detail: `${models.length} models available` };
@@ -115,7 +116,7 @@ export function createApiAdapter(family: ApiFamily): AgentAdapter {
     },
 
     async estimate(input: RunInput, config: AgentConfig) {
-      const price = config.price ?? (config.connector.preset.pricing.free ? FREE : null);
+      const price = config.price ?? (presetOf(config.connector).pricing.free ? FREE : null);
       if (!price) throw new AdapterError("misconfigured", `no price for ${config.model}`);
       const turns = Math.min(3, input.limits.maxTurns ?? DEFAULT_MAX_TURNS);
       const usd = estimateCost(
