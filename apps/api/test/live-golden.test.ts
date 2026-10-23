@@ -2,7 +2,8 @@
 //   LIVE_GOLDEN=1 OPENAI_API_KEY=… ANTHROPIC_API_KEY=… LIVE_GOLDEN_OPENAI_MODEL=<id> LIVE_GOLDEN_ANTHROPIC_MODEL=<id> \
 //   pnpm --filter @brio/api test:live
 // "Add OAuth login + tests to sample Next.js app": planned into ≥ 4 tasks including a contract task, approved as
-// planned, run with two vendors, and finished with its checks passing. Needs Docker.
+// planned, run with two vendors, and finished with its checks passing. Since M4 the tasks are routed by the learned
+// router with the default modes (a debate for the contract, best-of-n or maker-checker for code). Needs Docker.
 import { execFileSync } from "node:child_process";
 import { cpSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -112,6 +113,16 @@ describe.skipIf(!enabled || !hasTestDatabase)("live golden mission: oauth-login"
         );
         expect(vendors.size).toBeGreaterThanOrEqual(golden.expect.vendors);
         expect(events.some((e) => e.type === "handoff.created")).toBe(true);
+        // M4: the learned router routed every task with a rationale, and the default rules used multi-agent modes
+        // (debate for the contract, best-of-n or maker-checker for code) across the two vendors.
+        const routed = events
+          .filter((e) => e.type === "task.routed")
+          .map((e) => e.payload as { mode: string; rationale: string });
+        expect(routed.length).toBeGreaterThanOrEqual(golden.expect.minTasks);
+        expect(routed.every((r) => r.rationale.length > 0)).toBe(true);
+        expect(routed.some((r) => r.mode !== "single")).toBe(true);
+        const board = (await c.request("GET", "/v1/scoreboard")).json() as { rows: unknown[] };
+        expect(board.rows.length).toBeGreaterThan(0);
       } finally {
         await h.close();
         rmSync(repo, { recursive: true, force: true });
