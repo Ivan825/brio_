@@ -96,6 +96,7 @@ export function AgentBuilder({ connectors: all }: { connectors: InstalledConnect
   const [maxTokens, setMaxTokens] = useState("8192");
   const [priceIn, setPriceIn] = useState("");
   const [priceOut, setPriceOut] = useState("");
+  const [options, setOptions] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -133,6 +134,16 @@ export function AgentBuilder({ connectors: all }: { connectors: InstalledConnect
     setBusy(true);
     setError(null);
     try {
+      let parsed: Record<string, unknown> = {};
+      if (options.trim()) {
+        try {
+          parsed = JSON.parse(options) as Record<string, unknown>;
+        } catch {
+          throw new Error('Options must be a JSON object, like {"voiceId": "…"}');
+        }
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+          throw new Error("Options must be a JSON object");
+      }
       const override =
         priceIn && priceOut
           ? {
@@ -151,10 +162,12 @@ export function AgentBuilder({ connectors: all }: { connectors: InstalledConnect
           rolePrompt,
           limits: { maxCostUsd: num(maxCostUsd), maxMinutes: num(maxMinutes), maxTokens: num(maxTokens) },
           priceOverride: override,
+          options: parsed,
         },
       });
       setName("");
       setRolePrompt("");
+      setOptions("");
       router.refresh();
     } catch (err) {
       setError((err as Error).message);
@@ -300,6 +313,22 @@ export function AgentBuilder({ connectors: all }: { connectors: InstalledConnect
             />
           </div>
         </fieldset>
+        <div className="flex flex-col gap-1 md:col-span-2">
+          <Label htmlFor={`${ids}-options`}>Options (optional JSON)</Label>
+          <Textarea
+            id={`${ids}-options`}
+            rows={2}
+            spellCheck={false}
+            placeholder='{"usdPerUnit": 0.01} · {"voiceId": "…"} · {"browser": "cloud"}'
+            value={options}
+            onChange={(e) => setOptions(e.target.value)}
+            className="font-mono"
+          />
+          <p className="text-2xs text-fg-subtle">
+            Service agents read their settings here: a price per credit, image or second (usdPerUnit), a voice
+            (voice, voiceId), a cloud browser for computer use (browser: cloud).
+          </p>
+        </div>
         <div className="flex flex-col gap-2 md:col-span-2">
           <FormError>{error}</FormError>
           <div>
