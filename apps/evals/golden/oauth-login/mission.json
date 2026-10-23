@@ -1,0 +1,11 @@
+{
+  "key": "oauth-login",
+  "title": "Add OAuth login + tests to sample Next.js app",
+  "goal": "Add OAuth login (GitHub as the provider) to this Next.js app: a sign-in button on the home page, a callback route that exchanges the code for a session cookie, a sign-out route, and unit tests for the session helpers. Keep secrets in environment variables.",
+  "expect": {
+    "minTasks": 4,
+    "contractTask": true,
+    "vendors": 2,
+    "checks": ["node --test"]
+  }
+}

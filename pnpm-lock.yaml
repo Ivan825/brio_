@@ -81,7 +81,11 @@ importers:
 
   apps/cli: {}
 
-  apps/evals: {}
+  apps/evals:
+    dependencies:
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
 
   apps/runner:
     dependencies:

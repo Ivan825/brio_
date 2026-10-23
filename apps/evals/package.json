@@ -9,7 +9,10 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "evals": "node -e \"console.error('TODO(milestone-5): golden-mission evals land in M5'); process.exit(1)\""
+  },
+  "dependencies": {
+    "zod": "4.6.7"
   }
 }

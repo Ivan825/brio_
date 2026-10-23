@@ -2,4 +2,10 @@ import { defineConfig } from "vitest/config";
 import { ownCache } from "../../vitest.shared";
 
 // Own config so `vitest run` here never falls back to the repo-root workspace config.
-export default defineConfig({ test: { fsModuleCachePath: ownCache(import.meta.url) } });
+export default defineConfig({
+  test: {
+    fsModuleCachePath: ownCache(import.meta.url),
+    // golden/*/repo hold fixture repositories with their own tests; agents run those, not vitest.
+    exclude: ["**/node_modules/**", "golden/**"],
+  },
+});
