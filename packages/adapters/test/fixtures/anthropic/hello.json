@@ -1,0 +1,18 @@
+{
+  "id": "msg_fixture_1",
+  "type": "message",
+  "role": "assistant",
+  "model": "fixture-large",
+  "content": [
+    { "type": "thinking", "thinking": "Plan it.", "signature": "sig" },
+    { "type": "text", "text": "Hello from the fixture. I restated the goal and proposed a plan." }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "usage": {
+    "input_tokens": 1000,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 200,
+    "output_tokens": 300
+  }
+}

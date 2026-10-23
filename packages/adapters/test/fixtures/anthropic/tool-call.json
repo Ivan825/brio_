@@ -1,0 +1,18 @@
+{
+  "id": "msg_fixture_2",
+  "type": "message",
+  "role": "assistant",
+  "model": "fixture-large",
+  "content": [
+    { "type": "text", "text": "Reporting progress." },
+    { "type": "tool_use", "id": "toolu_abc", "name": "report_progress", "input": { "note": "halfway" } }
+  ],
+  "stop_reason": "tool_use",
+  "stop_sequence": null,
+  "usage": {
+    "input_tokens": 200,
+    "cache_creation_input_tokens": 800,
+    "cache_read_input_tokens": 0,
+    "output_tokens": 40
+  }
+}

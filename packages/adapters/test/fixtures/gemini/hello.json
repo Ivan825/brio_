@@ -1,0 +1,26 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "Hello from the fixture. I restated the goal and proposed a plan.",
+            "thoughtSignature": "c2ln"
+          }
+        ]
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 1200,
+    "cachedContentTokenCount": 200,
+    "candidatesTokenCount": 180,
+    "thoughtsTokenCount": 120,
+    "totalTokenCount": 1500
+  },
+  "modelVersion": "fixture-large",
+  "responseId": "gem_fixture_1"
+}

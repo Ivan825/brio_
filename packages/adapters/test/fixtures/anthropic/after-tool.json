@@ -1,0 +1,15 @@
+{
+  "id": "msg_fixture_3",
+  "type": "message",
+  "role": "assistant",
+  "model": "fixture-large",
+  "content": [{ "type": "text", "text": "Done after reporting progress." }],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "usage": {
+    "input_tokens": 100,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 1000,
+    "output_tokens": 20
+  }
+}

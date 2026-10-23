@@ -1,0 +1,16 @@
+{
+  "candidates": [
+    {
+      "content": { "role": "model", "parts": [{ "text": "Done after reporting progress." }] },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 1100,
+    "cachedContentTokenCount": 1000,
+    "candidatesTokenCount": 20,
+    "totalTokenCount": 1120
+  },
+  "responseId": "gem_fixture_3"
+}

@@ -1,0 +1,13 @@
+{
+  "data": [
+    {
+      "type": "model",
+      "id": "fixture-large",
+      "display_name": "Fixture Large",
+      "created_at": "2026-09-01T00:00:00Z"
+    }
+  ],
+  "has_more": true,
+  "first_id": "fixture-large",
+  "last_id": "fixture-large"
+}

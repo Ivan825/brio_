@@ -1,0 +1,19 @@
+{
+  "id": "chatcmpl-fixture-3",
+  "object": "chat.completion",
+  "created": 1761200002,
+  "model": "fixture-large",
+  "choices": [
+    {
+      "index": 0,
+      "message": { "role": "assistant", "content": "Done after reporting progress." },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1100,
+    "completion_tokens": 20,
+    "total_tokens": 1120,
+    "prompt_tokens_details": { "cached_tokens": 1000 }
+  }
+}

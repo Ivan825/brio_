@@ -1,0 +1,11 @@
+{
+  "models": [
+    {
+      "name": "models/fixture-small",
+      "displayName": "Fixture Small",
+      "inputTokenLimit": 1048576,
+      "outputTokenLimit": 8192,
+      "supportedGenerationMethods": ["generateContent"]
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "models": [
+    {
+      "name": "models/fixture-large",
+      "displayName": "Fixture Large",
+      "inputTokenLimit": 1048576,
+      "outputTokenLimit": 65536,
+      "supportedGenerationMethods": ["generateContent", "countTokens"]
+    },
+    {
+      "name": "models/fixture-embedding",
+      "displayName": "Fixture Embedding",
+      "inputTokenLimit": 2048,
+      "supportedGenerationMethods": ["embedContent"]
+    }
+  ],
+  "nextPageToken": "page2"
+}

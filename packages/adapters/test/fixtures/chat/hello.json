@@ -1,0 +1,24 @@
+{
+  "id": "chatcmpl-fixture-1",
+  "object": "chat.completion",
+  "created": 1761200000,
+  "model": "fixture-large",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Hello from the fixture. I restated the goal and proposed a plan.",
+        "refusal": null
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1200,
+    "completion_tokens": 300,
+    "total_tokens": 1500,
+    "prompt_tokens_details": { "cached_tokens": 200 },
+    "completion_tokens_details": { "reasoning_tokens": 120 }
+  }
+}

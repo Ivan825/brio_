@@ -1,0 +1,22 @@
+{
+  "id": "resp_fixture_3",
+  "object": "response",
+  "status": "completed",
+  "model": "fixture-large",
+  "output": [
+    {
+      "id": "msg_2",
+      "type": "message",
+      "status": "completed",
+      "role": "assistant",
+      "content": [{ "type": "output_text", "text": "Done after reporting progress.", "annotations": [] }]
+    }
+  ],
+  "usage": {
+    "input_tokens": 1100,
+    "input_tokens_details": { "cached_tokens": 1000 },
+    "output_tokens": 20,
+    "output_tokens_details": { "reasoning_tokens": 0 },
+    "total_tokens": 1120
+  }
+}

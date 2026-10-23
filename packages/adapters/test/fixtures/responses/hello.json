@@ -1,0 +1,30 @@
+{
+  "id": "resp_fixture_1",
+  "object": "response",
+  "created_at": 1761200000,
+  "status": "completed",
+  "model": "fixture-large",
+  "output": [
+    { "id": "rs_1", "type": "reasoning", "summary": [], "encrypted_content": "opaque" },
+    {
+      "id": "msg_1",
+      "type": "message",
+      "status": "completed",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "Hello from the fixture. I restated the goal and proposed a plan.",
+          "annotations": []
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "input_tokens": 1200,
+    "input_tokens_details": { "cached_tokens": 200 },
+    "output_tokens": 300,
+    "output_tokens_details": { "reasoning_tokens": 120 },
+    "total_tokens": 1500
+  }
+}

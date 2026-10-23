@@ -143,7 +143,20 @@ importers:
         specifier: 3.4.19
         version: 3.4.19(tsx@4.23.15)
 
-  packages/adapters: {}
+  packages/adapters:
+    dependencies:
+      '@brio/core':
+        specifier: workspace:*
+        version: link:../core
+      '@brio/registry':
+        specifier: workspace:*
+        version: link:../registry
+      '@brio/schema':
+        specifier: workspace:*
+        version: link:../schema
+      '@brio/vault':
+        specifier: workspace:*
+        version: link:../vault
 
   packages/brand:
     devDependencies:

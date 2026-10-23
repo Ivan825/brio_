@@ -1,0 +1,23 @@
+{
+  "id": "resp_fixture_2",
+  "object": "response",
+  "status": "completed",
+  "model": "fixture-large",
+  "output": [
+    {
+      "id": "fc_1",
+      "type": "function_call",
+      "status": "completed",
+      "call_id": "call_abc",
+      "name": "report_progress",
+      "arguments": "{\"note\":\"halfway\"}"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1000,
+    "input_tokens_details": { "cached_tokens": 0 },
+    "output_tokens": 40,
+    "output_tokens_details": { "reasoning_tokens": 0 },
+    "total_tokens": 1040
+  }
+}

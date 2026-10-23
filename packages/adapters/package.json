@@ -5,10 +5,18 @@
   "description": "AgentAdapter implementations, one folder per connector family",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./test/contract.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run",
+    "test:live": "vitest run test/live.test.ts"
+  },
+  "dependencies": {
+    "@brio/core": "workspace:*",
+    "@brio/registry": "workspace:*",
+    "@brio/schema": "workspace:*",
+    "@brio/vault": "workspace:*"
   }
 }

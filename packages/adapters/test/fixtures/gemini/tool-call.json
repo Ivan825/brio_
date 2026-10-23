@@ -1,0 +1,19 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "functionCall": { "name": "report_progress", "args": { "note": "halfway" } },
+            "thoughtSignature": "c2ln"
+          }
+        ]
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "usageMetadata": { "promptTokenCount": 1000, "candidatesTokenCount": 40, "totalTokenCount": 1040 },
+  "responseId": "gem_fixture_2"
+}
