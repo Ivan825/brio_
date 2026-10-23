@@ -1,3 +1,12 @@
-// Zod schemas and TS types shared by every package
-// TODO(milestone-0): implemented in M0 (docs/BUILD_PLAN.md).
-export {};
+// Zod schemas and TS types shared by every package. Validate at every boundary.
+export * from "./common";
+export * from "./connectors";
+export * from "./contract";
+export * from "./coordination";
+export * from "./events";
+export * from "./governance";
+export * from "./handoff";
+export * from "./missions";
+export * from "./projects";
+export * from "./taxonomy";
+export * from "./tenancy";
