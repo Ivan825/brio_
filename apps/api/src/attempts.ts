@@ -70,6 +70,11 @@ export class AttemptRunner {
     repoMap?: boolean;
     /** The router's one-line reason, shown on the board. */
     rationale?: string;
+    /** Multi-agent modes: the attempt's role, and what it is for. The task is already running and stays the orchestrator's. */
+    role?: "maker" | "candidate" | "checker" | "judge" | "merger";
+    mode?: Dispatch["mode"];
+    /** Reviewers and judges read results; they need no sandbox of the task's kind. */
+    sandboxTaskType?: string;
   }): Promise<AttemptRow> {
     const { ctx } = this;
     const { actor } = input;
@@ -82,7 +87,8 @@ export class AttemptRunner {
     if (!mission) throw new HttpError(404, "mission not found", "not_found");
     if (mission.status === "cancelled" || mission.status === "done")
       throw new HttpError(409, `the mission is ${mission.status}`, "mission_closed");
-    if (!(RUNNABLE_TASK as readonly string[]).includes(task.status))
+    const concurrent = Boolean(input.mode);
+    if (concurrent ? task.status !== "running" : !(RUNNABLE_TASK as readonly string[]).includes(task.status))
       throw new HttpError(409, `the task is ${task.status}`, "task_busy");
 
     const [agent] = await ctx.db
@@ -171,7 +177,7 @@ export class AttemptRunner {
     };
     const sandbox = chooseSandbox({
       route: adapter.route,
-      taskType,
+      taskType: input.sandboxTaskType ?? taskType,
       agentSetting: agent.sandboxProfile as AgentSandboxSetting,
       vendorHosts: cli?.egressHosts ?? [],
       maxMinutes: limits.maxMinutes,
@@ -192,13 +198,15 @@ export class AttemptRunner {
       );
 
     const attempt = await ctx.db.transaction(async (tx) => {
-      // Lock the task so two clicks cannot start two attempts.
-      const [locked] = await tx
-        .update(tasks)
-        .set({ status: "running", pinnedAgentId: agent.id })
-        .where(and(eq(tasks.id, task.id), inArray(tasks.status, [...RUNNABLE_TASK])))
-        .returning();
-      if (!locked) throw new HttpError(409, "the task is already running", "task_busy");
+      // Lock the task so two clicks cannot start two attempts (multi-agent modes add attempts to a running task).
+      if (!concurrent) {
+        const [locked] = await tx
+          .update(tasks)
+          .set({ status: "running", pinnedAgentId: agent.id })
+          .where(and(eq(tasks.id, task.id), inArray(tasks.status, [...RUNNABLE_TASK])))
+          .returning();
+        if (!locked) throw new HttpError(409, "the task is already running", "task_busy");
+      }
       const row = one(
         await tx
           .insert(attempts)
@@ -229,6 +237,7 @@ export class AttemptRunner {
         ...(input.bases?.length ? { bases: input.bases } : {}),
         ...(input.files?.length ? { files: input.files } : {}),
         ...(input.repoMap ? { repoMap: true } : {}),
+        ...(concurrent ? { manageTask: false, mode: input.mode } : {}),
       };
       await tx
         .update(attempts)
@@ -255,6 +264,8 @@ export class AttemptRunner {
           limits,
           sandbox: sandbox ? { profile: sandbox.profile, network: sandbox.network } : null,
           rationale: input.rationale ?? null,
+          role: input.role ?? "maker",
+          purpose: input.mode?.purpose ?? null,
           revision: input.feedback ? true : undefined,
           repo: repo ? { url: repo.url, branch: repo.branch } : null,
         },

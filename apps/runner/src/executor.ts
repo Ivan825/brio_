@@ -109,7 +109,8 @@ export class AttemptExecutor {
         );
     };
 
-    await deps.db.update(tasks).set({ status: "running" }).where(eq(tasks.id, attempt.taskId));
+    if (dispatch.manageTask !== false)
+      await deps.db.update(tasks).set({ status: "running" }).where(eq(tasks.id, attempt.taskId));
     append(
       "attempt.started",
       {
@@ -363,14 +364,15 @@ export class AttemptExecutor {
           ...(collected?.commit && worktree ? { worktreeRef: worktree.branch } : {}),
         })
         .where(eq(attempts.id, attempt.id));
-      // Succeeded work waits for its acceptance checks (the verifier arrives in M5; until then a human checks).
-      await tx
-        .update(tasks)
-        .set({
-          status: status === "succeeded" ? "verifying" : status === "cancelled" ? "ready" : "failed",
-          ...((diffId ?? answerId) ? { resultArtifactId: diffId ?? answerId } : {}),
-        })
-        .where(eq(tasks.id, attempt.taskId));
+      // Succeeded work waits for its acceptance checks. In multi-agent modes the orchestrator owns the task's status.
+      if (dispatch?.manageTask !== false)
+        await tx
+          .update(tasks)
+          .set({
+            status: status === "succeeded" ? "verifying" : status === "cancelled" ? "ready" : "failed",
+            ...((diffId ?? answerId) ? { resultArtifactId: diffId ?? answerId } : {}),
+          })
+          .where(eq(tasks.id, attempt.taskId));
       if (!missionId) return;
       await deps.events.append(tx, {
         workspaceId: attempt.workspaceId,

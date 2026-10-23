@@ -31,6 +31,13 @@ export interface Dispatch {
   files?: Array<{ path: string; content: string }>;
   /** Attach the repository's file list (the planner's repo map). */
   repoMap?: boolean;
+  /**
+   * Whether this attempt drives its task's status (single mode and direct runs). In multi-agent modes the orchestrator
+   * owns the task's status and the runner leaves it alone.
+   */
+  manageTask?: boolean;
+  /** For attempts of a multi-agent mode: what this one is for, and which attempts it reviews, judges or builds on. */
+  mode?: { purpose: "make" | "revise" | "review" | "judge" | "merge"; of: string[]; step: number };
 }
 
 export type CheckStatus = "pending" | "running" | "passed" | "failed" | "needs_human";
