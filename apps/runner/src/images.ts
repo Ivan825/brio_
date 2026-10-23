@@ -9,6 +9,8 @@ export interface ImageSet {
   base: string;
   cli: string;
   proxy: string;
+  /** Chromium, Lighthouse and axe-core for the a11y and lighthouse checks. */
+  web: string;
 }
 
 const IMAGES_DIR = join(import.meta.dirname, "..", "images");
@@ -17,6 +19,7 @@ const SOURCES: Record<keyof ImageSet, string> = {
   base: "sandbox-base",
   cli: "sandbox-cli",
   proxy: "egress-proxy",
+  web: "sandbox-web",
 };
 
 function sourceHash(dir: string, extra = ""): string {
@@ -32,6 +35,7 @@ export function defaultImages(): ImageSet {
     base,
     cli: `brio/sandbox-cli:${sourceHash(SOURCES.cli, base)}`,
     proxy: `brio/egress-proxy:${sourceHash(SOURCES.proxy)}`,
+    web: `brio/sandbox-web:${sourceHash(SOURCES.web, base)}`,
   };
 }
 
@@ -42,7 +46,7 @@ export async function ensureImage(images: ImageSet, which: keyof ImageSet): Prom
   const tag = images[which];
   if (await imageExists(tag)) return tag;
   const args = ["build", "-q", "-t", tag];
-  if (which === "cli") {
+  if (which === "cli" || which === "web") {
     await ensureImage(images, "base");
     args.push("--build-arg", `BASE=${images.base}`);
   }

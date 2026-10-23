@@ -48,6 +48,7 @@ const runner = new Runner({
     base: config.BRIO_IMAGE_BASE ?? DEFAULT_IMAGES.base,
     cli: config.BRIO_IMAGE_CLI ?? DEFAULT_IMAGES.cli,
     proxy: config.BRIO_IMAGE_PROXY ?? DEFAULT_IMAGES.proxy,
+    web: config.BRIO_IMAGE_WEB ?? DEFAULT_IMAGES.web,
   },
   concurrency: config.BRIO_RUNNER_CONCURRENCY,
   mailboxPort: config.BRIO_RUNNER_MAILBOX_PORT,
