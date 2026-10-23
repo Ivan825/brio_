@@ -858,7 +858,9 @@ export class Orchestrator {
 
   /** A made result's hard checks, summarised for the engine. People's checks wait until a result is chosen. */
   private async modeChecks(m: Mission, t: Task, a: Attempt): Promise<ModeAttempt["checks"]> {
-    const checks = (a.checks as AttemptChecks | null) ?? (await this.verifier.start(m, t, a, false));
+    if (!a.checks) await this.verifier.start(m, t, a, false);
+    // Agent checks (rubric reviews and the like) move on here too: a mode waits for its results' checks.
+    const checks = (await this.verifier.advance(m, t, a)) ?? { requestedAt: "", items: [] };
     const auto = checks.items.filter((i) => i.hard && i.status !== "needs_human");
     if (auto.some((i) => i.status === "failed")) return "failed";
     if (auto.some((i) => i.status === "pending" || i.status === "running")) return "pending";

@@ -224,7 +224,7 @@ export class AttemptRunner {
             workspaceId: input.workspaceId,
             taskId: task.id,
             agentId: agent.id,
-            role: "maker",
+            role: input.role ?? "maker",
             status: "queued",
           })
           .returning(),
