@@ -61,6 +61,9 @@ test("add a key, list models live, build an agent and run a task with metered co
   await expect(stream.locator('li[data-type="attempt.cost"]').first()).toContainText("$0.0042");
   const task = page.getByTestId("task");
   await expect(task).toHaveAttribute("data-key", "write.health-plan");
+  // One agent: the router runs it alone and says why.
+  await expect(stream.locator('li[data-type="task.routed"]')).toHaveCount(1);
+  await expect(task.getByTestId("rationale")).toContainText("planner chosen: no history on");
   const attempt = task.getByTestId("attempt");
   await expect(attempt).toHaveAttribute("data-status", "succeeded");
   await expect(attempt.getByTestId("attempt-cost")).toHaveText("$0.0042");
@@ -71,4 +74,11 @@ test("add a key, list models live, build an agent and run a task with metered co
   await task.getByTestId("review").getByRole("button", { name: "Accept" }).click();
   await expect(stream.locator('li[data-type="mission.done"]')).toHaveCount(1, { timeout: 30_000 });
   await expect(page.getByTestId("task")).toHaveAttribute("data-status", "done");
+
+  // The verdict reached the scoreboard; a thumbs up adds to it.
+  await page.getByTestId("attempt").getByRole("button", { name: "Rate up" }).click();
+  await expect(page.getByTestId("rated")).toHaveText("rated up");
+  await page.goto("/scoreboard");
+  await expect(page.getByTestId("score-row")).toHaveCount(1);
+  await expect(page.getByTestId("score-row")).toContainText("planner");
 });
