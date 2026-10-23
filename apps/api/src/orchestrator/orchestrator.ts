@@ -39,6 +39,7 @@ import { type Actor, type EventType, type HandoffPacket, TaskContract } from "@b
 import { and, asc, desc, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { RUNNABLE_TASK, renderInstructions } from "../attempts";
 import type { AppContext } from "../context";
+import { proposeDelivery } from "../deliveries";
 import { HttpError } from "../http";
 import { routeAgents, type WorkspaceAgent } from "./agents";
 import { approvePlan, latestPlan, storePlan } from "./plans";
@@ -1977,7 +1978,7 @@ export class Orchestrator {
       .from(attempts)
       .innerJoin(tasks, eq(tasks.id, attempts.taskId))
       .where(eq(tasks.missionId, m.id));
-    await this.endMission(m, "done", {
+    const ended = await this.endMission(m, "done", {
       costUsd: totals?.usd ?? 0,
       attempts: totals?.attempts ?? 0,
       minutes: Math.round((Date.now() - m.createdAt.getTime()) / 6000) / 10,
@@ -1987,6 +1988,11 @@ export class Orchestrator {
           }
         : {}),
     });
+    // Work on a repository goes back to it only once a person approves (a branch, and a pull request on GitHub).
+    if (ended)
+      await proposeDelivery(this.ctx, this.ctx.db, m, integration).catch((err: Error) =>
+        this.ctx.log.error({ err: err.message, missionId: m.id }, "proposing the delivery failed"),
+      );
   }
 }
 

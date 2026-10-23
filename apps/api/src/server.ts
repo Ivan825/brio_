@@ -24,6 +24,7 @@ import { mcpRoutes } from "./mcp/server";
 import { Orchestrator } from "./orchestrator/orchestrator";
 import { PricingService, parseFx } from "./pricing";
 import { agentRoutes } from "./routes/agents";
+import { approvalRoutes } from "./routes/approvals";
 import { attemptRoutes } from "./routes/attempts";
 import { authRoutes } from "./routes/auth";
 import { connectorRoutes } from "./routes/connectors";
@@ -178,6 +179,7 @@ export async function buildServer({
   await mcpRoutes(app, ctx);
   await a2aRoutes(app, ctx);
   await inboxRoutes(app, ctx);
+  await approvalRoutes(app, ctx);
   if (config.BRIO_DEV_OUTBOX && config.NODE_ENV !== "production") await devRoutes(app, ctx);
   ctx.orchestrator.start();
 

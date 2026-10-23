@@ -5,6 +5,7 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { AppContext } from "../context";
+import { presentDelivery } from "../deliveries";
 import { HttpError, one, requireMember, requireSession, workspaceFor } from "../http";
 import { CreateMission, createMission } from "../missions";
 import { missionReport } from "../orchestrator/report";
@@ -108,6 +109,13 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
         ...routeView(t.modeParams),
         attempts: attemptRows.filter((a) => a.taskId === t.id).map(presentAttempt),
       })),
+      deliveries: (
+        await ctx.db
+          .select()
+          .from(schema.deliveries)
+          .where(eq(schema.deliveries.missionId, m.id))
+          .orderBy(asc(schema.deliveries.createdAt))
+      ).map(presentDelivery),
     };
   });
 
@@ -162,7 +170,7 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
   });
 }
 
-async function loadMission(db: DbOrTx, id: string) {
+export async function loadMission(db: DbOrTx, id: string) {
   const [m] = await db.select().from(missions).where(eq(missions.id, id));
   if (!m) throw new HttpError(404, "mission not found", "not_found");
   return m;
