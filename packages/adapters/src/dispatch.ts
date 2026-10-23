@@ -29,6 +29,11 @@ export interface Dispatch {
   sandbox: SandboxSpec | null;
   /** Which sandbox image: the base, the one with the coding CLIs, or the browser for computer use. */
   image: "base" | "cli" | "browser";
+  /**
+   * Where the attempt runs: absent for the cloud runner; a local runner (M8) on the person's machine, in Docker or, with
+   * their consent, on the host. Its command checks, merges and deliveries run there too.
+   */
+  target?: { kind: "local"; runnerId: string; mode: "docker" | "host" };
   /** The project repository to work on; null gives the mission an empty repository. */
   repo: {
     url: string;

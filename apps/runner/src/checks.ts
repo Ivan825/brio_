@@ -49,7 +49,7 @@ export function runnerOwns(i: CheckItem): boolean {
 }
 
 /** Command checks, and contract conformance decided by a command (a type check against the contract's types). */
-const isCommand = (i: CheckItem) =>
+export const isCommand = (i: CheckItem) =>
   COMMAND_CHECKS.has(i.kind) || (i.kind === "contract_conformance" && !!i.command);
 
 export interface CheckDeps {
@@ -119,14 +119,23 @@ export class CheckExecutor {
     const checks = a?.checks as AttemptChecks | null | undefined;
     const dispatch = a?.dispatch as Dispatch | null | undefined;
     if (!a || !checks || !dispatch) return;
-    const pending = checks.items.filter(runnerOwns);
+    // A local runner (M8) runs the checks that need the attempt's files itself; this runner fetches links and sources.
+    const local = dispatch?.target?.kind === "local";
+    const pending = checks.items.filter(
+      (i) => runnerOwns(i) && !(local && (isCommand(i) || WEB_CHECKS.has(i.kind))),
+    );
     if (!pending.length) return;
     const [task] = await deps.db
       .select({ missionId: tasks.missionId })
       .from(tasks)
       .where(eq(tasks.id, a.taskId));
     if (!task) return;
-    const record = (item: CheckItem) => this.record(attemptId, task.missionId, a.workspaceId, a.taskId, item);
+    const record = (item: CheckItem) =>
+      recordCheck(
+        deps,
+        { attemptId, missionId: task.missionId, workspaceId: a.workspaceId, taskId: a.taskId },
+        item,
+      );
 
     const fetching = pending.filter((i) => i.kind === "link_check" || i.kind === "fact_check");
     if (fetching.length) {
@@ -216,16 +225,7 @@ export class CheckExecutor {
         if (signal?.aborted) break;
         const started = performance.now();
         if (isCommand(item)) {
-          const r = await sandbox.exec(item.command ?? "false", { timeoutMs: 10 * 60_000 });
-          const raw = `${r.stdout}\n${r.stderr}`.trim();
-          await record({
-            ...item,
-            status: r.exitCode === 0 ? "passed" : "failed",
-            exitCode: r.exitCode,
-            output: deps.redactor.redact(raw.length > OUTPUT_TAIL ? raw.slice(-OUTPUT_TAIL) : raw),
-            durationMs: Math.round(performance.now() - started),
-            summary: `${item.command} exited ${r.exitCode}`,
-          });
+          await record(await runCommandCheck(sandbox, item, deps.redactor));
         } else {
           await record({
             ...(await this.audit(sandbox, item)),
@@ -386,49 +386,69 @@ export class CheckExecutor {
       summary: `fetched ${sources.filter((s) => s.ok).length} of ${sources.length} cited source(s); an agent checks the claims`,
     };
   }
+}
 
-  private async record(
-    attemptId: string,
-    missionId: string,
-    workspaceId: string,
-    taskId: string,
-    item: CheckItem,
-  ) {
-    await this.deps.db.transaction(async (tx) => {
-      // Lock the attempt row so concurrent updates to its checklist serialise.
-      await tx.execute(sql`select 1 from attempts where id = ${attemptId} for update`);
-      const [row] = await tx
-        .select({ checks: attempts.checks })
-        .from(attempts)
-        .where(eq(attempts.id, attemptId));
-      const checks = row?.checks as AttemptChecks | undefined;
-      if (!checks) return;
-      checks.items = checks.items.map((i) => (i.index === item.index ? item : i));
-      await tx
-        .update(attempts)
-        .set({ checks: checks as unknown as Record<string, unknown> })
-        .where(eq(attempts.id, attemptId));
-      const settled = item.status === "passed" || item.status === "failed";
-      await this.deps.events.append(tx, {
-        workspaceId,
-        missionId,
-        taskId,
-        attemptId,
-        type: "check.result",
-        actor: "system",
-        payload: {
-          index: item.index,
-          kind: item.kind,
-          command: item.command ?? null,
-          // null while a check moves to its next stage (a fact check waiting for its agent).
-          passed: settled ? item.status === "passed" : null,
-          exitCode: item.exitCode ?? null,
-          summary: item.summary ?? "",
-          output: item.output ?? "",
-          details: item.details ?? [],
-          durationMs: item.durationMs ?? null,
-        },
-      });
+/** Runs one command check in a sandbox: passed when the command exits 0; the output's tail, redacted, is kept. */
+export async function runCommandCheck(
+  sandbox: {
+    exec(
+      command: string,
+      opts?: { timeoutMs?: number },
+    ): Promise<{ exitCode: number; stdout: string; stderr: string }>;
+  },
+  item: CheckItem,
+  redactor: Redactor,
+): Promise<CheckItem> {
+  const started = performance.now();
+  const r = await sandbox.exec(item.command ?? "false", { timeoutMs: 10 * 60_000 });
+  const raw = `${r.stdout}\n${r.stderr}`.trim();
+  return {
+    ...item,
+    status: r.exitCode === 0 ? "passed" : "failed",
+    exitCode: r.exitCode,
+    output: redactor.redact(raw.length > OUTPUT_TAIL ? raw.slice(-OUTPUT_TAIL) : raw),
+    durationMs: Math.round(performance.now() - started),
+    summary: `${item.command} exited ${r.exitCode}`,
+  };
+}
+
+/** Puts a check's result on the attempt's checklist (under the attempt's row lock) and emits check.result. */
+export async function recordCheck(
+  deps: { db: Db; events: EventWriter },
+  ids: { attemptId: string; missionId: string; workspaceId: string; taskId: string },
+  item: CheckItem,
+): Promise<void> {
+  await deps.db.transaction(async (tx) => {
+    // Lock the attempt row so concurrent updates to its checklist serialise.
+    await tx.execute(sql`select 1 from attempts where id = ${ids.attemptId} for update`);
+    const [row] = await tx
+      .select({ checks: attempts.checks })
+      .from(attempts)
+      .where(eq(attempts.id, ids.attemptId));
+    const checks = row?.checks as AttemptChecks | undefined;
+    if (!checks) return;
+    checks.items = checks.items.map((i) => (i.index === item.index ? item : i));
+    await tx
+      .update(attempts)
+      .set({ checks: checks as unknown as Record<string, unknown> })
+      .where(eq(attempts.id, ids.attemptId));
+    const settled = item.status === "passed" || item.status === "failed";
+    await deps.events.append(tx, {
+      ...ids,
+      type: "check.result",
+      actor: "system",
+      payload: {
+        index: item.index,
+        kind: item.kind,
+        command: item.command ?? null,
+        // null while a check moves to its next stage (a fact check waiting for its agent).
+        passed: settled ? item.status === "passed" : null,
+        exitCode: item.exitCode ?? null,
+        summary: item.summary ?? "",
+        output: item.output ?? "",
+        details: item.details ?? [],
+        durationMs: item.durationMs ?? null,
+      },
     });
-  }
+  });
 }
