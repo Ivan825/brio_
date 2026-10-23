@@ -64,7 +64,10 @@ export class IntegrationExecutor {
     let worktree: Awaited<ReturnType<Worktrees["prepare"]>> | null = null;
     let sandbox: DockerSandbox | null = null;
     try {
-      const cache = await this.worktrees.cache(row.repo ? { repo: row.repo } : { missionId: row.missionId });
+      // The branches to merge are already in the cache; nothing new is needed from the remote.
+      const cache = await this.worktrees.cache(row.repo ? { repo: row.repo } : { missionId: row.missionId }, {
+        fetch: false,
+      });
       const branches = row.refs.map((r) => r.ref);
       let merged: { commit: string };
       try {

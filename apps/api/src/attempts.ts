@@ -238,7 +238,12 @@ export class AttemptRunner {
     let repo: Dispatch["repo"] = null;
     if (mission.projectId) {
       const [project] = await ctx.db.select().from(projects).where(eq(projects.id, mission.projectId));
-      if (project?.repoUrl) repo = { url: project.repoUrl, branch: project.defaultBranch };
+      if (project?.repoUrl)
+        repo = {
+          url: project.repoUrl,
+          branch: project.defaultBranch,
+          ...(project.credentialRef ? { credentialRef: project.credentialRef } : {}),
+        };
     }
     const estimate = await adapter
       .estimate({ ...runInput, attemptId: "estimate" }, agentConfig)

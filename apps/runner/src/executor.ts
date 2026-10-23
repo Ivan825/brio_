@@ -168,6 +168,11 @@ export class AttemptExecutor {
       () => abort.abort(new LimitExceeded(`ran past the ${dispatch.input.limits.maxMinutes}-minute limit`)),
       (dispatch.sandbox?.timeoutMinutes ?? dispatch.input.limits.maxMinutes) * 60_000,
     );
+    // The project's git token, revealed only to fetch a private repository into the runner's cache.
+    const repoToken = async () =>
+      dispatch.repo?.credentialRef
+        ? (await deps.vault.reveal(deps.db, attempt.workspaceId, dispatch.repo.credentialRef)).reveal()
+        : null;
     try {
       if (!adapter) throw new Error(`no adapter ${dispatch.adapterKey}`);
       let handle: SandboxHandle = NO_SANDBOX;
@@ -178,6 +183,7 @@ export class AttemptExecutor {
           missionId: dispatch.missionId,
           taskKey: dispatch.taskKey,
           repo: dispatch.repo,
+          token: await repoToken(),
           ...(dispatch.bases?.length ? { bases: dispatch.bases } : {}),
           ...(dispatch.keepConflicts ? { keepConflicts: true } : {}),
         });
@@ -212,11 +218,16 @@ export class AttemptExecutor {
         abort.signal.addEventListener("abort", () => void sandbox?.kill(), { once: true });
       }
 
-      const input = { ...dispatch.input, attemptId: attempt.id, repo: dispatch.repo ?? null };
+      const input = {
+        ...dispatch.input,
+        attemptId: attempt.id,
+        repo: dispatch.repo ? { url: dispatch.repo.url, branch: dispatch.repo.branch } : null,
+      };
       if (dispatch.repoMap) {
         // The planner's repo map: the repository's file list, read from the runner's trusted cache.
         const cache = await this.worktrees.cache(
           dispatch.repo ? { repo: dispatch.repo } : { missionId: dispatch.missionId },
+          { token: await repoToken() },
         );
         const ref = dispatch.repo?.branch ? `refs/heads/${dispatch.repo.branch}` : "HEAD";
         const files = await this.worktrees.listFiles(cache, ref).catch(() => []);

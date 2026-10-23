@@ -244,9 +244,12 @@ export class Worktrees {
     cacheOverride?: string;
     /** A merge task: conflicting bases are merged with their conflict markers left in the files to resolve. */
     keepConflicts?: boolean;
+    /** The repository's token, to clone or fetch a private one. */
+    token?: string | null;
   }): Promise<PreparedWorktree & { conflicts: MergeConflict[] }> {
     const cache =
-      i.cacheOverride ?? (await this.cache(i.repo ? { repo: i.repo } : { missionId: i.missionId }));
+      i.cacheOverride ??
+      (await this.cache(i.repo ? { repo: i.repo } : { missionId: i.missionId }, { token: i.token ?? null }));
     let base: string;
     let conflicts: MergeConflict[] = [];
     if (i.bases?.length) {

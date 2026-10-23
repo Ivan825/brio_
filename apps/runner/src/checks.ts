@@ -155,8 +155,10 @@ export class CheckExecutor {
     let worktree: Awaited<ReturnType<Worktrees["prepare"]>> | null = null;
     const id = `check-${attemptId}`;
     try {
+      // The attempt's branch is already in the cache; nothing new is needed from the remote.
       const cache = await this.worktrees.cache(
         dispatch.repo ? { repo: dispatch.repo } : { missionId: task.missionId },
+        { fetch: false },
       );
       worktree = await this.worktrees.prepare({
         attemptId: id,

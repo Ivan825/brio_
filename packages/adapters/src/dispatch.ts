@@ -30,7 +30,12 @@ export interface Dispatch {
   /** Which sandbox image: the base, the one with the coding CLIs, or the browser for computer use. */
   image: "base" | "cli" | "browser";
   /** The project repository to work on; null gives the mission an empty repository. */
-  repo: { url: string; branch: string | null } | null;
+  repo: {
+    url: string;
+    branch: string | null;
+    /** The project's git token in the vault (a reference; the runner reveals it to fetch, never to the agent). */
+    credentialRef?: string | null;
+  } | null;
   /**
    * Branches of finished upstream attempts (in the runner's repository cache) to start from instead of the repository
    * branch: one is used as is, several are merged. A conflict fails the attempt (merge tasks arrive in M5).
