@@ -16,6 +16,7 @@ import { ZodError } from "zod";
 import { a2aRoutes } from "./a2a/server";
 import { AttemptRunner } from "./attempts";
 import { createAuth } from "./auth";
+import { BudgetGuard } from "./budgets";
 import type { Config } from "./config";
 import type { AppContext } from "./context";
 import { HttpError } from "./http";
@@ -27,6 +28,7 @@ import { agentRoutes } from "./routes/agents";
 import { approvalRoutes } from "./routes/approvals";
 import { attemptRoutes } from "./routes/attempts";
 import { authRoutes } from "./routes/auth";
+import { budgetRoutes } from "./routes/budgets";
 import { connectorRoutes } from "./routes/connectors";
 import { crewRoutes } from "./routes/crews";
 import { devRoutes } from "./routes/dev";
@@ -132,6 +134,7 @@ export async function buildServer({
   ctx.attempts = new AttemptRunner(ctx);
   ctx.orchestrator = new Orchestrator(ctx, { ...(sweepMs ? { sweepMs } : {}) });
   ctx.runners = new RunnerHub(ctx);
+  ctx.budgets = new BudgetGuard(ctx);
 
   await ctx.pricing.seed();
   let pricingTimer: NodeJS.Timeout | undefined;
@@ -188,8 +191,10 @@ export async function buildServer({
   await crewRoutes(app, ctx);
   await templateRoutes(app, ctx);
   await runnerRoutes(app, ctx);
+  await budgetRoutes(app, ctx);
   if (config.BRIO_DEV_OUTBOX && config.NODE_ENV !== "production") await devRoutes(app, ctx);
   ctx.orchestrator.start();
+  ctx.budgets.start();
   // Local runners connect over a WebSocket on the API's own HTTP server.
   ctx.runners.attach(app.server);
   await ctx.runners.start();
@@ -200,6 +205,7 @@ export async function buildServer({
     close: async () => {
       if (pricingTimer) clearInterval(pricingTimer);
       await ctx.orchestrator.stop();
+      ctx.budgets.stop();
       await ctx.runners.stop();
       await app.close();
       await ctx.queue.stop({ graceful: false }).catch(() => {});

@@ -87,9 +87,7 @@ export class RunnerHub {
         const c = this.connections.get(n.payload);
         if (c) void this.pump(c);
       }
-      if (n.channel === CANCEL_CHANNEL && n.payload)
-        for (const c of this.connections.values())
-          if (c.attempts.has(n.payload)) this.send(c, { t: "cancel", attemptId: n.payload });
+      if (n.channel === CANCEL_CHANNEL && n.payload) void this.forwardCancel(n.payload);
     });
     await this.listener.query(`LISTEN ${RUNNER_JOBS_CHANNEL}`);
     await this.listener.query(`LISTEN ${CANCEL_CHANNEL}`);
@@ -218,15 +216,29 @@ export class RunnerHub {
         .update(attempts)
         .set({ heartbeatAt: new Date() })
         .where(and(inArray(attempts.id, ids), eq(attempts.runnerId, `local:${c.runnerId}`)))
-        .returning({ id: attempts.id, cancel: attempts.cancelRequestedAt })
+        .returning({ id: attempts.id, cancel: attempts.cancelRequestedAt, reason: attempts.cancelReason })
         .catch(() => []);
-      for (const r of rows) if (r.cancel) this.send(c, { t: "cancel", attemptId: r.id });
+      for (const r of rows)
+        if (r.cancel)
+          this.send(c, { t: "cancel", attemptId: r.id, ...(r.reason ? { reason: r.reason } : {}) });
       await this.ctx.db
         .update(runners)
         .set({ lastSeenAt: new Date() })
         .where(eq(runners.id, c.runnerId))
         .catch(() => {});
     }
+  }
+
+  /** A cancel for an attempt one of this instance's runners holds, with its reason (a budget reached, M9). */
+  private async forwardCancel(attemptId: string) {
+    const c = [...this.connections.values()].find((x) => x.attempts.has(attemptId));
+    if (!c) return;
+    const [row] = await this.ctx.db
+      .select({ reason: attempts.cancelReason })
+      .from(attempts)
+      .where(eq(attempts.id, attemptId))
+      .catch(() => []);
+    this.send(c, { t: "cancel", attemptId, ...(row?.reason ? { reason: row.reason } : {}) });
   }
 
   /** Hands the runner everything that is its own and not yet handed. */
@@ -384,6 +396,9 @@ export class RunnerHub {
       case "event": {
         const a = c.attempts.get(m.attemptId);
         if (!a) return;
+        // Spend is live on the attempt, before its event, as with the cloud runner (budgets read it, M9).
+        if (m.type === "attempt.cost" && typeof m.payload.totalUsd === "number")
+          await db.update(attempts).set({ costUsd: m.payload.totalUsd }).where(eq(attempts.id, m.attemptId));
         await this.ctx.events.append(db, {
           workspaceId: a.workspaceId,
           missionId: a.missionId,

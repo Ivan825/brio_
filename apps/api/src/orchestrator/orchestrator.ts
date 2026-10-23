@@ -464,11 +464,20 @@ export class Orchestrator {
     for (const t of rows)
       if (t.status === "failed" && !paramsOf(t).final) await this.reviseAfterFailedAttempt(m, t);
 
-    const fresh = await this.ctx.db
-      .select()
-      .from(tasks)
-      .where(and(eq(tasks.missionId, m.id), eq(tasks.planVersion, plan.version)))
-      .orderBy(asc(tasks.createdAt));
+    const read = () =>
+      this.ctx.db
+        .select()
+        .from(tasks)
+        .where(and(eq(tasks.missionId, m.id), eq(tasks.planVersion, plan.version)))
+        .orderBy(asc(tasks.createdAt));
+    let fresh = await read();
+    // An attempt may have failed since the first read: its task is sent back (or blocked) before the scheduler sees
+    // it, or a single failed attempt would fail the whole mission.
+    const late = fresh.filter((t) => t.status === "failed" && !paramsOf(t).final);
+    if (late.length) {
+      for (const t of late) await this.reviseAfterFailedAttempt(m, t);
+      fresh = await read();
+    }
     // Leases of tasks still at work are renewed (their heartbeat); leases of everything else lapse on their own.
     const working = fresh
       .filter((t) => ["running", "verifying", "revise", "leased"].includes(t.status))
@@ -1359,6 +1368,11 @@ export class Orchestrator {
     const a = await this.latestAttempt(t.id);
     if (!a || a.status === "running" || a.status === "queued") return;
     if (await this.mergeBeforeTask(m, t, a).catch(() => false)) return;
+    // A budget reached stops the work; it waits for a person to raise the budget instead of trying again (M9).
+    if ((a.cancelReason ?? "").startsWith("budget") || /^limit_exceeded: budget/.test(a.exitReason ?? "")) {
+      await this.blockTask(m, t, a.cancelReason ?? a.exitReason ?? "a budget is spent");
+      return;
+    }
     const v = verdict({
       items: [
         { kind: "attempt", hard: true, status: "failed", summary: a.exitReason ?? "the attempt failed" },

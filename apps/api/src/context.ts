@@ -6,6 +6,7 @@ import type { FastifyBaseLogger } from "fastify";
 import type { PgBoss } from "pg-boss";
 import type { AttemptRunner } from "./attempts";
 import type { Auth } from "./auth";
+import type { BudgetGuard } from "./budgets";
 import type { Config } from "./config";
 import type { LogMailer } from "./mailer";
 import type { Orchestrator } from "./orchestrator/orchestrator";
@@ -35,5 +36,7 @@ export interface AppContext {
   orchestrator: Orchestrator;
   /** Local runners connected to this API instance (M8). */
   runners: RunnerHub;
+  /** Warns and stops at budgets while work runs (M9). */
+  budgets: BudgetGuard;
   log: FastifyBaseLogger;
 }

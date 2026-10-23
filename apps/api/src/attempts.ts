@@ -7,6 +7,7 @@ import { schema } from "@brio/db";
 import { enqueueAttempt, requestCancel } from "@brio/runner";
 import { type Actor, type HandoffPacket, TaskContract, TaskType } from "@brio/schema";
 import { and, eq, inArray, isNull } from "drizzle-orm";
+import { checkBudgets, stopReason } from "./budgets";
 import { adapterOf, connectorConfig, type Metering, meteringOf, toolsFor } from "./connectors";
 import type { AppContext } from "./context";
 import { HttpError, one } from "./http";
@@ -309,6 +310,32 @@ export class AttemptRunner {
         `estimated $${estimate.usd} is far over the $${limits.maxCostUsd} limit`,
         "over_budget",
       );
+    // Budgets at every scope (M9): the estimate must fit what is left, and the attempt may spend no more than that.
+    const budget = await checkBudgets(
+      ctx.db,
+      { workspaceId: input.workspaceId, agentId: agent.id, missionId: mission.id, taskId: task.id },
+      estimate?.usd ?? 0,
+    );
+    if (!budget.ok) {
+      const reason = stopReason(budget.scope);
+      await ctx.events.append(ctx.db, {
+        workspaceId: input.workspaceId,
+        missionId: mission.id,
+        taskId: task.id,
+        type: "budget.stop",
+        actor: "system",
+        payload: {
+          scope: budget.scope.kind,
+          scopeId: budget.scope.id,
+          limitUsd: budget.scope.limitUsd,
+          spentUsd: budget.scope.spentUsd,
+          estimateUsd: estimate?.usd ?? 0,
+          reason,
+        },
+      });
+      throw new HttpError(402, reason, "budget_exceeded");
+    }
+    if (budget.capUsd !== null) limits.maxCostUsd = Math.min(limits.maxCostUsd, budget.capUsd);
 
     const attempt = await ctx.db.transaction(async (tx) => {
       // Lock the task so two clicks cannot start two attempts (multi-agent modes add attempts to a running task).
