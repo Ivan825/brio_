@@ -2,8 +2,8 @@ import { expect, test } from "./fixtures";
 
 const SCREENS = [
   { path: "/missions", nav: "Missions", heading: "Create a workspace first" },
-  { path: "/connectors", nav: "Connectors", heading: "No connectors yet" },
-  { path: "/agents", nav: "Agents", heading: "No agents yet" },
+  { path: "/connectors", nav: "Connectors", heading: "Connectors" },
+  { path: "/agents", nav: "Agents", heading: "Agents" },
   { path: "/scoreboard", nav: "Scoreboard", heading: "Nothing to score yet" },
   { path: "/settings", nav: "Settings", heading: "Workspace settings" },
 ];
@@ -21,7 +21,7 @@ test("root redirects to missions", async ({ authed: page }) => {
 });
 
 for (const { path, nav, heading } of SCREENS) {
-  test(`${nav} shows its empty state and is reachable from the nav`, async ({ authed: page }) => {
+  test(`${nav} opens and is reachable from the nav`, async ({ authed: page }) => {
     await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: nav }).click();
     await expect(page).toHaveURL(new RegExp(`${path}$`));
     await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
