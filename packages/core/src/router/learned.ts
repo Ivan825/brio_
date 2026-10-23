@@ -141,9 +141,19 @@ function rationale(type: string, chosen: Scored, runnerUp: Scored | undefined): 
   return `${own}; next ${runnerUp.agent.name}`;
 }
 
-/** A reviewer/judge from another vendor than everyone it judges, best first; same vendor only as a last resort. */
-function independent(everyone: Scored[], exclude: Set<string>, vendors: Set<string>): Scored | undefined {
-  const pool = everyone.filter((c) => !exclude.has(c.agent.id) && c.agent.runnable && c.healthy);
+/**
+ * A judge, checker or merger from another vendor than everyone it judges, best first; same vendor only as a last
+ * resort. Only agents that can do the role's kind of work qualify (a voice model never judges code).
+ */
+function independent(
+  everyone: Scored[],
+  exclude: Set<string>,
+  vendors: Set<string>,
+  can: string,
+): Scored | undefined {
+  const pool = everyone.filter(
+    (c) => !exclude.has(c.agent.id) && c.agent.runnable && c.healthy && c.agent.taskTypes.includes(can),
+  );
   return pool.find((c) => !vendors.has(c.agent.vendor)) ?? pool[0];
 }
 
@@ -234,7 +244,7 @@ export function routeLearned(task: LearnedTask, candidates: Candidate[], o: Rout
           `no second agent is close to ${best.agent.name} on ${task.type}; ${label} would add a weaker result, so running single`,
         );
       const merger =
-        wanted === "ensemble" ? (independent(everyone, new Set(), new Set()) ?? best) : undefined;
+        wanted === "ensemble" ? (independent(everyone, new Set(), new Set(), task.type) ?? best) : undefined;
       // Tests decide best-of-n; a judge from outside the candidates breaks ties between passing results (two
       // judgements, both orders). Without one, the cheaper passing result wins.
       const judge =
@@ -243,6 +253,7 @@ export function routeLearned(task: LearnedTask, candidates: Candidate[], o: Rout
               everyone,
               new Set(picked.map((c) => c.agent.id)),
               new Set(picked.map((c) => c.agent.vendor)),
+              "judge.pairwise",
             )
           : undefined;
       const usd =
@@ -265,7 +276,12 @@ export function routeLearned(task: LearnedTask, candidates: Candidate[], o: Rout
       };
     }
     case "maker_checker": {
-      const checker = independent(everyone, new Set([best.agent.id]), new Set([best.agent.vendor]));
+      const checker = independent(
+        everyone,
+        new Set([best.agent.id]),
+        new Set([best.agent.vendor]),
+        "review.rubric",
+      );
       if (!checker) return single("maker–checker needs a second agent; running single");
       const usd = best.estUsd + checker.estUsd;
       if (!fits(usd)) return single("maker–checker would go over the remaining budget; running single");
@@ -284,8 +300,12 @@ export function routeLearned(task: LearnedTask, candidates: Candidate[], o: Rout
       const [a, b] = spread.length >= 2 ? spread : ranked;
       if (!a || !b) return single("debate needs 2+ agents; running single");
       const judge =
-        independent(everyone, new Set([a.agent.id, b.agent.id]), new Set([a.agent.vendor, b.agent.vendor])) ??
-        a;
+        independent(
+          everyone,
+          new Set([a.agent.id, b.agent.id]),
+          new Set([a.agent.vendor, b.agent.vendor]),
+          "judge.pairwise",
+        ) ?? a;
       const usd = a.estUsd * 2 + b.estUsd * 2 + judge.estUsd * 2;
       if (!fits(usd)) return single("debate would go over the remaining budget; running single");
       return {

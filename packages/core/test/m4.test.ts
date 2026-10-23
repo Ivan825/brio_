@@ -135,6 +135,7 @@ describe("router", () => {
       "design.api_contract",
       "write.summary",
       "review.rubric",
+      "judge.pairwise",
       "research.deep_report",
     ],
     local: false,
@@ -221,6 +222,16 @@ describe("router", () => {
       expect(judge?.role).toBe("judge");
       expect([a?.agentId, b?.agentId]).not.toContain(judge?.agentId);
     }
+  });
+
+  it("never staffs a judge or checker that cannot do that work (a voice model never judges code)", () => {
+    const voice = cand(agent("voice", "elevenlabs", { taskTypes: ["media.voice"] }));
+    const makers = team.slice(0, 2);
+    const everyone = [voice, ...makers];
+    const bon = routeLearned(task(), makers, opts({ everyone }));
+    if (bon.ok) expect(bon.agents.map((a) => a.agentId)).not.toContain("voice");
+    const mc = routeLearned(task({ hasTests: false }), makers, opts({ everyone }));
+    if (mc.ok) expect(mc.agents.map((a) => a.agentId)).not.toContain("voice");
   });
 
   it("never lets a maker check itself, and degrades when there is only one agent", () => {
