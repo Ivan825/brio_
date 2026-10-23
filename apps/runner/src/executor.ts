@@ -193,7 +193,7 @@ export class AttemptExecutor {
           const target = join(worktree.path, ".brio", f.path.replace(/^\.brio\//, ""));
           if (!target.startsWith(join(worktree.path, ".brio"))) continue;
           await mkdir(dirname(target), { recursive: true });
-          await writeFile(target, f.content);
+          await writeFile(target, f.encoding === "base64" ? Buffer.from(f.content, "base64") : f.content);
         }
         const image = await ensureImage(deps.images, dispatch.image);
         await ensureImage(deps.images, "proxy");

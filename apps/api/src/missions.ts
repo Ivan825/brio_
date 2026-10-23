@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { AppContext } from "./context";
 import { HttpError, one, requireMember, type SessionInfo } from "./http";
+import { InputFile, MAX_INPUT_FILES, readIssue, storeInputFiles } from "./mission-inputs";
 import { storePlan } from "./orchestrator/plans";
 
 const { missions } = schema;
@@ -28,6 +29,10 @@ export const CreateMission = z.object({
    * planner runs.
    */
   plan: PlanGraph.optional(),
+  /** A GitHub issue or pull request the mission is about; read once, now. */
+  issueUrl: z.url().max(500).optional(),
+  /** Files to work from (≤ 10, ≤ 2 MB together); every agent on the mission gets them. */
+  files: z.array(InputFile).max(MAX_INPUT_FILES).optional(),
 });
 export type CreateMissionInput = z.input<typeof CreateMission>;
 
@@ -57,7 +62,9 @@ export async function createMission(
       .where(and(eq(schema.agents.id, body.routing.agentId), eq(schema.agents.workspaceId, workspaceId)));
     if (!agent) throw new HttpError(422, "the single agent is not in this workspace", "unknown_agent");
   }
+  const issue = body.issueUrl ? await readIssue(ctx, workspaceId, body.issueUrl, body.projectId) : undefined;
   const mission = await ctx.db.transaction(async (tx) => {
+    const files = body.files?.length ? await storeInputFiles(tx, workspaceId, body.files) : undefined;
     const m = one(
       await tx
         .insert(missions)
@@ -71,6 +78,7 @@ export async function createMission(
           plannerAgentId: body.plannerAgentId ?? null,
           autoApprove: body.autoApprove,
           routing: body.routing,
+          inputs: { ...(issue ? { issue } : {}), ...(files ? { files } : {}) },
           status: body.plan ? "awaiting_approval" : "planning",
           createdBy: s.userId,
         })
@@ -82,7 +90,15 @@ export async function createMission(
       missionId: m.id,
       type: "mission.created",
       actor,
-      payload: { title: m.title, goal: m.goal, priority: m.priority, budget: m.budget, routing: m.routing },
+      payload: {
+        title: m.title,
+        goal: m.goal,
+        priority: m.priority,
+        budget: m.budget,
+        routing: m.routing,
+        ...(issue ? { issue: issue.url } : {}),
+        ...(files ? { files: files.map((f) => f.name) } : {}),
+      },
     });
     if (body.plan) await storePlan(ctx, tx, m, body.plan, "supplied", actor);
     return m;

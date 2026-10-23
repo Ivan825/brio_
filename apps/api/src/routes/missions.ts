@@ -189,6 +189,11 @@ export function presentMission(m: typeof missions.$inferSelect) {
     autoApprove: m.autoApprove,
     budget: m.budget,
     routing: m.routing,
+    projectId: m.projectId,
+    inputs: {
+      issue: m.inputs.issue ? { url: m.inputs.issue.url, title: m.inputs.issue.title } : null,
+      files: (m.inputs.files ?? []).map(({ name, size, text }) => ({ name, size, text })),
+    },
     createdAt: m.createdAt,
   };
 }

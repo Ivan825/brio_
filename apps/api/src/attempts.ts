@@ -10,6 +10,7 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import { adapterOf, connectorConfig, meteringOf, toolsFor } from "./connectors";
 import type { AppContext } from "./context";
 import { HttpError, one } from "./http";
+import { inputsForAttempt } from "./mission-inputs";
 
 const { agents, attempts, connectors, missions, projects, tasks } = schema;
 
@@ -66,7 +67,7 @@ export class AttemptRunner {
     feedback?: string;
     handoffs?: HandoffPacket[];
     bases?: string[];
-    files?: Array<{ path: string; content: string }>;
+    files?: Array<{ path: string; content: string; encoding?: "base64" }>;
     repoMap?: boolean;
     /** The router's one-line reason, shown on the board. */
     rationale?: string;
@@ -161,6 +162,8 @@ export class AttemptRunner {
       unitPrice: metering.unitPrice,
       options: agent.options,
     };
+    // What the mission was started from (an issue, attached files), for every attempt.
+    const given = await inputsForAttempt(ctx.db, input.workspaceId, mission.inputs);
     const runInput: Omit<RunInput, "attemptId"> = {
       taskTitle: task.title,
       taskType,
@@ -175,7 +178,7 @@ export class AttemptRunner {
       contract,
       handoffs: input.handoffs ?? [],
       brief: EMPTY_BRIEF,
-      attachments: [],
+      attachments: given.attachments,
       limits,
       mcpServers: [],
     };
@@ -293,7 +296,9 @@ export class AttemptRunner {
         image: adapter.route === "cli" ? "cli" : adapter.route === "browser" ? "browser" : "base",
         repo,
         ...(input.bases?.length ? { bases: input.bases } : {}),
-        ...(input.files?.length ? { files: input.files } : {}),
+        ...(input.files?.length || given.files.length
+          ? { files: [...(input.files ?? []), ...given.files] }
+          : {}),
         ...(tools ? { tools } : {}),
         ...(mcp.length ? { mcp } : {}),
         ...(input.repoMap ? { repoMap: true } : {}),

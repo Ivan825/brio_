@@ -42,7 +42,7 @@ export interface Dispatch {
    */
   bases?: string[];
   /** Files written into the worktree's .brio/ before the run (handoff packets, the contract), never part of the diff. */
-  files?: Array<{ path: string; content: string }>;
+  files?: Array<{ path: string; content: string; encoding?: "base64" }>;
   /**
    * The workspace's web search, page fetch and cloud browser; absent when it has none, or for confidential tasks.
    */
