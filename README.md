@@ -26,7 +26,7 @@ Give Brio one goal. It plans the work, hands each piece to the agent best at it,
 
 ---
 
-> **Pre-alpha, being built in the open.** The foundation milestone (M0) is done; agents connect from M1. This README describes
+> **Pre-alpha, being built in the open.** M0 (foundation) and M1 (connectors and model APIs) are done; coding agents in sandboxes come next. This README describes
 > the product Brio is being built to be; the [roadmap](docs/BUILD_PLAN.md) shows what is done, and anything
 > not built yet is marked **planned** below.
 
@@ -137,7 +137,7 @@ Every vendor call goes through one `AgentAdapter` interface ([`docs/ADAPTER_SPEC
 
 ## Status
 
-Pre-alpha. Built milestone by milestone in dependency order, each production-grade with tests, types and migrations. **M0, the foundation, is done**: monorepo and CI, database, sign-in and workspaces with invitations, the vault and redactor, the event spine with live SSE, the hash-chained ledger, and the branded web app. Next is **M1**: connectors and model APIs. Planning is a labelled stub until M3, so missions are planned but not yet dispatched to agents. See the [roadmap](docs/BUILD_PLAN.md) and [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
+Pre-alpha. Built milestone by milestone in dependency order, each production-grade with tests, types and migrations. **Done:** M0, the foundation (monorepo and CI, database, sign-in and workspaces, the vault and redactor, the event spine with live SSE, the hash-chained ledger, the branded web app), and M1, connectors and model APIs (18 vendor presets behind one adapter interface, live model lists, metered cost per call, the connector catalogue and agent builder, and running a task with a chosen agent). Next is **M2**: sandboxed coding agents. Planning is a labelled stub until M3. See the [roadmap](docs/BUILD_PLAN.md) and [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
 
 ## Licence
 

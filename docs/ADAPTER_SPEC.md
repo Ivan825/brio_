@@ -42,6 +42,8 @@ export interface RunContext {
   signal: AbortSignal;                 // cancel / limit breach
   sandbox: SandboxHandle;              // exec, files, network policy
   logger: Logger;                      // redacting logger
+  fetch: FetchLike;                    // outbound HTTP, behind the URL guard (D-32); fixtures replay through it
+  tools?: { search?: SearchProvider; mailbox?: Mailbox };  // offered to API models only when present
 }
 
 export type AdapterEvent =
@@ -57,6 +59,9 @@ export interface RunResult {
   summary: string;                     // agent's own summary, goes into handoff packet
   artifacts: Artifact[];               // diffs are collected by runner from worktree; adapters add others
   usage: { usd: number; tokensIn: number; tokensOut: number; seconds: number };
+  output: string;                      // the agent's text answer (stored as a report artifact)
+  tokens: TokenUsage;                  // input / cached / cache-write / output / reasoning, summed over calls
+  error?: string;                      // why it ended, when not completed
   vendorRunId?: string;                // for resume / audit
   raw?: unknown;                       // stored, never sent to other vendors
 }
@@ -65,13 +70,15 @@ export interface AgentAdapter {
   key: string;                         // matches registry id, e.g. "cursor-agent"
   route: Route;
   capabilities(config: AgentConfig): AdapterCapabilities;
-  healthCheck(ctx: Pick<RunContext, "credential" | "logger">): Promise<HealthStatus>;
-  listModels?(ctx: Pick<RunContext, "credential">): Promise<ModelInfo[]>;
+  healthCheck(connector: ConnectorConfig, ctx: Pick<RunContext, "credential" | "logger" | "fetch">): Promise<HealthStatus>;
+  listModels?(connector: ConnectorConfig, ctx: Pick<RunContext, "credential" | "fetch">): Promise<ModelInfo[]>;
   estimate(input: RunInput, config: AgentConfig): Promise<{ usd: number; minutes: number }>;
   run(input: RunInput, config: AgentConfig, ctx: RunContext): Promise<RunResult>;
   resume?(vendorRunId: string, message: string, ctx: RunContext): Promise<RunResult>;
 }
 ```
+
+`ConnectorConfig` is the registry preset (D-27) plus the installed connector's base URL and API style. Health checks never spend money (D-31). The implementation is `packages/adapters/src/types.ts`.
 
 Registration: `packages/adapters/src/index.ts` exports a map `key → AgentAdapter`. `packages/registry` validates that every P0/P1 registry entry with an implemented route has an adapter, and fails CI otherwise.
 
@@ -84,7 +91,7 @@ Covers any endpoint speaking OpenAI Chat Completions / Responses: OpenAI, xAI Gr
 - Pricing from a `pricing` table refreshed from provider docs/OpenRouter; cost event per response.
 
 ### 2.2 `anthropic` (route: api) and `gemini` (route: api)
-Native SDKs for features compat layers lose: prompt caching, extended thinking, computer-use tool (Anthropic), long context and Interactions API (Gemini). Same internal tool loop as 2.1.
+Native APIs (called with `fetch`, D-28) for features compat layers lose: prompt caching, extended thinking, computer-use tool (Anthropic), long context and Interactions API (Gemini). Same internal tool loop as 2.1.
 
 ### 2.3 Coding CLIs (route: cli) — run official binaries headless inside the sandbox
 All share a `CliAdapterBase`: spawn process in `workdir`, parse NDJSON/stream-json stdout into `AdapterEvent`s, enforce timeout, capture exit code, inject MCP config file, pass credentials via env only.
