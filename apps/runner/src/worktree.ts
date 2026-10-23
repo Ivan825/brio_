@@ -40,6 +40,19 @@ export interface RepoSource {
   branch?: string | null;
 }
 
+/**
+ * Git configuration, through the environment, that sends an HTTP header with every request (a repository token). It
+ * never reaches the command line, the repository's config or a clone's remote URL.
+ */
+export function gitAuthEnv(token: string | null | undefined): Record<string, string> {
+  if (!token) return {};
+  return {
+    GIT_CONFIG_COUNT: "1",
+    GIT_CONFIG_KEY_0: "http.extraHeader",
+    GIT_CONFIG_VALUE_0: `Authorization: Basic ${Buffer.from(`x-access-token:${token}`).toString("base64")}`,
+  };
+}
+
 export interface PreparedWorktree {
   path: string;
   branch: string;
@@ -141,7 +154,11 @@ export class Worktrees {
    * Creation is serialised per path (attempts of one mission start together), and a concurrent creator in another
    * process is tolerated.
    */
-  async cache(key: { repo: RepoSource } | { missionId: string }): Promise<string> {
+  async cache(
+    key: { repo: RepoSource } | { missionId: string },
+    /** `fetch: false` uses what the cache holds without asking the remote (it is still cloned when missing). */
+    opts: { token?: string | null; fetch?: boolean } = {},
+  ): Promise<string> {
     const path =
       "missionId" in key
         ? join(this.root, "repos", `mission-${key.missionId}.git`)
@@ -151,7 +168,9 @@ export class Worktrees {
             `${createHash("sha256").update(key.repo.url).digest("hex").slice(0, 16)}.git`,
           );
     const prev = Worktrees.locks.get(path) ?? Promise.resolve();
-    const next = prev.catch(() => {}).then(() => this.ensureCache(key, path));
+    const next = prev
+      .catch(() => {})
+      .then(() => this.ensureCache(key, path, gitAuthEnv(opts.token), opts.fetch ?? true));
     Worktrees.locks.set(path, next);
     try {
       return await next;
@@ -165,6 +184,8 @@ export class Worktrees {
   private async ensureCache(
     key: { repo: RepoSource } | { missionId: string },
     path: string,
+    auth: Record<string, string>,
+    fetch: boolean,
   ): Promise<string> {
     await mkdir(join(this.root, "repos"), { recursive: true });
     if ("missionId" in key) {
@@ -194,13 +215,19 @@ export class Worktrees {
       }
       return path;
     }
-    try {
-      await this.text(["--git-dir", path, "rev-parse", "--git-dir"]);
-      // No --prune: brio/* attempt branches live here too and must survive a fetch.
-      await this.git(["--git-dir", path, "fetch", "-q", "origin", "+refs/heads/*:refs/heads/*"]);
-    } catch {
+    const exists = await this.text(["--git-dir", path, "rev-parse", "--git-dir"]).then(
+      () => true,
+      () => false,
+    );
+    if (!exists) {
       await rm(path, { recursive: true, force: true });
-      await this.git(["clone", "-q", "--mirror", "--", key.repo.url, path]);
+      await this.git(["clone", "-q", "--mirror", "--", key.repo.url, path], { env: auth });
+    } else if (fetch) {
+      // No --prune: brio/* attempt branches live here too and must survive a fetch. A failed fetch is an error, never
+      // a reason to start over: the cache holds the mission's branches and nothing else does.
+      await this.git(["--git-dir", path, "fetch", "-q", "origin", "+refs/heads/*:refs/heads/*"], {
+        env: auth,
+      });
     }
     return path;
   }

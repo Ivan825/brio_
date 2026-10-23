@@ -1,6 +1,7 @@
 // The attempt queue (pg-boss on the same Postgres, D-03). The attempt row is the source of truth: a job only says
 // "look at attempt X", and the runner's claim (queued → running) makes duplicate jobs harmless.
 import { PgBoss } from "pg-boss";
+import type { DeliveryJob } from "./deliver";
 import type { IntegrationJob } from "./integrate";
 
 export const ATTEMPT_QUEUE = "brio-attempts";
@@ -8,6 +9,8 @@ export const ATTEMPT_QUEUE = "brio-attempts";
 export const CHECK_QUEUE = "brio-checks";
 /** Merge-engine rounds: merge a mission's finished branches and check the result. */
 export const INTEGRATE_QUEUE = "brio-integrate";
+/** Approved deliveries: push a finished mission's branch and open its pull request. */
+export const DELIVER_QUEUE = "brio-deliver";
 /** NOTIFY channel the API uses to ask runners to cancel an attempt. */
 export const CANCEL_CHANNEL = "brio_attempt_cancel";
 
@@ -24,6 +27,8 @@ export async function startQueue(connectionString: string): Promise<PgBoss> {
   await boss.createQueue(ATTEMPT_QUEUE, { retryLimit: 0, expireInSeconds: 4 * 3600 }).catch(() => {});
   await boss.createQueue(CHECK_QUEUE, { retryLimit: 1, expireInSeconds: 3600 }).catch(() => {});
   await boss.createQueue(INTEGRATE_QUEUE, { retryLimit: 1, expireInSeconds: 3600 }).catch(() => {});
+  // A push is not retried blindly: a failed delivery is shown, and a person retries it.
+  await boss.createQueue(DELIVER_QUEUE, { retryLimit: 0, expireInSeconds: 1800 }).catch(() => {});
   return boss;
 }
 
@@ -37,4 +42,8 @@ export function enqueueChecks(boss: PgBoss, attemptId: string): Promise<string |
 
 export function enqueueIntegration(boss: PgBoss, job: IntegrationJob): Promise<string | null> {
   return boss.send(INTEGRATE_QUEUE, job);
+}
+
+export function enqueueDelivery(boss: PgBoss, deliveryId: string): Promise<string | null> {
+  return boss.send(DELIVER_QUEUE, { deliveryId } satisfies DeliveryJob);
 }

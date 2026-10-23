@@ -9,6 +9,7 @@ import { and, eq, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import pg from "pg";
 import type { PgBoss } from "pg-boss";
 import { CheckExecutor } from "./checks";
+import { DeliveryExecutor, type DeliveryJob } from "./deliver";
 import { docker, removeByLabel } from "./docker";
 import { AttemptExecutor } from "./executor";
 import type { ImageSet } from "./images";
@@ -19,6 +20,7 @@ import {
   type AttemptJob,
   CANCEL_CHANNEL,
   CHECK_QUEUE,
+  DELIVER_QUEUE,
   enqueueAttempt,
   INTEGRATE_QUEUE,
 } from "./queue";
@@ -55,6 +57,7 @@ export class Runner {
   private readonly executor: AttemptExecutor;
   private readonly checks: CheckExecutor;
   private readonly integrations: IntegrationExecutor;
+  private readonly deliveries: DeliveryExecutor;
   private readonly mailboxServer = new MailboxMcpServer();
   private readonly running = new Map<string, { abort: AbortController; done: Promise<void> }>();
   private listener: pg.Client | null = null;
@@ -66,6 +69,7 @@ export class Runner {
     this.executor = new AttemptExecutor({ ...o, runnerId: this.id, mailboxServer: this.mailboxServer });
     this.checks = new CheckExecutor({ ...o, runnerId: this.id });
     this.integrations = new IntegrationExecutor({ ...o, runnerId: this.id });
+    this.deliveries = new DeliveryExecutor(o);
   }
 
   get active(): string[] {
@@ -93,6 +97,13 @@ export class Runner {
       { localConcurrency: 1, batchSize: 1, pollingIntervalSeconds: 0.5 },
       async ([job]) => {
         if (job && !this.stopped) await this.integrations.run(job.data, job.signal);
+      },
+    );
+    await this.o.boss.work<DeliveryJob>(
+      DELIVER_QUEUE,
+      { localConcurrency: 1, batchSize: 1, pollingIntervalSeconds: 0.5 },
+      async ([job]) => {
+        if (job && !this.stopped) await this.deliveries.run(job.data);
       },
     );
     this.listener = new pg.Client({ connectionString: this.o.databaseUrl });
