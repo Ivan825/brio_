@@ -105,7 +105,7 @@ function summarise(e: BoardEvent): string {
     case "message.answered":
       return `${p.from}: ${String(p.body ?? "")}`;
     case "check.result":
-      return `${p.kind} ${p.passed ? "passed" : "failed"}${p.summary ? ` · ${p.summary}` : ""}`;
+      return `${p.kind} ${p.passed === null ? "in progress" : p.passed ? "passed" : "failed"}${p.summary ? ` · ${p.summary}` : ""}`;
     case "review.verdict":
       return `${p.taskKey} · ${p.verdict}${(p.reasons as string[] | undefined)?.length ? ` · ${(p.reasons as string[]).join("; ")}` : ""}`;
     case "approval.requested":
