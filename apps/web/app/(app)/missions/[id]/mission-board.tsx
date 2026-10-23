@@ -14,6 +14,13 @@ import { PlanGraph } from "./plan-graph";
 import { PlanPanel, type PlanView } from "./plan-panel";
 import { SaveTemplate } from "./save-template";
 import { TaskList } from "./task-list";
+import {
+  CostPanel,
+  IntegrationPanel,
+  LeasesPanel,
+  type MissionIntegration,
+  type MissionLease,
+} from "./work-panels";
 
 export interface MissionDetail {
   mission: {
@@ -25,6 +32,7 @@ export interface MissionDetail {
     blockedReason: string | null;
     autoApprove: boolean;
     routing: { strategy: string };
+    budget: { usd?: number; minutes?: number };
     inputs?: {
       issue: { url: string; title: string } | null;
       files: { name: string; size: number; text: boolean }[];
@@ -34,6 +42,8 @@ export interface MissionDetail {
   plan: PlanView | null;
   tasks: MissionTask[];
   deliveries: Delivery[];
+  leases: MissionLease[];
+  integration: MissionIntegration | null;
 }
 
 export interface MissionTask {
@@ -369,6 +379,14 @@ export function MissionBoard({
           </ol>
         </section>
       </div>
+
+      {work.length > 0 && (
+        <div className="grid gap-6 border-t border-line pt-6 md:grid-cols-3">
+          <CostPanel tasks={work} agents={agents} budgetUsd={mission.budget?.usd} liveCost={liveCost} />
+          <LeasesPanel leases={initial.leases ?? []} />
+          <IntegrationPanel integration={initial.integration ?? null} />
+        </div>
+      )}
     </div>
   );
 }

@@ -97,6 +97,10 @@ test("add a key, list models live, build an agent and run a task with metered co
   await expect(attempt.getByTestId("attempt-cost")).toHaveText("$0.0042");
   await attempt.getByRole("button", { name: "Show answer" }).click();
   await expect(page.getByTestId("attempt-output")).toContainText("GET /health");
+  // The board's cost panel adds it up by agent; a summary task claims no files.
+  await expect(page.getByTestId("cost-panel")).toContainText("planner");
+  await expect(page.getByTestId("cost-panel")).toContainText("$0.0");
+  await expect(page.getByTestId("leases-panel")).toContainText("No task has claimed files or resources.");
 
   // The task's acceptance check is a person: accept it and the mission is done.
   await task.getByTestId("review").getByRole("button", { name: "Accept" }).click();

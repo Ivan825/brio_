@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useId, useState } from "react";
 import { Button } from "@/components/button";
 import { Chip } from "@/components/chip";
+import { DiffView } from "@/components/diff-view";
 import { FormError, Label, Select } from "@/components/field";
 import { StatusChip } from "@/components/status-chip";
 import { api } from "@/lib/api";
@@ -19,32 +20,7 @@ const RUNNABLE = new Set(["failed", "blocked"]);
 function Diff({ attempt }: { attempt: AttemptSummary }) {
   const [text, setText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  if (text !== null)
-    return (
-      <pre
-        className="mt-2 max-h-96 overflow-auto rounded-md border border-line bg-bg p-2 text-xs leading-relaxed"
-        data-testid="attempt-diff"
-      >
-        {text.split("\n").map((line, i) => (
-          <span
-            // biome-ignore lint/suspicious/noArrayIndexKey: diff lines are positional
-            key={i}
-            className={
-              line.startsWith("+") && !line.startsWith("+++")
-                ? "text-success"
-                : line.startsWith("-") && !line.startsWith("---")
-                  ? "text-danger"
-                  : line.startsWith("@@")
-                    ? "text-info"
-                    : "text-fg-muted"
-            }
-          >
-            {line}
-            {"\n"}
-          </span>
-        ))}
-      </pre>
-    );
+  if (text !== null) return <DiffView text={text} testId="attempt-diff" />;
   return (
     <div className="mt-1">
       <Button
