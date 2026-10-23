@@ -1257,7 +1257,7 @@
       "statusKey": "d",
       "tier": "P1",
       "notes": "Perplexity said Sonar API retires 27 Sep 2026 in favour of the Agent API. Cited, web-grounded answers.",
-      "plannedAdapter": null,
+      "plannedAdapter": "perplexity",
       "buildMilestone": "M6",
       "subscriptionUse": null,
       "supported": true
@@ -1275,7 +1275,7 @@
       "statusKey": "v",
       "tier": "P1",
       "notes": "Search-grounded model snapshot dated 14 Oct 2026.",
-      "plannedAdapter": null,
+      "plannedAdapter": "openai-research",
       "buildMilestone": "M6",
       "subscriptionUse": null,
       "supported": true
@@ -1293,7 +1293,7 @@
       "statusKey": "e",
       "tier": "P2",
       "notes": "Long multi-source reports; confirm API exposure in your region.",
-      "plannedAdapter": null,
+      "plannedAdapter": "gemini-managed-agents",
       "buildMilestone": "M6",
       "subscriptionUse": null,
       "supported": true
@@ -1311,7 +1311,7 @@
       "statusKey": "v",
       "tier": "P1",
       "notes": "Unique access to live X posts; useful for market chatter.",
-      "plannedAdapter": null,
+      "plannedAdapter": "xai-search",
       "buildMilestone": "M6",
       "subscriptionUse": null,
       "supported": true
@@ -1330,7 +1330,7 @@
       "statusKey": "e",
       "tier": "P1",
       "notes": "Give every agent the same search tool so results are comparable.",
-      "plannedAdapter": null,
+      "plannedAdapter": "exa",
       "buildMilestone": "M6",
       "subscriptionUse": null,
       "supported": true
@@ -1348,7 +1348,7 @@
       "statusKey": "e",
       "tier": "P2",
       "notes": "Independent indexes for cross-checking.",
-      "plannedAdapter": null,
+      "plannedAdapter": "brave",
       "buildMilestone": "M6",
       "subscriptionUse": null,
       "supported": true
@@ -1367,7 +1367,7 @@
       "statusKey": "e",
       "tier": "P2",
       "notes": "Page fetching for research agents.",
-      "plannedAdapter": null,
+      "plannedAdapter": "firecrawl",
       "buildMilestone": "M6",
       "subscriptionUse": null,
       "supported": true
@@ -3415,6 +3415,292 @@
       },
       "docsUrl": "https://www.recraft.ai/docs/api-reference/clients",
       "notes": "Vector models return SVG. Needs a positive API-unit balance.",
+      "verifiedOn": "2026-10-23"
+    },
+    "perplexity": {
+      "connector": "perplexity-agent-api",
+      "name": "Perplexity Agent API",
+      "vendor": "perplexity",
+      "kind": "research",
+      "adapter": "perplexity",
+      "taskTypes": [
+        "research.web",
+        "research.deep_report",
+        "research.fact_check",
+        "research.academic",
+        "research.market_chatter"
+      ],
+      "baseUrl": "https://api.perplexity.ai",
+      "auth": {
+        "scheme": "bearer"
+      },
+      "health": {
+        "method": "GET",
+        "path": "/v1/models"
+      },
+      "pricing": {
+        "unit": "usd",
+        "note": "Each answer reports its cost (usage.cost.total_cost): tokens at the model's rate plus search ($2.50 per 1k) and fetch fees."
+      },
+      "models": {
+        "path": "/v1/models",
+        "static": []
+      },
+      "docsUrl": "https://docs.perplexity.ai/docs/agent-api",
+      "notes": "Sonar chat completions ended 27 Sep 2026; this is the Agent API, run in background mode. The model is optional (Perplexity picks one); effort is low, or high for deep reports (options.effort).",
+      "verifiedOn": "2026-10-23"
+    },
+    "openai-research": {
+      "connector": "openai-search-deep-research",
+      "name": "OpenAI web search (Responses)",
+      "vendor": "openai",
+      "kind": "research",
+      "adapter": "openai-research",
+      "taskTypes": [
+        "research.web",
+        "research.deep_report",
+        "research.fact_check",
+        "research.academic",
+        "research.market_chatter"
+      ],
+      "baseUrl": "https://api.openai.com/v1",
+      "auth": {
+        "scheme": "bearer"
+      },
+      "health": {
+        "method": "GET",
+        "path": "/models"
+      },
+      "pricing": {
+        "unit": "token",
+        "pricePreset": "openai",
+        "perCallUsd": 0.01,
+        "note": "Tokens at the model's price plus $10 per 1k web search calls."
+      },
+      "models": {
+        "path": null,
+        "static": [
+          "gpt-5.5",
+          "gpt-5.6-sol"
+        ]
+      },
+      "docsUrl": "https://developers.openai.com/api/docs/guides/tools-web-search",
+      "notes": "o3-deep-research and o4-mini-deep-research shut down 23 Jul 2026; deep reports use high reasoning effort. Background mode is not ZDR-compatible.",
+      "verifiedOn": "2026-10-23"
+    },
+    "xai-search": {
+      "connector": "grok-live-search",
+      "name": "xAI web and X search (Responses)",
+      "vendor": "xai",
+      "kind": "research",
+      "adapter": "xai-search",
+      "taskTypes": [
+        "research.web",
+        "research.deep_report",
+        "research.fact_check",
+        "research.academic",
+        "research.market_chatter"
+      ],
+      "baseUrl": "https://api.x.ai/v1",
+      "auth": {
+        "scheme": "bearer"
+      },
+      "health": {
+        "method": "GET",
+        "path": "/api-key",
+        "badKey": [
+          400,
+          401,
+          403
+        ]
+      },
+      "pricing": {
+        "unit": "token",
+        "pricePreset": "xai",
+        "perCallUsd": 0.005,
+        "note": "Tokens at the model's price plus $5 per 1k search calls (X search bills per post fetched; metered here per call)."
+      },
+      "models": {
+        "path": null,
+        "static": [
+          "grok-4.7"
+        ]
+      },
+      "docsUrl": "https://docs.x.ai/docs/guides/tools/search-tools",
+      "notes": "Live Search (search_parameters) is deprecated; this uses server-side web_search and x_search tools.",
+      "verifiedOn": "2026-10-23"
+    },
+    "gemini-deep-research": {
+      "connector": "gemini-deep-research",
+      "name": "Gemini Deep Research (Interactions)",
+      "vendor": "gemini",
+      "kind": "research",
+      "adapter": "gemini-managed-agents",
+      "taskTypes": [
+        "research.web",
+        "research.deep_report",
+        "research.fact_check",
+        "research.academic",
+        "research.market_chatter"
+      ],
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+      "auth": {
+        "scheme": "header",
+        "header": "x-goog-api-key"
+      },
+      "extraHeaders": {
+        "Api-Revision": "2026-05-20"
+      },
+      "health": {
+        "method": "GET",
+        "path": "/models?pageSize=1"
+      },
+      "pricing": {
+        "unit": "token",
+        "pricePreset": "gemini",
+        "note": "Interaction usage in tokens at the model's price."
+      },
+      "models": {
+        "path": null,
+        "static": [
+          "deep-research-preview-04-2026"
+        ]
+      },
+      "docsUrl": "https://ai.google.dev/gemini-api/docs/deep-research",
+      "notes": "The Deep Research managed agent (public preview), run as a background interaction.",
+      "verifiedOn": "2026-10-23"
+    },
+    "exa": {
+      "connector": "exa-tavily-parallel",
+      "name": "Exa search",
+      "vendor": "exa",
+      "kind": "search",
+      "adapter": "exa",
+      "taskTypes": [],
+      "baseUrl": "https://api.exa.ai",
+      "auth": {
+        "scheme": "header",
+        "header": "x-api-key"
+      },
+      "health": null,
+      "pricing": {
+        "unit": "usd",
+        "note": "Each search reports its cost (costDollars.total); auto search is $7 per 1k."
+      },
+      "docsUrl": "https://exa.ai/docs/reference/search",
+      "notes": "A tool every agent uses for web_search. No free key check: the first search checks the key.",
+      "verifiedOn": "2026-10-23"
+    },
+    "tavily": {
+      "connector": "exa-tavily-parallel",
+      "name": "Tavily search",
+      "vendor": "tavily",
+      "kind": "search",
+      "adapter": "tavily",
+      "taskTypes": [],
+      "baseUrl": "https://api.tavily.com",
+      "auth": {
+        "scheme": "bearer"
+      },
+      "health": {
+        "method": "GET",
+        "path": "/usage"
+      },
+      "pricing": {
+        "unit": "credit",
+        "usdPerUnit": 0.008,
+        "note": "Basic search is 1 credit; metered at an estimated $0.008 per credit (pay as you go). Set your plan's rate on the connector."
+      },
+      "docsUrl": "https://docs.tavily.com/documentation/api-reference/endpoint/search",
+      "notes": "A tool every agent uses for web_search.",
+      "verifiedOn": "2026-10-23"
+    },
+    "parallel": {
+      "connector": "exa-tavily-parallel",
+      "name": "Parallel search",
+      "vendor": "parallel",
+      "kind": "search",
+      "adapter": "parallel",
+      "taskTypes": [],
+      "baseUrl": "https://api.parallel.ai",
+      "auth": {
+        "scheme": "header",
+        "header": "x-api-key"
+      },
+      "health": null,
+      "pricing": {
+        "unit": "request",
+        "usdPerUnit": 0.001,
+        "note": "Fast search is $1 per 1k requests."
+      },
+      "docsUrl": "https://docs.parallel.ai/api-reference/search-api/search",
+      "notes": "A tool every agent uses for web_search. No free key check: the first search checks the key.",
+      "verifiedOn": "2026-10-23"
+    },
+    "brave": {
+      "connector": "brave-search-api-you-com",
+      "name": "Brave Search API",
+      "vendor": "brave",
+      "kind": "search",
+      "adapter": "brave",
+      "taskTypes": [],
+      "baseUrl": "https://api.search.brave.com/res/v1",
+      "auth": {
+        "scheme": "header",
+        "header": "X-Subscription-Token"
+      },
+      "health": null,
+      "pricing": {
+        "unit": "request",
+        "usdPerUnit": 0.005,
+        "note": "$5 per 1k requests ($5 free credit a month)."
+      },
+      "docsUrl": "https://api-dashboard.search.brave.com/app/documentation/web-search/get-started",
+      "notes": "A tool every agent uses for web_search. A bad key answers 422. No free key check.",
+      "verifiedOn": "2026-10-23"
+    },
+    "firecrawl": {
+      "connector": "firecrawl-jina-reader",
+      "name": "Firecrawl",
+      "vendor": "firecrawl",
+      "kind": "fetch",
+      "adapter": "firecrawl",
+      "taskTypes": [],
+      "baseUrl": "https://api.firecrawl.dev/v2",
+      "auth": {
+        "scheme": "bearer"
+      },
+      "health": {
+        "method": "GET",
+        "path": "/team/credit-usage"
+      },
+      "pricing": {
+        "unit": "credit",
+        "usdPerUnit": 0.001,
+        "note": "A credit a page (failed pages included); about $0.001 a credit on the Standard plan."
+      },
+      "docsUrl": "https://docs.firecrawl.dev/api-reference/endpoint/scrape",
+      "notes": "A tool every agent uses for fetch_url.",
+      "verifiedOn": "2026-10-23"
+    },
+    "jina": {
+      "connector": "firecrawl-jina-reader",
+      "name": "Jina Reader",
+      "vendor": "jina",
+      "kind": "fetch",
+      "adapter": "jina",
+      "taskTypes": [],
+      "baseUrl": "https://r.jina.ai",
+      "auth": {
+        "scheme": "bearer"
+      },
+      "health": null,
+      "pricing": {
+        "unit": "unmetered",
+        "note": "Billed in output tokens against the key's token balance (new keys get 10M free); not converted to dollars."
+      },
+      "docsUrl": "https://jina.ai/reader/",
+      "notes": "A tool every agent uses for fetch_url.",
       "verifiedOn": "2026-10-23"
     }
   }

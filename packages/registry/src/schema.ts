@@ -169,7 +169,8 @@ export const Preset = z
 export type Preset = z.infer<typeof Preset>;
 
 /** What a service connector is for (non-model APIs: hosted agents, media, search, page fetching, browsers). */
-export const ServiceKind = z.enum(["hosted", "media", "search", "fetch", "browser"]);
+/** hosted agents, media models, research agents, search and fetch tools (every agent's), browser agents. */
+export const ServiceKind = z.enum(["hosted", "media", "research", "search", "fetch", "browser"]);
 export type ServiceKind = z.infer<typeof ServiceKind>;
 
 /** How a service's credential is sent. */
@@ -231,6 +232,8 @@ export const Service = z.object({
     pricePreset: z.string().optional(),
     /** USD per unit when it is a fixed rate (credits at a cent, Recraft's 1,000 units a dollar); agents may override. */
     usdPerUnit: z.number().nonnegative().optional(),
+    /** A fee per built-in tool call on top of tokens (web search calls). */
+    perCallUsd: z.number().nonnegative().optional(),
     note: z.string().min(1),
   }),
   /** Agents, models or voices it offers: a list path, or the documented ids. */

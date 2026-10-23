@@ -1,7 +1,12 @@
 // AgentAdapter implementations, one folder per connector family (docs/ADAPTER_SPEC.md).
 import { ADAPTERS_BY_FAMILY } from "./api-family-registry";
 import { CLI_ADAPTERS } from "./cli/index";
-import { HOSTED_ADAPTERS, MEDIA_ADAPTERS } from "./services/index";
+import {
+  HOSTED_ADAPTERS,
+  MEDIA_ADAPTERS,
+  RESEARCH_AGENT_ADAPTERS,
+  RESEARCH_TOOL_ADAPTERS,
+} from "./services/index";
 import type { AgentAdapter } from "./types";
 
 /** Registration: adapter key → adapter. packages/registry checks every planned connector resolves here. */
@@ -10,6 +15,8 @@ export const ADAPTERS: Readonly<Record<string, AgentAdapter>> = {
   ...Object.fromEntries(CLI_ADAPTERS.map((a) => [a.key, a])),
   ...Object.fromEntries(HOSTED_ADAPTERS.map((a) => [a.key, a])),
   ...Object.fromEntries(MEDIA_ADAPTERS.map((a) => [a.key, a])),
+  ...Object.fromEntries(RESEARCH_AGENT_ADAPTERS.map((a) => [a.key, a])),
+  ...Object.fromEntries(RESEARCH_TOOL_ADAPTERS.map((a) => [a.key, a])),
 };
 
 export const IMPLEMENTED_FAMILIES: ReadonlySet<string> = new Set(Object.keys(ADAPTERS));
