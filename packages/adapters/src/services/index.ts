@@ -24,6 +24,7 @@ export * from "./browser/index";
 export * from "./client";
 export { agentcoreText } from "./hosted/agentcore";
 export { githubRepo, hostedPrompt, PATCH_FILE } from "./hosted/common";
+export { manusEvent, manusPublicKey, registerManusWebhook, verifyManusSignature } from "./hosted/manus";
 export * from "./job";
 export { MEDIA_ADAPTERS, mediaShape, scriptOf, speechText } from "./media/index";
 export * from "./research/index";

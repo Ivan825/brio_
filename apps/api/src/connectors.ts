@@ -33,6 +33,8 @@ export interface StoredConnectorConfig {
   /** Service connectors (hosted agents, media, search, browsers): the registry service and its install settings. */
   service?: string;
   settings?: Record<string, string>;
+  /** A vendor webhook registered for this connector (Manus): where it points, and its id or why it failed. */
+  webhook?: { url: string; id?: string | null; error?: string };
   baseUrl: string;
   region?: string;
   apiStyle?: ApiStyle;

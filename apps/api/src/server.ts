@@ -28,6 +28,7 @@ import { connectorRoutes } from "./routes/connectors";
 import { devRoutes } from "./routes/dev";
 import { evalRoutes } from "./routes/evals";
 import { healthRoutes } from "./routes/health";
+import { hookRoutes } from "./routes/hooks";
 import { messageRoutes } from "./routes/messages";
 import { missionRoutes } from "./routes/missions";
 import { planRoutes } from "./routes/plans";
@@ -166,6 +167,7 @@ export async function buildServer({
   await messageRoutes(app, ctx);
   await scoreboardRoutes(app, ctx);
   await evalRoutes(app, ctx);
+  await hookRoutes(app, ctx);
   if (config.BRIO_DEV_OUTBOX && config.NODE_ENV !== "production") await devRoutes(app, ctx);
   ctx.orchestrator.start();
 

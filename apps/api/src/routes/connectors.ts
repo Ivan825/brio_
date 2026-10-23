@@ -4,6 +4,8 @@ import {
   type ModelInfo,
   pinoSink,
   redactingLogger,
+  registerManusWebhook,
+  ServiceClient,
   serviceBase,
 } from "@brio/adapters";
 import { schema } from "@brio/db";
@@ -23,6 +25,7 @@ import {
 import type { AppContext } from "../context";
 import { HttpError, one, requireMember, requireSession, workspaceFor } from "../http";
 import { pricesFromModels } from "../pricing";
+import { manusHookUrl } from "./hooks";
 
 const { agents, connectors, connectorModels } = schema;
 
@@ -309,7 +312,30 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
         "connector",
       );
     });
-    const checked = await check(row);
+    let checked = await check(row);
+    // Manus reports stopped tasks by webhook when Brio has a public address to send them to (the board learns at
+    // once; runs still poll). Registration failing leaves polling alone, and says why.
+    if ((config as StoredConnectorConfig).service === "manus" && ctx.config.APP_URL.startsWith("https://")) {
+      const url = manusHookUrl(ctx.config.APP_URL, checked.id);
+      const webhook = await registerManusWebhook(
+        new ServiceClient(connectorConfig(checked), {
+          credential: await credentialOf(ctx, checked),
+          fetch: ctx.fetch,
+        }),
+        url,
+      ).then(
+        (id) => ({ url, id }),
+        (e: Error) => ({ url, error: ctx.redactor.redact(e.message).slice(0, 300) }),
+      );
+      checked = one(
+        await ctx.db
+          .update(connectors)
+          .set({ config: { ...(checked.config as Record<string, unknown>), webhook } })
+          .where(eq(connectors.id, checked.id))
+          .returning(),
+        "connector",
+      );
+    }
     return reply.status(201).send({ connector: present(checked) });
   });
 
