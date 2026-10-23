@@ -1,8 +1,10 @@
+import type { EvalMissionResult } from "@brio/schema";
 import { describe, expect, it } from "vitest";
 import {
   buildMissionReport,
   citationsPresent,
   citedSources,
+  evalVerdict,
   extractLinks,
   findJsonSchema,
   mediaSpec,
@@ -14,8 +16,10 @@ import {
   type ReviewerCandidate,
   readAxe,
   readLighthouse,
+  renderEvalTable,
   renderMissionReport,
   seeded,
+  summarise,
   validateAgainstSchema,
   verdict,
 } from "../src/index";
@@ -407,5 +411,51 @@ describe("mission report", () => {
     );
     expect(md).toContain("Round 1: passed on `brio/x/integration-v1-r1` at `abcdef123456`.");
     expect(md).toContain("- `docs` Document it failed: rubric 2/5");
+  });
+});
+
+describe("eval summaries and the PRD verdict", () => {
+  const r = (strategy: string, passed: boolean, costUsd: number): EvalMissionResult => ({
+    mission: "m",
+    strategy,
+    passed,
+    status: passed ? "done" : "failed",
+    costUsd,
+    minutes: 1,
+    attempts: 2,
+  });
+
+  it("summarises each strategy and measures Brio against the best single agent and static routing", () => {
+    const results = [
+      ...[true, true, true, true, false].map((p) => r("learned", p, 0.12)),
+      ...[true, true, true, false, false].map((p) => r("static", p, 0.1)),
+      ...[true, true, false, false, false].map((p) => r("single:coder", p, 0.1)),
+      ...[true, false, false, false, false].map((p) => r("single:mini", p, 0.01)),
+    ];
+    const s = summarise(results);
+    expect(s.find((x) => x.strategy === "learned")).toMatchObject({
+      missions: 5,
+      passed: 4,
+      passRate: 0.8,
+      costUsd: 0.12,
+      costAdjusted: 6.6667,
+    });
+    const v = evalVerdict(s);
+    expect(v).toEqual({
+      bestSingle: "single:coder",
+      liftPoints: 40,
+      costRatio: 1.2,
+      met: true,
+      routerGainPct: 11.1,
+      routerMet: true,
+    });
+    const md = renderEvalTable(s, v);
+    expect(md.split("\n")[2]).toContain("| learned | 5 | 4 | 80% |");
+    expect(md).toContain("+40 points at 1.2× the cost — target ≥ 15 points at ≤ 1.3×: met.");
+    expect(evalVerdict(summarise([r("learned", true, 0)]))).toMatchObject({
+      liftPoints: null,
+      met: null,
+      routerMet: null,
+    });
   });
 });

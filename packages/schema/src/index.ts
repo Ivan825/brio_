@@ -3,6 +3,7 @@ export * from "./common";
 export * from "./connectors";
 export * from "./contract";
 export * from "./coordination";
+export * from "./evals";
 export * from "./events";
 export * from "./governance";
 export * from "./handoff";

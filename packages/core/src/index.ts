@@ -1,5 +1,6 @@
 // Planner, router, scheduler, lease manager, verifier, scoreboard (pure logic, no I/O where possible).
 // M1 adds cost maths, M2 sandbox profiles, M3 the planner's rules, plan edits, static routing, scheduling and handoffs.
+export * from "./evals/index";
 export * from "./handoff/index";
 export * from "./leases/index";
 export * from "./modes/index";
