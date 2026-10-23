@@ -26,7 +26,7 @@ Give Brio one goal. It plans the work, hands each piece to the agent best at it,
 
 ---
 
-> **Pre-alpha, being built in the open.** M0 (foundation), M1 (connectors and model APIs) and M2 (sandboxed coding agents) are done; missions that plan and coordinate come next. This README describes
+> **Pre-alpha, being built in the open.** M0 to M3 are done: connectors, sandboxed coding agents, and missions that plan, run as a graph and coordinate. Learned routing comes next. This README describes
 > the product Brio is being built to be; the [roadmap](docs/BUILD_PLAN.md) shows what is done, and anything
 > not built yet is marked **planned** below.
 
@@ -137,7 +137,7 @@ Every vendor call goes through one `AgentAdapter` interface ([`docs/ADAPTER_SPEC
 
 ## Status
 
-Pre-alpha. Built milestone by milestone in dependency order, each production-grade with tests, types and migrations. **Done:** M0, the foundation (monorepo and CI, database, sign-in and workspaces, the vault and redactor, the event spine with live SSE, the hash-chained ledger, the branded web app), M1, connectors and model APIs (18 vendor presets behind one adapter interface, live model lists, metered cost per call, the connector catalogue and agent builder, and running a task with a chosen agent), and M2, the runner (one hardened Docker sandbox per attempt with an egress allowlist, a git worktree per attempt, diffs as artifacts, and Claude Code, Codex, Cursor, Antigravity, OpenCode, Aider and Goose driven headless). Next is **M3**: the planner, task graph and agent coordination. Planning is a labelled stub until then. See the [roadmap](docs/BUILD_PLAN.md) and [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
+Pre-alpha. Built milestone by milestone in dependency order, each production-grade with tests, types and migrations. **Done:** M0, the foundation (monorepo and CI, database, sign-in and workspaces, the vault and redactor, the event spine with live SSE, the hash-chained ledger, the branded web app), M1, connectors and model APIs (18 vendor presets behind one adapter interface, live model lists, metered cost per call, the connector catalogue and agent builder, and running a task with a chosen agent), and M2, the runner (one hardened Docker sandbox per attempt with an egress allowlist, a git worktree per attempt, diffs as artifacts, and Claude Code, Codex, Cursor, Antigravity, OpenCode, Aider and Goose driven headless). and M3, missions (a planner with contract-first plans you edit and approve, a crash-proof scheduler running tasks in parallel under file leases, handoff packets, contracts, an agent mailbox, and a first verifier). Next is **M4**: the router that learns from a scoreboard, and execution modes. See the [roadmap](docs/BUILD_PLAN.md) and [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
 
 ## Licence
 

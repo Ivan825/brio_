@@ -136,7 +136,7 @@ Pattern: create session/task → stream or poll events → fetch outputs (diff, 
 
 ### 2.6 MCP (route: mcp)
 MCP servers are **tools**, not agents. Attach them to agents via `RunInput.mcpServers`. Brio ships its own MCP servers:
-- `brio-mailbox` (ask_agent, answer, report_blocker, request_review, get_contract, get_brief, report_progress) — injected into every capable agent.
+- `brio-mailbox` (ask_agent, inbox, answer, report_blocker, request_review, get_contract, get_brief, report_progress) — given to every capable agent: in-process for model-API agents (new messages arrive between turns), and as a streamable-HTTP MCP server for coding CLIs, reached through the sandbox's proxy at `brio-mailbox:8080` with a per-attempt token (D-43). Claude Code, Codex, Cursor and OpenCode are configured for it; Antigravity, Goose and Aider run without it for now.
 - `brio-lease` (claim, release, status) — used by hooks and agents that prefer explicit claims.
 
 ### 2.7 Browser / computer use (route: browser via sdk/hosted)

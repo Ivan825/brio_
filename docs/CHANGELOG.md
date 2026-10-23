@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-23 — M3 Missions, planner, DAG engine, coordination
+Pushed in small steps (CLAUDE.md rule 9, D-17).
+- **Planner:** a mission's planning task is dispatched to a model-API planner with the goal, the agents' abilities, the budget and (with a project) the repository's file list; its JSON is validated, retried with the errors, and linted: cycles, missing checks, contract consumers made to wait for the contract, parallel code tasks with overlapping files serialised, estimates and the critical path (D-44). Up to 3 questions; answers and change requests replan.
+- **Plan editor and versions:** edit (update, add, remove, split, merge, depend, budget, approval gate, pin an agent), each edit a new linted version; approve; replan with notes.
+- **Scheduler:** a pure decision function over the mission's state, applied with conditional updates by an orchestrator that reacts to every event and sweeps active missions, so a crash or restart resumes where the database says; parallel tasks up to a cap.
+- **Leases:** exclusive per path or glob, granted under a workspace lock, renewed while working, released at the end (D-46).
+- **Static router:** pin, else a coding CLI for code and a model API for the rest; adapts to 0, 1 or many agents and degrades multi-agent modes honestly.
+- **Verifier (M3 part):** command checks in a fresh sandbox, diff scope, and people for the rest; revise up to twice with the failures, then fail (D-45). People accept, send back or fail tasks waiting for them.
+- **Handoffs and contracts:** a packet per dependent task with done items, decisions (carried down the chain, D-48), artifacts, contracts, check evidence, risks and next steps, written into `.brio/handoff.json` and the prompt; design tasks register versioned contracts, and a changed contract notifies its running consumers.
+- **Mailbox:** ask_agent, inbox, answer, blockers, review requests, contracts and the brief, for model-API agents in-process and for coding CLIs as an MCP server through the sandbox proxy (D-43); people answer questions addressed to them.
+- **Projects:** `/v1/projects` with https git URLs (local paths when allowed, D-50); tasks start from their upstream tasks' merged branches (D-47).
+- **Web:** plan panel (lint, fixes, assumptions, questions, agent per task, approve, replan), live task graph with blocked reasons and revisions, reviews, questions waiting for you; the stub planner is gone (D-49).
+- **Golden mission:** `apps/evals/golden/oauth-login` (sample Next.js app with node-run tests) and a live run behind `LIVE_GOLDEN=1`.
+- **Acceptance evidence:** crash-resume test written first (four-task mission with a contract task, two vendors running in parallel, no overlapping leases, handoffs to the docs task, a command check passing in a sandbox, the API killed and restarted mid-mission and the mission completing); ask_agent test (a question reaches the other running task and the answer returns, on the event trail); a coding CLI reaching the mailbox over MCP from its sandbox; pure tests for lint, edits, routing with 0/1/2+ agents, scheduling and handoffs; Playwright (plan → approve → run → review → done).
+- **Not yet verified live:** the golden mission with real agents needs the owner's keys.
+
 ## 2026-10-23 — M2 Runner and coding CLIs
 Pushed in small steps (CLAUDE.md rule 9, D-17).
 - **Runner:** `apps/runner` consumes attempt jobs from pg-boss, claims each atomically, heartbeats it, honours cancel within seconds (Postgres NOTIFY plus the heartbeat), and reaps attempts whose runner died and jobs that were lost. The API now resolves a dispatch plan per attempt and queues it (D-38).
