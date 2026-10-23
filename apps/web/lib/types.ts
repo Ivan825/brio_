@@ -28,6 +28,7 @@ export interface CatalogueConnector {
   notes: string;
   supported: boolean;
   buildMilestone: string | null;
+  plannedAdapter: string | null;
   implemented: boolean;
   regionLimited: string | null;
   taskTypes: string[];

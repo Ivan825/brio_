@@ -49,14 +49,26 @@ test("add a key, list models live, build an agent and run a task with metered co
   await expect(page).toHaveURL(/\/missions\/[0-9a-f-]{36}$/);
   await expect(page.getByTestId("connection")).toHaveAttribute("data-state", "live");
 
-  await page.getByRole("button", { name: "Run task" }).click();
+  // The planner (the only agent) proposes a one-task plan; a person approves it and the scheduler runs the task.
+  const plan = page.getByTestId("plan-panel");
+  await expect(plan).toBeVisible({ timeout: 30_000 });
+  await expect(plan.getByTestId("planned-task")).toHaveCount(1);
+  await plan.getByRole("button", { name: "Approve plan" }).click();
+
   const stream = page.getByTestId("event-stream");
-  await expect(stream.locator('li[data-type="attempt.started"]')).toHaveCount(1);
-  await expect(stream.locator('li[data-type="attempt.cost"]')).toContainText("$0.0042");
-  await expect(stream.locator('li[data-type="attempt.finished"]')).toContainText("succeeded");
-  const attempt = page.getByTestId("attempt");
+  await expect(stream.locator('li[data-type="plan.approved"]')).toHaveCount(1);
+  await expect(stream.locator('li[data-type="attempt.finished"]')).toHaveCount(2, { timeout: 30_000 });
+  await expect(stream.locator('li[data-type="attempt.cost"]').first()).toContainText("$0.0042");
+  const task = page.getByTestId("task");
+  await expect(task).toHaveAttribute("data-key", "write.health-plan");
+  const attempt = task.getByTestId("attempt");
   await expect(attempt).toHaveAttribute("data-status", "succeeded");
   await expect(attempt.getByTestId("attempt-cost")).toHaveText("$0.0042");
   await attempt.getByRole("button", { name: "Show answer" }).click();
   await expect(page.getByTestId("attempt-output")).toContainText("GET /health");
+
+  // The task's acceptance check is a person: accept it and the mission is done.
+  await task.getByTestId("review").getByRole("button", { name: "Accept" }).click();
+  await expect(stream.locator('li[data-type="mission.done"]')).toHaveCount(1, { timeout: 30_000 });
+  await expect(page.getByTestId("task")).toHaveAttribute("data-status", "done");
 });

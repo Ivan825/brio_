@@ -1,13 +1,16 @@
 "use client";
 
-import { agentColorVar } from "@brio/brand";
 import { EVENT_TYPES } from "@brio/schema";
-import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRunning } from "@/components/running";
 import { RUNNING_STATUSES, StatusChip } from "@/components/status-chip";
 import { usd } from "@/lib/format";
 import type { AgentSummary, AttemptSummary } from "@/lib/types";
-import { TaskRunner } from "./task-runner";
+import { MessagesPanel, type MissionMessage } from "./messages-panel";
+import { PlanPanel, type PlanView } from "./plan-panel";
+import { TaskList } from "./task-list";
 
 export interface MissionDetail {
   mission: {
@@ -16,9 +19,11 @@ export interface MissionDetail {
     goal: string;
     status: string;
     lastEventSeq: number;
+    blockedReason: string | null;
+    autoApprove: boolean;
     createdAt: string;
   };
-  plan: { version: number; status: string } | null;
+  plan: PlanView | null;
   tasks: MissionTask[];
 }
 
@@ -29,6 +34,10 @@ export interface MissionTask {
   title: string;
   status: string;
   mode: string;
+  planVersion: number;
+  dependsOn: string[];
+  blockedReason: string | null;
+  revisions: number;
   pinnedAgentId: string | null;
   sensitivity: string;
   attempts: AttemptSummary[];
@@ -46,26 +55,56 @@ export interface BoardEvent {
 
 type Connection = "connecting" | "live" | "reconnecting";
 
-const STATUS_FROM_EVENT: Record<string, string> = {
-  "plan.proposed": "awaiting_approval",
-  "mission.done": "done",
-  "mission.failed": "failed",
-};
+/** Events that change the mission's shape (plan, task states, messages): the page re-reads its data on them. */
+const STRUCTURAL =
+  /^(plan|task|mission|message|review|approval|check|handoff|contract|lease)\.|^attempt\.(queued|started|finished)$/;
 
 function summarise(e: BoardEvent): string {
   const p = e.payload;
   switch (e.type) {
     case "mission.created":
       return String(p.title ?? "");
-    case "plan.proposed":
-      return `v${p.version} · ${(p.tasks as unknown[] | undefined)?.length ?? 0} task(s) · ${p.planner ?? ""}`;
-    case "mission.failed":
+    case "mission.blocked":
       return String(p.reason ?? "");
+    case "plan.proposed":
+    case "plan.edited": {
+      const lint = p.lint as { errors?: number; fixes?: number } | undefined;
+      return `v${p.version} · ${(p.tasks as unknown[] | undefined)?.length ?? 0} task(s)${lint?.errors ? ` · ${lint.errors} error(s)` : ""}${lint?.fixes ? ` · ${lint.fixes} fix(es)` : ""}`;
+    }
+    case "plan.approved":
+      return `v${p.version} · ${p.tasks} task(s)`;
+    case "mission.failed":
+    case "plan.failed":
+      return String(p.reason ?? (p.errors as string[] | undefined)?.join("; ") ?? "");
+    case "task.ready":
+    case "task.done":
+      return String(p.taskKey ?? "") + (p.agent ? ` · ${p.agent} · ${usd(p.costUsd as number)}` : "");
+    case "task.blocked":
+    case "task.failed":
+      return `${p.taskKey} · ${p.reason ?? (p.reasons as string[] | undefined)?.join("; ") ?? ""}`;
+    case "lease.granted":
+    case "lease.released":
+      return `${p.taskKey} · ${(p.resources as string[] | undefined)?.join(", ") ?? ""}`;
+    case "handoff.created":
+      return `${p.from} → ${p.to}`;
+    case "message.sent":
+      return `${p.from} → ${p.to} (${p.kind}): ${String(p.body ?? "")}`;
+    case "message.answered":
+      return `${p.from}: ${String(p.body ?? "")}`;
+    case "check.result":
+      return `${p.kind} ${p.passed ? "passed" : "failed"}${p.summary ? ` · ${p.summary}` : ""}`;
+    case "review.verdict":
+      return `${p.taskKey} · ${p.verdict}${(p.reasons as string[] | undefined)?.length ? ` · ${(p.reasons as string[]).join("; ")}` : ""}`;
+    case "approval.requested":
+      return `${p.taskKey} · ${p.what}`;
+    case "contract.changed":
+      return `${p.name} v${p.from} → v${p.to}`;
     case "attempt.queued":
     case "attempt.started": {
       const agent = p.agent as { name?: string; model?: string } | undefined;
       const sandbox = p.sandbox as { profile?: string } | null | undefined;
-      return `${agent?.name ?? "agent"} → ${p.taskKey ?? "task"} · ${agent?.model ?? ""}${sandbox?.profile ? ` · sandbox ${sandbox.profile}` : ""}`;
+      const why = p.rationale ? ` · ${p.rationale}` : "";
+      return `${agent?.name ?? "agent"} → ${p.taskKey ?? "task"} · ${agent?.model ?? ""}${sandbox?.profile ? ` · sandbox ${sandbox.profile}` : ""}${why}`;
     }
     case "attempt.file_edit":
       return `${p.op} ${p.path}`;
@@ -79,6 +118,8 @@ function summarise(e: BoardEvent): string {
       const u = p.usage as { usd?: number; seconds?: number } | undefined;
       return `${p.status} · ${usd(u?.usd)} · ${u?.seconds ?? 0}s${p.status === "succeeded" ? "" : ` · ${p.exitReason ?? ""}`}`;
     }
+    case "mission.done":
+      return `${usd(p.costUsd as number)} · ${p.attempts} attempt(s) · ${p.minutes} min`;
     default:
       return Object.keys(p).length ? JSON.stringify(p) : "";
   }
@@ -92,64 +133,27 @@ const time = (ts: string) =>
     hour12: false,
   });
 
-/** The live board for one mission: tasks plus the event stream over SSE, resuming by Last-Event-ID. */
-export function MissionBoard({ initial, agents }: { initial: MissionDetail; agents: AgentSummary[] }) {
-  const { mission } = initial;
-  const [tasks, setTasks] = useState(initial.tasks);
+/** The live board for one mission: plan, tasks, messages and the event stream over SSE (resuming by Last-Event-ID). */
+export function MissionBoard({
+  initial,
+  agents,
+  messages,
+}: {
+  initial: MissionDetail;
+  agents: AgentSummary[];
+  messages: MissionMessage[];
+}) {
+  const router = useRouter();
+  const { mission, plan, tasks } = initial;
   const [events, setEvents] = useState<BoardEvent[]>([]);
-  const [activeAttempts, setActiveAttempts] = useState<Set<string>>(
-    () =>
-      new Set(
-        initial.tasks.flatMap((t) => t.attempts.filter((a) => a.status === "running").map((a) => a.id)),
-      ),
-  );
-  const [status, setStatus] = useState(mission.status);
   const [connection, setConnection] = useState<Connection>("connecting");
   const [opens, setOpens] = useState(0);
   const lastSeq = useRef(0);
+  const refresh = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Events up to here are already in the server-rendered data; later ones mean the page should re-read it.
+  const rendered = useRef(initial.mission.lastEventSeq);
+  rendered.current = initial.mission.lastEventSeq;
   const { setRunning } = useRunning();
-
-  const applyAttemptEvent = useCallback((e: BoardEvent) => {
-    const attemptId = e.attemptId;
-    if (!attemptId || !e.taskId) return;
-    const started = e.type === "attempt.started" || e.type === "attempt.queued";
-    setActiveAttempts((prev) => {
-      const next = new Set(prev);
-      if (started) next.add(attemptId);
-      else next.delete(attemptId);
-      return next;
-    });
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id !== e.taskId) return t;
-        const p = e.payload;
-        const usage = p.usage as { usd?: number; tokensIn?: number; tokensOut?: number } | undefined;
-        const others = t.attempts.filter((a) => a.id !== attemptId);
-        const existing = t.attempts.find((a) => a.id === attemptId);
-        const attempt: AttemptSummary = {
-          id: attemptId,
-          taskId: t.id,
-          agentId: (p.agent as { id?: string } | undefined)?.id ?? existing?.agentId ?? "",
-          role: "maker",
-          status: e.type === "attempt.queued" ? "queued" : started ? "running" : String(p.status),
-          startedAt: existing?.startedAt ?? e.ts,
-          endedAt: started ? null : e.ts,
-          costUsd: usage?.usd ?? existing?.costUsd ?? 0,
-          tokensIn: usage?.tokensIn ?? existing?.tokensIn ?? 0,
-          tokensOut: usage?.tokensOut ?? existing?.tokensOut ?? 0,
-          exitReason: started ? null : String(p.exitReason ?? ""),
-        };
-        const status = started
-          ? "running"
-          : p.status === "succeeded"
-            ? "verifying"
-            : p.status === "cancelled"
-              ? "ready"
-              : "failed";
-        return { ...t, status, attempts: [attempt, ...others] };
-      }),
-    );
-  }, []);
 
   useEffect(() => {
     // EventSource reconnects by itself and sends Last-Event-ID; the API resumes from there with no gaps.
@@ -159,10 +163,10 @@ export function MissionBoard({ initial, agents }: { initial: MissionDetail; agen
       if (e.seq <= lastSeq.current) return; // never render a duplicate
       lastSeq.current = e.seq;
       setEvents((prev) => [...prev, e]);
-      const next = STATUS_FROM_EVENT[e.type];
-      if (next) setStatus(next);
-      if (e.type === "attempt.queued" || e.type === "attempt.started" || e.type === "attempt.finished")
-        applyAttemptEvent(e);
+      if (STRUCTURAL.test(e.type) && e.seq > rendered.current) {
+        if (refresh.current) clearTimeout(refresh.current);
+        refresh.current = setTimeout(() => router.refresh(), 250);
+      }
     };
     source.onopen = () => {
       setConnection("live");
@@ -171,13 +175,22 @@ export function MissionBoard({ initial, agents }: { initial: MissionDetail; agen
     source.onerror = () => setConnection("reconnecting");
     source.onmessage = onEvent;
     for (const t of EVENT_TYPES) source.addEventListener(t, onEvent as EventListener);
-    return () => source.close();
-  }, [mission.id, applyAttemptEvent]);
+    return () => {
+      source.close();
+      if (refresh.current) clearTimeout(refresh.current);
+    };
+  }, [mission.id, router]);
 
+  const working = useMemo(
+    () =>
+      RUNNING_STATUSES.has(mission.status) ||
+      tasks.some((t) => t.attempts.some((a) => a.status === "running" || a.status === "queued")),
+    [mission.status, tasks],
+  );
   useEffect(() => {
-    setRunning(`mission:${mission.id}`, RUNNING_STATUSES.has(status) || activeAttempts.size > 0);
+    setRunning(`mission:${mission.id}`, working);
     return () => setRunning(`mission:${mission.id}`, false);
-  }, [mission.id, status, activeAttempts, setRunning]);
+  }, [mission.id, working, setRunning]);
 
   const liveCost = (attemptId: string) => {
     let total: number | null = null;
@@ -185,48 +198,50 @@ export function MissionBoard({ initial, agents }: { initial: MissionDetail; agen
       if (e.attemptId === attemptId && e.type === "attempt.cost") total = e.payload.totalUsd as number;
     return total;
   };
+  const planning = tasks.filter((t) => t.planVersion === 0);
+  const work = tasks.filter((t) => t.planVersion > 0);
+  const openForUser = messages.filter((m) => m.to === "user" && m.status === "open");
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-8">
+    <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-8">
       <header className="flex flex-col gap-2">
         <p className="font-mono text-2xs uppercase tracking-[0.08em] text-fg-muted">
           mission · {mission.id.slice(0, 8)}
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-xl font-semibold tracking-tight">{mission.title}</h1>
-          <StatusChip status={status} />
+          <StatusChip status={mission.status} />
         </div>
         <p className="max-w-3xl text-fg-muted">{mission.goal}</p>
+        {mission.blockedReason && (
+          <p
+            className="rounded-md border border-line bg-surface px-3 py-2 font-mono text-xs text-warning"
+            data-testid="mission-blocked"
+          >
+            {mission.blockedReason}
+            {/no agents|connector/.test(mission.blockedReason) && (
+              <>
+                {" · "}
+                <Link href="/connectors" className="text-focus hover:underline">
+                  add a connector
+                </Link>
+              </>
+            )}
+          </p>
+        )}
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-        <section aria-labelledby="tasks-title" className="flex flex-col gap-3">
+      {plan && plan.status === "proposed" && mission.status === "awaiting_approval" && (
+        <PlanPanel missionId={mission.id} plan={plan} agents={agents} />
+      )}
+      {openForUser.length > 0 && <MessagesPanel messages={openForUser} />}
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+        <section aria-labelledby="tasks-title" className="flex min-w-0 flex-col gap-3">
           <h2 id="tasks-title" className="font-mono text-2xs uppercase tracking-[0.08em] text-fg-muted">
-            Tasks
+            {work.length ? `Tasks · plan v${work[0]?.planVersion}` : "Planning"}
           </h2>
-          {tasks.length === 0 ? (
-            <p className="text-fg-muted">No tasks yet.</p>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {tasks.map((t, i) => (
-                <li
-                  key={t.id}
-                  className="rounded-md border border-line bg-surface p-3"
-                  style={{ borderLeft: `2px solid ${agentColorVar(i)}` }}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="truncate font-mono text-xs text-fg-muted">{t.key}</span>
-                    <StatusChip status={t.status} />
-                  </div>
-                  <p className="mt-1.5">{t.title}</p>
-                  <p className="mt-1 font-mono text-2xs text-fg-subtle">
-                    {t.type} · {t.mode}
-                  </p>
-                  <TaskRunner task={t} agents={agents} liveCost={liveCost} />
-                </li>
-              ))}
-            </ul>
-          )}
+          <TaskList tasks={work.length ? work : planning} agents={agents} liveCost={liveCost} />
         </section>
 
         <section aria-labelledby="events-title" className="flex min-w-0 flex-col gap-3">
@@ -244,7 +259,7 @@ export function MissionBoard({ initial, agents }: { initial: MissionDetail; agen
             </span>
           </div>
           <ol
-            className="overflow-hidden rounded-md border border-line bg-surface font-mono text-xs tabular-nums"
+            className="max-h-[70vh] overflow-auto rounded-md border border-line bg-surface font-mono text-xs tabular-nums"
             aria-label="Event stream"
             data-testid="event-stream"
           >
@@ -259,7 +274,9 @@ export function MissionBoard({ initial, agents }: { initial: MissionDetail; agen
                 <span className="w-6 shrink-0 text-right text-fg-subtle">{e.seq}</span>
                 <span className="hidden shrink-0 text-fg-subtle sm:inline">{time(e.ts)}</span>
                 <span className="shrink-0 text-fg">{e.type}</span>
-                <span className="min-w-0 truncate text-fg-muted">{summarise(e)}</span>
+                <span className="min-w-0 truncate text-fg-muted" title={summarise(e)}>
+                  {summarise(e)}
+                </span>
               </li>
             ))}
           </ol>

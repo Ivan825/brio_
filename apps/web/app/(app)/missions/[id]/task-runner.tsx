@@ -10,7 +10,10 @@ import { usd } from "@/lib/format";
 import type { AgentSummary, AttemptSummary } from "@/lib/types";
 import type { MissionTask } from "./mission-board";
 
-const RUNNABLE = new Set(["pending", "ready", "failed", "verifying", "revise", "blocked"]);
+/** Manual runs are for tasks the scheduler is not handling right now: blocked or failed ones, and plan reviews. */
+
+/** The scheduler runs everything else; a person steps in for blocked and failed tasks. */
+const RUNNABLE = new Set(["failed", "blocked"]);
 
 function Diff({ attempt }: { attempt: AttemptSummary }) {
   const [text, setText] = useState<string | null>(null);
@@ -169,7 +172,7 @@ export function TaskRunner({
             </Button>
           ) : (
             <Button variant="primary" onClick={run} disabled={busy || !agentId || !RUNNABLE.has(task.status)}>
-              {busy ? "Starting…" : "Run task"}
+              {busy ? "Starting…" : "Run now"}
             </Button>
           )}
         </div>

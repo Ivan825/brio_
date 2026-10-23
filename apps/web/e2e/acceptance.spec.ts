@@ -70,9 +70,13 @@ test("a new mission's events stream live to the board and resume after a reconne
   await expect(page.getByTestId("connection")).toHaveAttribute("data-state", "live");
   await expect(stream.locator("li[data-seq]")).toHaveCount(2);
   await expect(stream.locator('li[data-seq="1"]')).toHaveAttribute("data-type", "mission.created");
-  await expect(stream.locator('li[data-seq="2"]')).toHaveAttribute("data-type", "plan.proposed");
-  await expect(page.getByText("demo.review-goal")).toBeVisible();
-  await expect(page.locator("[data-status]").first()).toHaveAttribute("data-status", "awaiting_approval");
+  // No agents yet: planning waits, and the board says what to do.
+  await expect(stream.locator('li[data-seq="2"]')).toHaveAttribute("data-type", "mission.blocked");
+  await expect(page.getByTestId("mission-blocked")).toContainText("no agents yet");
+  await expect(
+    page.getByTestId("mission-blocked").getByRole("link", { name: "add a connector" }),
+  ).toBeVisible();
+  await expect(page.getByText("brio.plan")).toBeVisible();
 
   // events written by the system after the page loaded arrive live
   const missionId = page.url().split("/").at(-1)!;
