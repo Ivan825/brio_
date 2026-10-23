@@ -16,6 +16,8 @@ Subscription-backed use (e.g. a user's Claude Max or ChatGPT Pro) is only possib
 - Anthropic: claude.ai login / subscription rate limits are not allowed for third-party agents; Agent SDK and `claude -p` subscription usage draws from a separate monthly Agent SDK credit. → Default to API keys; treat subscription mode as "user's own use only", off by default.
 - Google Antigravity: reusing CLI login tokens in other software is forbidden; launching the official `agy` binary headless is the allowed path. Antigravity SDK requires an API key or Vertex (billed).
 - OpenAI Codex: Codex Cloud requires a ChatGPT plan; API-key sessions run locally only.
+
+What Brio does with this (M8, D-87): the registry's `localLogin` field gates sign-in use per vendor — Antigravity `allowed` (the official `agy` binary, headless, under the person's own sign-in), Claude Code `own-use` (the person confirms it is for their own work when installing the connector), every other CLI absent until its terms are verified. A sign-in connector holds no key and can only back agents bound to its owner's local runner. The runner launches the official binary as documented, in a fresh worktree, without rewriting the CLI's settings, and never reads what the CLI stores (its tokens stay where the vendor put them).
 - Meta Model API: public preview, US developers only.
 
 ## 2. Secrets (BYOK vault)
@@ -37,6 +39,12 @@ Subscription-backed use (e.g. a user's Claude Max or ChatGPT Pro) is only possib
 - Claude Managed Agents is not ZDR/HIPAA eligible yet → excluded from `confidential` by default.
 - Router filters candidates by policy before scoring; violations are impossible, not merely warned.
 
+## 3a. Local runners (M8, D-86, D-87)
+- A person's machine connects out to Brio with a runner token (shown once, stored hashed, revocable by its owner or an admin); nothing connects in.
+- Docker mode keeps every rule of §3. Host mode runs agents as the person, without a container, only after they consent to its exact terms (recorded with the time): a fresh git worktree that is never their checkout, an environment cut to PATH, HOME and locale, process-group kill on cancel, the attempt's wall-clock limit — but no network allowlist and no CPU or memory cap.
+- Vault secrets never go to a local runner. Its agents are sign-in CLIs (§1); projects on it use the machine's own git access. Only a runner's owner can bind agents and projects to it.
+- What it sends back is recorded like the cloud runner's work: redacted, quarantined if it holds a secret, every event and spend on the record.
+
 ## 5. Budgets
 - Budget scopes: workspace (monthly), mission, task, agent.
 - Pre-dispatch: estimate must fit remaining budget at every scope, else task → `blocked` with `budget.stop`.
@@ -48,7 +56,7 @@ Default policy (editable):
 | Action | Default |
 |---|---|
 | Approve plan | required if est. cost > $5 or > 10 tasks |
-| Push branch / open PR | required |
+| Push branch / open PR | required (M8: the delivery waits in the inbox and on the board; a person decides, never an API token; D-81) |
 | Deploy, publish, send email/message, purchase | required, per action |
 | Browser agent visiting a new domain | required (OpenAI Agents API `requires_action` routes here) |
 | Delete files outside task footprint | always denied |

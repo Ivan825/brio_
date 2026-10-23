@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-24 — M8 Web app complete, CLI, local runner
+Pushed in small steps (CLAUDE.md rule 9, D-17).
+- **The pull request, approved (D-81):** a mission on a repository proposes its delivery when it ends — the integration branch pushed, a pull request on GitHub — and waits for a person in the inbox or on the board; approved, a runner pushes and opens the pull request as the project token's owner; denied or failed, ask again. Projects keep a git token in the vault for private repositories and pull requests (D-82); GitHub Enterprise via `BRIO_GITHUB_API_URL`.
+- **Approvals inbox:** plans to approve, results to review, agents' questions and actions that need a yes, across every mission.
+- **Mission composer (D-84, D-85):** project, priority, budget and time limit, routing (learned, static, a crew, one agent), planner, quick start, a template (adapted or as is), a GitHub issue link and attached files, which every agent gets.
+- **Plan editor:** list and graph views; reorder, split, merge, reassign, mode (best-of-N with its N), task budgets, approval gates, add and remove tasks and dependencies — each edit a new, linted version.
+- **Live board:** a task graph beside the list, a diff viewer file by file, cost by agent and task against the budget, leases held and released, the merged result with its checks and diff, the delivery card, the mission's inputs, and a link to the report page (what was done, by whom, checks, integration, what is still open; Markdown too).
+- **Projects, crews and templates** pages; **settings** gain local runners.
+- **CLI:** `brio login` (device flow: approve the code in the browser, D-83), `logout`, `whoami`, `workspace`, `missions`, `run` (with project, priority, budget, crew or agent, planner, template, issue, files, quick start, watch), `plan` (show and edit), `board` (live over SSE in the terminal), `approve` (plans and pull requests), `runner`.
+- **Local runner (D-86, D-87):** `brio runner register` (host mode asks for consent) and `brio runner start` make your machine a runner: one outbound WebSocket, Docker or host mode, coding CLIs under your own sign-in where the vendor allows it (Antigravity; Claude Code for your own work), on projects that live there — attempts, command checks, merges and branch deliveries all run on your machine and show on the web board. API keys never leave the vault.
+- **Fixes found on the way:** an agent edit reset untouched fields (zod defaults inside `partial()`); MCP delegate and the A2A server could report a quick-start mission as waiting for approval (D-88); a delivery's status and event are now one write; a failed fetch no longer wipes the runner's repository cache.
+- **Acceptance evidence:** in the browser — create a mission on a repository, edit its plan, approve it, watch its sandboxed task, check and merge live, approve the pull request (pushed, opened through the GitHub API), read the report; the CLI end to end against a real server (device login, run, plan edits, approve, board to the end, logout); a local runner in host mode runs a task with a locally signed-in CLI (a stand-in `agy`), checks it there, the board sees every event, and the approved branch lands in the person's repository; delivery, inputs, crews, templates and device-flow tests against Postgres.
+- **Not yet verified live:** a real signed-in `agy` or `claude` on a person's machine, and pull requests on github.com, need the owner's machine and repository.
+
 ## 2026-10-24 — M7 Protocol surfaces: MCP, A2A, ACP
 Pushed in small steps (CLAUDE.md rule 9, D-17). Protocol facts verified on 24 Oct 2026 in `docs/vendors/protocols.md`.
 - **Brio as an MCP server (D-75):** /mcp (streamable HTTP) with delegate, plan_mission, approve_plan, mission_status, report, ask_agent, answer, get_brief, get_contract, request_review and list_missions — any agent hands Brio a goal and gets the verified report back. `brio mcp` serves the same tools over stdio for local clients.

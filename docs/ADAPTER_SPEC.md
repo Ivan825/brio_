@@ -111,6 +111,8 @@ Every flag below was checked against the CLI's own `--help` inside the sandbox i
 
 Prompts longer than 100 KB go to the agent as `.brio/prompt.md` (one argv element is capped at 128 KiB). Keys reach the CLI only through a 0600 env file read by `docker exec`, never argv. Each CLI's vendor host is its only egress besides package registries and git (D-39).
 
+**Under the person's own sign-in (local runner, M8, D-87).** A connector installed with `localLogin` (only where the registry's `localLogin` says the vendor allows it) holds no key; its agents run on their owner's local runner with `options.localLogin = true`. The base then puts no key in the environment, uses the spec's `localArgv` when it has one (Antigravity: plain `agy -p …`, without the wrapper that writes key-mode settings into `$HOME`), and meters nothing (the vendor bills the person's plan; tokens are still reported). In host mode `/work` in argv and paths means the attempt's worktree.
+
 Lease enforcement for CLIs: generate the agent's own hook config (Claude Code `.claude/settings.json` PreToolUse, Cursor `.cursor/hooks.json`, Codex `.codex/hooks.json`, Antigravity `.agents/hooks.json`) that calls the local runner's lease endpoint before writes — the same mechanism Relay uses, but checking task leases and contracts.
 
 ### 2.4 Hosted agent APIs (route: hosted) — vendor runs the sandbox

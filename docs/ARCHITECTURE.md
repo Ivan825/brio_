@@ -64,7 +64,7 @@ Principle: **the brain decides, runners execute, governance can veto anything, e
 | `apps/web` | UI. Talks only to `apps/api` (REST + SSE). | Vercel |
 | `apps/api` | Auth, REST, SSE, MCP server, A2A server, orchestrator loop (planner/router/scheduler/verifier calls). Stateless besides DB. | Container (≥2 replicas) |
 | `apps/runner` | Pulls attempt jobs, prepares sandbox, invokes adapter, streams events, uploads artifacts. Horizontal scale. | Container host with Docker (or Firecracker later) |
-| `apps/cli` | User CLI + `brio runner` local daemon (connects outbound to API over WebSocket, executes jobs tagged `local`). | User machine |
+| `apps/cli` | User CLI (`brio login` by device flow, run, plan, board, approve) + `brio runner`, the local runner daemon from `apps/runner/src/local` (connects outbound to the API's runner hub over WebSocket and runs the work that is its own, §4.7). | User machine |
 | `apps/evals` | Runs golden missions against Brio and single-agent baselines; writes results. | CI / cron |
 
 ## 3. Data model (Drizzle, Postgres)
@@ -185,8 +185,13 @@ Persist every transition as an event and in `tasks.status`. The scheduler is ide
 ### 4.4 Merge
 Verified attempts' branches are merged in DAG order into `brio/<mission>/integration`. On conflict, Brio creates a `merge` task assigned to the best "merge" agent with both diffs, contracts and handoffs; result goes through verification. Final branch is offered to the user (never pushed automatically; a "push/PR" action requires approval and uses the user's Git credentials).
 
+**Delivery (M8, D-81, D-82).** When a mission on a repository ends with its work integrated, the transaction that ends it also creates an `approvals` row and a `deliveries` row (`brio/<title>-<id>`, kind `pull_request` on GitHub, else `branch`). A person decides it (`POST /v1/approvals/:id/decide`; API tokens cannot); approved, the delivery is queued for the runner holding the work (`brio-deliver` for the cloud runner, the hub for a local one), which pushes the integration commit to the repository URL with the project's token in the environment and opens the pull request through the GitHub REST API (`BRIO_GITHUB_API_URL`). Status and its `delivery.*` event are one write; both side effects are ledger entries.
+
 ### 4.5 Brio as MCP server (inbound)
 Tools exposed: `delegate(task, constraints)`, `plan_mission(goal)`, `ask_agent(task_key, question)`, `get_brief(paths|topic)`, `report(status, notes)`, `get_contract(name)`, `request_review(artifact)`. OAuth 2.1 for remote clients; local stdio for the local runner.
+
+### 4.7 Local runners (M8, D-86, D-87)
+`brio runner start` opens one WebSocket to `/v1/runners/connect` and says hello with its token (`brio_rnr_…`, sha256 stored) and what it found (CLIs, Docker). The API's `RunnerHub` hands it its own work, pulled from the database on connect, on `NOTIFY brio_runner_jobs` (whoever creates work pokes the runner) and every few seconds: queued attempts whose dispatch names it as `target`, their pending command checks, queued merge rounds and approved deliveries of projects whose `runnerId` is it. Claims are the same atomic updates the cloud runner uses; the hub heartbeats the runner's attempts and forwards cancels. The runner does the work with the cloud runner's own code (`runAttemptWork`, `mergeWork`, `runCommandCheck`) in Docker or, with consent, a host sandbox, and sends events and outcomes back; the hub records them with the same functions (`recordAttemptFinish`, `recordCheck`, `recordMerge`). The runner has no database credentials and never receives vault secrets: its agents are coding CLIs under the person's own sign-in. Placement: agents bound to a runner work only on its projects; file work on such a project goes only to its agents; planners and reviewers may stay in the cloud (the runner supplies the repository's file list).
 
 ### 4.6 A2A (both directions)
 - Outbound: an `a2a` adapter reads a remote Agent Card, maps its skills to task types, sends tasks, consumes streaming updates and artifacts.

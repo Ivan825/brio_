@@ -26,7 +26,7 @@ Give Brio one goal. It plans the work, hands each piece to the agent best at it,
 
 ---
 
-> **Pre-alpha, being built in the open.** M0 to M7 are done: connectors, sandboxed coding agents, missions that plan, run as a graph and coordinate, a router that learns who wins, a verifier, merge engine and eval harness that check the work, hosted, browser, media and research agents, and Brio as an MCP server and an A2A agent. The complete web app, CLI and local runner come next. This README describes
+> **Pre-alpha, being built in the open.** M0 to M8 are done: connectors, sandboxed coding agents, missions that plan, run as a graph and coordinate, a router that learns who wins, a verifier, merge engine and eval harness that check the work, hosted, browser, media and research agents, Brio as an MCP server and an A2A agent, and the complete web app, the `brio` CLI and the local runner. Governance, memory, notifications and organisations come next. This README describes
 > the product Brio is being built to be; the [roadmap](docs/BUILD_PLAN.md) shows what is done, and anything
 > not built yet is marked **planned** below.
 
@@ -72,7 +72,7 @@ done      PR ready · $1.12 · 6m40s_
 | **Protocols** | MCP (Brio is an MCP server *and* client), A2A, ACP |
 | **Browser, media, research** | Browser agents, image, video and audio models, research agents |
 
-**Your keys, official routes only.** Brio uses official APIs, CLIs and SDKs with your own keys. It never automates consumer chat apps and never reuses a CLI's stored login tokens.
+**Your keys, official routes only.** Brio uses official APIs, CLIs and SDKs with your own keys. It never automates consumer chat apps and never reuses a CLI's stored login tokens. On your own machine, a local runner can run a coding CLI under your own sign-in where the vendor's terms allow it (Antigravity; Claude Code for your own work), without Brio ever reading that sign-in.
 
 ## What you get
 
@@ -87,6 +87,20 @@ done      PR ready · $1.12 · 6m40s_
 **Governance built in.** Per-workspace, mission, task and agent budgets; approval policies; a BYOK vault with envelope encryption; a tamper-evident ledger. The schemas are compatible with [Mandate](https://github.com/Ivan825/Mandate), so spending authority can be delegated to it.
 
 **People.** Workspaces with owners and members, invitations, and sign-in with Google, email links or passkeys. Dark by default, with a light theme.
+
+**From goal to pull request.** Compose a mission from a goal, a GitHub issue, files and a project; edit the plan as a list or a graph; watch it run; approve the pull request in the inbox; read the report. *Built*, M8.
+
+## The CLI and your own machine
+
+```bash
+pnpm --filter @brio/cli exec brio login --url http://localhost:3000   # approve the code in the browser
+brio run "Add a health endpoint, with tests" --project site --watch
+brio plan <mission> --gate api.health          # edits make a new plan version
+brio approve                                   # what waits for you; brio approve <mission> to start it
+brio board <mission>                           # the live board in the terminal
+brio runner register --name laptop [--host]    # this machine as a runner (host mode asks for consent)
+brio runner start
+```
 
 ## Run it locally
 
@@ -137,7 +151,7 @@ Every vendor call goes through one `AgentAdapter` interface ([`docs/ADAPTER_SPEC
 
 ## Status
 
-Pre-alpha. Built milestone by milestone in dependency order, each production-grade with tests, types and migrations. **Done:** M0, the foundation (monorepo and CI, database, sign-in and workspaces, the vault and redactor, the event spine with live SSE, the hash-chained ledger, the branded web app), M1, connectors and model APIs (18 vendor presets behind one adapter interface, live model lists, metered cost per call, the connector catalogue and agent builder, and running a task with a chosen agent), and M2, the runner (one hardened Docker sandbox per attempt with an egress allowlist, a git worktree per attempt, diffs as artifacts, and Claude Code, Codex, Cursor, Antigravity, OpenCode, Aider and Goose driven headless). M3, missions (a planner with contract-first plans you edit and approve, a crash-proof scheduler running tasks in parallel under file leases, handoff packets, contracts, an agent mailbox, and a first verifier), and M4, the learned router (Thompson sampling over your own scoreboard, weighed by cost and speed, with a rationale for every pick) and execution modes (best-of-n, ensemble, maker–checker, debate, cascade, pipeline), and M5, verification (every check kind, reviewers from another vendor, revise → reroute → revised plan), the merge engine, mission reports, and the eval harness with 30 golden missions, and M6, hosted agents (Claude Managed Agents, OpenAI Agents, Gemini, Jules, Devin, Manus, AgentCore, Foundry), browser agents (Claude computer use in a locked-down browser, Nova Act, Browser Use, cloud browsers), media (images, video, voice from nine vendors) and research (cited research agents; search and page tools for every agent). and M7, protocols (Brio as an MCP server for Claude Code, Cursor and Codex, with OAuth sign-in and a stdio `brio mcp`; Brio as an A2A agent; any A2A agent as a worker and any MCP server as a tool; ACP for coding CLIs). Next is **M8**: the complete web app, the CLI and the local runner. See the [roadmap](docs/BUILD_PLAN.md) and [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
+Pre-alpha. Built milestone by milestone in dependency order, each production-grade with tests, types and migrations. **Done:** M0, the foundation (monorepo and CI, database, sign-in and workspaces, the vault and redactor, the event spine with live SSE, the hash-chained ledger, the branded web app), M1, connectors and model APIs (18 vendor presets behind one adapter interface, live model lists, metered cost per call, the connector catalogue and agent builder, and running a task with a chosen agent), and M2, the runner (one hardened Docker sandbox per attempt with an egress allowlist, a git worktree per attempt, diffs as artifacts, and Claude Code, Codex, Cursor, Antigravity, OpenCode, Aider and Goose driven headless). M3, missions (a planner with contract-first plans you edit and approve, a crash-proof scheduler running tasks in parallel under file leases, handoff packets, contracts, an agent mailbox, and a first verifier), and M4, the learned router (Thompson sampling over your own scoreboard, weighed by cost and speed, with a rationale for every pick) and execution modes (best-of-n, ensemble, maker–checker, debate, cascade, pipeline), and M5, verification (every check kind, reviewers from another vendor, revise → reroute → revised plan), the merge engine, mission reports, and the eval harness with 30 golden missions, and M6, hosted agents (Claude Managed Agents, OpenAI Agents, Gemini, Jules, Devin, Manus, AgentCore, Foundry), browser agents (Claude computer use in a locked-down browser, Nova Act, Browser Use, cloud browsers), media (images, video, voice from nine vendors) and research (cited research agents; search and page tools for every agent). and M7, protocols (Brio as an MCP server for Claude Code, Cursor and Codex, with OAuth sign-in and a stdio `brio mcp`; Brio as an A2A agent; any A2A agent as a worker and any MCP server as a tool; ACP for coding CLIs), and M8, the complete web app (approvals inbox, projects, the full composer, plan editor with a graph view, the live board with diffs, costs and leases, crews, templates, the report page, pull requests approved before they are opened), the `brio` CLI (device-flow login, run, plan, board, approve) and the local runner (your machine, connected out over a WebSocket, Docker or host mode, CLIs under your own sign-in). Next is **M9**: governance, memory, notifications and organisations. See the [roadmap](docs/BUILD_PLAN.md) and [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
 
 ## Licence
 
