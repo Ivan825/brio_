@@ -2,9 +2,12 @@
 
 import { agentColorVar } from "@brio/brand";
 import { EVENT_TYPES } from "@brio/schema";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRunning } from "@/components/running";
 import { RUNNING_STATUSES, StatusChip } from "@/components/status-chip";
+import { usd } from "@/lib/format";
+import type { AgentSummary, AttemptSummary } from "@/lib/types";
+import { TaskRunner } from "./task-runner";
 
 export interface MissionDetail {
   mission: {
@@ -16,11 +19,25 @@ export interface MissionDetail {
     createdAt: string;
   };
   plan: { version: number; status: string } | null;
-  tasks: { id: string; key: string; type: string; title: string; status: string; mode: string }[];
+  tasks: MissionTask[];
 }
 
-interface BoardEvent {
+export interface MissionTask {
+  id: string;
+  key: string;
+  type: string;
+  title: string;
+  status: string;
+  mode: string;
+  pinnedAgentId: string | null;
+  sensitivity: string;
+  attempts: AttemptSummary[];
+}
+
+export interface BoardEvent {
   seq: number;
+  taskId: string | null;
+  attemptId: string | null;
   type: string;
   actor: string;
   ts: string;
@@ -44,6 +61,20 @@ function summarise(e: BoardEvent): string {
       return `v${p.version} · ${(p.tasks as unknown[] | undefined)?.length ?? 0} task(s) · ${p.planner ?? ""}`;
     case "mission.failed":
       return String(p.reason ?? "");
+    case "attempt.started": {
+      const agent = p.agent as { name?: string; model?: string } | undefined;
+      return `${agent?.name ?? "agent"} → ${p.taskKey ?? "task"} · ${agent?.model ?? ""}`;
+    }
+    case "attempt.message":
+      return `${p.role}: ${String(p.text ?? "").replace(/\s+/g, " ")}`;
+    case "attempt.tool_call":
+      return `${p.name}(${JSON.stringify(p.args ?? {})})`;
+    case "attempt.cost":
+      return `${usd(p.usd as number)} · ${p.tokensIn} in · ${p.tokensOut} out · total ${usd(p.totalUsd as number)}`;
+    case "attempt.finished": {
+      const u = p.usage as { usd?: number; seconds?: number } | undefined;
+      return `${p.status} · ${usd(u?.usd)} · ${u?.seconds ?? 0}s${p.status === "succeeded" ? "" : ` · ${p.exitReason ?? ""}`}`;
+    }
     default:
       return Object.keys(p).length ? JSON.stringify(p) : "";
   }
@@ -58,14 +89,57 @@ const time = (ts: string) =>
   });
 
 /** The live board for one mission: tasks plus the event stream over SSE, resuming by Last-Event-ID. */
-export function MissionBoard({ initial }: { initial: MissionDetail }) {
-  const { mission, tasks } = initial;
+export function MissionBoard({ initial, agents }: { initial: MissionDetail; agents: AgentSummary[] }) {
+  const { mission } = initial;
+  const [tasks, setTasks] = useState(initial.tasks);
   const [events, setEvents] = useState<BoardEvent[]>([]);
+  const [activeAttempts, setActiveAttempts] = useState<Set<string>>(
+    () =>
+      new Set(
+        initial.tasks.flatMap((t) => t.attempts.filter((a) => a.status === "running").map((a) => a.id)),
+      ),
+  );
   const [status, setStatus] = useState(mission.status);
   const [connection, setConnection] = useState<Connection>("connecting");
   const [opens, setOpens] = useState(0);
   const lastSeq = useRef(0);
   const { setRunning } = useRunning();
+
+  const applyAttemptEvent = useCallback((e: BoardEvent) => {
+    const attemptId = e.attemptId;
+    if (!attemptId || !e.taskId) return;
+    const started = e.type === "attempt.started";
+    setActiveAttempts((prev) => {
+      const next = new Set(prev);
+      if (started) next.add(attemptId);
+      else next.delete(attemptId);
+      return next;
+    });
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.id !== e.taskId) return t;
+        const p = e.payload;
+        const usage = p.usage as { usd?: number; tokensIn?: number; tokensOut?: number } | undefined;
+        const others = t.attempts.filter((a) => a.id !== attemptId);
+        const existing = t.attempts.find((a) => a.id === attemptId);
+        const attempt: AttemptSummary = {
+          id: attemptId,
+          taskId: t.id,
+          agentId: (p.agent as { id?: string } | undefined)?.id ?? existing?.agentId ?? "",
+          role: "maker",
+          status: started ? "running" : String(p.status),
+          startedAt: existing?.startedAt ?? e.ts,
+          endedAt: started ? null : e.ts,
+          costUsd: usage?.usd ?? existing?.costUsd ?? 0,
+          tokensIn: usage?.tokensIn ?? existing?.tokensIn ?? 0,
+          tokensOut: usage?.tokensOut ?? existing?.tokensOut ?? 0,
+          exitReason: started ? null : String(p.exitReason ?? ""),
+        };
+        const status = started ? "running" : p.status === "succeeded" ? "verifying" : "failed";
+        return { ...t, status, attempts: [attempt, ...others] };
+      }),
+    );
+  }, []);
 
   useEffect(() => {
     // EventSource reconnects by itself and sends Last-Event-ID; the API resumes from there with no gaps.
@@ -77,6 +151,7 @@ export function MissionBoard({ initial }: { initial: MissionDetail }) {
       setEvents((prev) => [...prev, e]);
       const next = STATUS_FROM_EVENT[e.type];
       if (next) setStatus(next);
+      if (e.type === "attempt.started" || e.type === "attempt.finished") applyAttemptEvent(e);
     };
     source.onopen = () => {
       setConnection("live");
@@ -86,12 +161,19 @@ export function MissionBoard({ initial }: { initial: MissionDetail }) {
     source.onmessage = onEvent;
     for (const t of EVENT_TYPES) source.addEventListener(t, onEvent as EventListener);
     return () => source.close();
-  }, [mission.id]);
+  }, [mission.id, applyAttemptEvent]);
 
   useEffect(() => {
-    setRunning(`mission:${mission.id}`, RUNNING_STATUSES.has(status));
+    setRunning(`mission:${mission.id}`, RUNNING_STATUSES.has(status) || activeAttempts.size > 0);
     return () => setRunning(`mission:${mission.id}`, false);
-  }, [mission.id, status, setRunning]);
+  }, [mission.id, status, activeAttempts, setRunning]);
+
+  const liveCost = (attemptId: string) => {
+    let total: number | null = null;
+    for (const e of events)
+      if (e.attemptId === attemptId && e.type === "attempt.cost") total = e.payload.totalUsd as number;
+    return total;
+  };
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-8">
@@ -129,6 +211,7 @@ export function MissionBoard({ initial }: { initial: MissionDetail }) {
                   <p className="mt-1 font-mono text-2xs text-fg-subtle">
                     {t.type} · {t.mode}
                   </p>
+                  <TaskRunner task={t} agents={agents} liveCost={liveCost} />
                 </li>
               ))}
             </ul>

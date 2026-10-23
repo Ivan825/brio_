@@ -11,6 +11,9 @@ const TONE: Record<string, string> = {
   cancelled: "text-fg-subtle",
   pending: "text-fg-muted",
   ready: "text-info",
+  succeeded: "text-success",
+  timed_out: "text-danger",
+  queued: "text-fg-muted",
 };
 
 export const RUNNING_STATUSES = new Set(["planning", "running", "verifying"]);
