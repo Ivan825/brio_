@@ -74,6 +74,7 @@ All tables have `id` (uuid v7), `workspace_id`, `created_at`, `updated_at` unles
 **Tenancy & identity**
 - `workspaces` (name, plan, settings jsonb)
 - `members` (user_id, workspace_id, role)
+- `api_tokens` (workspace_id, user_id, name, prefix, token_hash, last_used_at, expires_at, revoked_at): workspace-bound tokens for the CLI, the stdio MCP server and A2A clients; only the sha256 is stored (M7)
 - `users`, `sessions`, `accounts` (Better Auth tables)
 
 **Connectors & agents**

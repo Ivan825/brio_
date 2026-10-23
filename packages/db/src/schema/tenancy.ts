@@ -52,3 +52,30 @@ export const invitations = pgTable(
   },
   (t) => [index().on(t.workspaceId), index().on(t.email)],
 );
+
+/**
+ * API tokens (M7): how the brio CLI, its stdio MCP server and A2A clients act for a person in one workspace. Only the
+ * token's sha256 is kept; the token is shown once. A token never reaches another workspace, and dies with the
+ * person's membership.
+ */
+export const apiTokens = pgTable(
+  "api_tokens",
+  {
+    id: id(),
+    workspaceId: uuid()
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    /** The token's first characters, so a person can tell tokens apart; never enough to use. */
+    prefix: text().notNull(),
+    tokenHash: text().notNull().unique(),
+    lastUsedAt: timestamp({ withTimezone: true }),
+    expiresAt: timestamp({ withTimezone: true }),
+    revokedAt: timestamp({ withTimezone: true }),
+    ...timestamps(),
+  },
+  (t) => [index().on(t.workspaceId), index().on(t.userId)],
+);

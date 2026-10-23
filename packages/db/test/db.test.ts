@@ -10,6 +10,7 @@ if (!hasTestDatabase) console.warn("TEST_DATABASE_URL not set: skipping @brio/db
 const EXPECTED_TABLES = [
   "accounts",
   "agents",
+  "api_tokens",
   "approvals",
   "artifacts",
   "attempts",
