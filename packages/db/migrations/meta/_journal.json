@@ -134,6 +134,13 @@
       "when": 1792794468455,
       "tag": "0018_integration_commands",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792797442417,
+      "tag": "0019_budget_live",
+      "breakpoints": true
     }
   ]
 }

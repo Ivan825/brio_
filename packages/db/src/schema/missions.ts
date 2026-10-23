@@ -166,6 +166,8 @@ export const attempts = pgTable(
     runnerId: text(),
     heartbeatAt: timestamp({ withTimezone: true }),
     cancelRequestedAt: timestamp({ withTimezone: true }),
+    /** Why it was stopped: a person, or a budget reached (then it ends as limit_exceeded). */
+    cancelReason: text(),
     /** The acceptance checks run on this attempt's result and their outcomes (the verifier's working state). */
     checks: jsonb().$type<Record<string, unknown>>(),
     /** The outcome this attempt contributed to the scoreboard (pass, revise, fail), so it is counted once. */

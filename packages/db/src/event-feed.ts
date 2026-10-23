@@ -5,6 +5,12 @@ import { EVENTS_CHANNEL, readEventsSince } from "./events";
 
 type Listener = (seq: number) => void;
 
+/** What a notification says about its event, so a listener can skip the ones it does not care about. */
+export interface EventHint {
+  type: string | null;
+  attemptId: string | null;
+}
+
 /**
  * Fans Postgres NOTIFYs on `brio_events` out to in-process subscribers, one dedicated connection per process.
  * Notifications are only wake-ups; streams always read events from the table, which is the source of truth.
@@ -12,7 +18,7 @@ type Listener = (seq: number) => void;
 export class EventFeed {
   private client: pg.PoolClient | null = null;
   private readonly listeners = new Map<string, Set<Listener>>();
-  private readonly everything = new Set<(missionId: string, seq: number) => void>();
+  private readonly everything = new Set<(missionId: string, seq: number, hint: EventHint) => void>();
   private stopped = false;
 
   constructor(private readonly pool: pg.Pool) {}
@@ -23,9 +29,15 @@ export class EventFeed {
     client.on("notification", (msg) => {
       if (msg.channel !== EVENTS_CHANNEL || !msg.payload) return;
       try {
-        const { missionId, seq } = JSON.parse(msg.payload) as { missionId: string; seq: number };
+        const { missionId, seq, type, attemptId } = JSON.parse(msg.payload) as {
+          missionId: string;
+          seq: number;
+          type?: string;
+          attemptId?: string | null;
+        };
         for (const l of this.listeners.get(missionId) ?? []) l(seq);
-        for (const l of this.everything) l(missionId, seq);
+        for (const l of this.everything)
+          l(missionId, seq, { type: type ?? null, attemptId: attemptId ?? null });
       } catch {
         // ignore malformed payloads
       }
@@ -47,7 +59,7 @@ export class EventFeed {
   }
 
   /** Every mission's new events (the orchestrator reacts to them). Returns the unsubscribe function. */
-  subscribeAll(listener: (missionId: string, seq: number) => void): () => void {
+  subscribeAll(listener: (missionId: string, seq: number, hint: EventHint) => void): () => void {
     this.everything.add(listener);
     return () => this.everything.delete(listener);
   }

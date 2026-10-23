@@ -48,7 +48,7 @@ export class EventWriter {
         })
         .returning();
       await tx.execute(
-        sql`select pg_notify(${EVENTS_CHANNEL}, ${JSON.stringify({ missionId: e.missionId, seq: m.seq })})`,
+        sql`select pg_notify(${EVENTS_CHANNEL}, ${JSON.stringify({ missionId: e.missionId, seq: m.seq, type: e.type, attemptId: e.attemptId ?? null })})`,
       );
       return row as Event;
     });

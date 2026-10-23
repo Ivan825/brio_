@@ -33,6 +33,9 @@ export const budgets = pgTable(
     limitMinutes: integer(),
     spentUsd: usd().notNull().default(0),
     softPct: integer().notNull().default(80),
+    /** Workspace and agent budgets reset each calendar month (UTC); the period a warning or stop was for. */
+    warnedPeriod: text(),
+    stoppedPeriod: text(),
     ...timestamps(),
   },
   (t) => [unique().on(t.scopeKind, t.scopeId)],
