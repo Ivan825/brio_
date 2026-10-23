@@ -10,4 +10,5 @@ export * from "./mailbox-mcp";
 export * from "./queue";
 export * from "./runner";
 export * from "./sandbox/docker-sandbox";
+export * from "./sandbox/host-sandbox";
 export * from "./worktree";
