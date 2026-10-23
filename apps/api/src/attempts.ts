@@ -190,7 +190,8 @@ export class AttemptRunner {
       writesFiles:
         !input.sandboxTaskType &&
         (Boolean(contract.expectedFootprint?.paths.length) ||
-          contract.outputs.some((o) => o.kind === "diff" || o.kind === "file")),
+          // Generated media with a place in the repository (an output path) is part of the change too.
+          contract.outputs.some((o) => o.kind === "diff" || o.kind === "file" || Boolean(o.path))),
     });
     const tools = await toolsFor(ctx, input.workspaceId, contract.sensitivity);
     let repo: Dispatch["repo"] = null;

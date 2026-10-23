@@ -757,7 +757,15 @@ export class Orchestrator {
       (h) => h.packet,
     );
     const contractFiles = await this.contractFiles(m, contract);
-    const bases = isCodeTask(t) || t.type.startsWith("design.") ? await this.upstreamBranches(t) : [];
+    // Any task that works on the repository's files starts from its upstream tasks' work: code and design, and also a
+    // voiceover reading the script a writer produced, or an image placed next to the page that uses it.
+    const worksOnFiles =
+      isCodeTask(t) ||
+      t.type.startsWith("design.") ||
+      Boolean(contract.expectedFootprint?.paths.length) ||
+      contract.outputs.some((o) => o.kind === "diff" || o.kind === "file" || Boolean(o.path)) ||
+      contract.inputs.some((i) => i.kind === "file");
+    const bases = worksOnFiles ? await this.upstreamBranches(t) : [];
     return {
       packets,
       bases,
@@ -1687,8 +1695,8 @@ export class Orchestrator {
     rows: Task[],
   ): Promise<Array<{ taskId: string; taskKey: string; ref: string }>> {
     const withDiff: Task[] = [];
-    for (const t of rows)
-      if (t.status === "done" && isCodeTask(t) && (await this.hasDiff(t))) withDiff.push(t);
+    // Every finished task that changed files: code, and also docs, copy and generated media (D-68).
+    for (const t of rows) if (t.status === "done" && (await this.hasDiff(t))) withDiff.push(t);
     const covered = new Set(withDiff.flatMap((t) => paramsOf(t).covers ?? []));
     const out: Array<{ taskId: string; taskKey: string; ref: string }> = [];
     for (const t of topoOrder(withDiff)) {
@@ -1700,8 +1708,8 @@ export class Orchestrator {
   }
 
   /**
-   * Every task is done: merge the code branches onto an integration branch and run every hard command check on the
-   * result. A conflict becomes a merge.integrate task, a failing check a fix task; the mission is done once a round
+   * Every task is done: merge the branches of every task that changed files onto an integration branch and run every
+   * hard command check on the result. A conflict becomes a merge.integrate task, a failing check a fix task; the mission is done once a round
    * passes (or there is no code to integrate).
    */
   private async integrateOrFinish(m: Mission, rows: Task[]): Promise<void> {
