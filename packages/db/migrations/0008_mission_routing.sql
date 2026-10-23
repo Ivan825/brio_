@@ -1,0 +1,1 @@
+ALTER TABLE "missions" ADD COLUMN "routing" jsonb DEFAULT '{"strategy":"learned"}'::jsonb NOT NULL;

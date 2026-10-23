@@ -58,6 +58,11 @@ export const missions = pgTable(
     plannerAgentId: uuid(),
     /** Start as soon as a plan passes lint, without waiting for approval (policy permitting). */
     autoApprove: boolean().notNull().default(false),
+    /** learned (default), static, or single with an agentId (schema MissionRouting). */
+    routing: jsonb()
+      .$type<{ strategy: "learned" } | { strategy: "static" } | { strategy: "single"; agentId: string }>()
+      .notNull()
+      .default(sql`'{"strategy":"learned"}'::jsonb`),
     /** Why the mission cannot move (no agents, open questions...); null when it can. */
     blockedReason: text(),
     /** Last assigned event seq; incremented under a row lock by the events writer, so seq is gapless. */

@@ -89,7 +89,7 @@ All tables have `id` (uuid v7), `workspace_id`, `created_at`, `updated_at` unles
 - `memory_edges` — `from_id`, `to_id`, `kind` (decided_in|implements|touches|prompted_by|supersedes|depends_on).
 
 **Missions**
-- `missions` — `project_id`, `title`, `goal`, `status` (draft|planning|awaiting_approval|running|verifying|done|failed|cancelled), `budget` jsonb, `assumptions` jsonb, `report` jsonb.
+- `missions` — `project_id`, `title`, `goal`, `status` (draft|planning|awaiting_approval|running|verifying|done|failed|cancelled), `budget` jsonb, `routing` jsonb (learned | static | single with an agent: how tasks are routed), `assumptions` jsonb, `report` jsonb (planner notes, replans, the final mission report).
 - `plans` — `mission_id`, `version`, `graph` jsonb (denormalised snapshot), `status`, `approved_by`.
 - `plans` — mission plan versions: `version`, `graph` (PlanGraph), `status` (proposed|approved|rejected|superseded), `origin` (planner|user), `lint` jsonb (errors, warnings, automatic fixes, estimate).
 - `tasks` — `mission_id`, `plan_version` (0 for the mission's planning task), `key` (stable slug), `type` (taxonomy), `title`, `contract` jsonb (schema `TaskContract`), `depends_on` uuid[], `mode` (single|best_of_n|ensemble|maker_checker|debate|cascade|pipeline), `mode_params` jsonb (the plan's n and pipeline steps; the router's `route` with mode, roles and rationale; the `result` a multi-agent mode chose; once-only `marks`), `pinned_agent_id`, `status` (pending|ready|leased|running|verifying|revise|done|failed|blocked|cancelled), `budget` jsonb, `result_artifact_id`, `revisions` (revise loops used), `blocked_reason`.

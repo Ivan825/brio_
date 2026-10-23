@@ -19,6 +19,18 @@ export const MissionBudget = z.object({ usd: Usd.optional(), minutes: z.number()
 
 export const MissionPriority = z.enum(["quality", "balanced", "cheap", "fast"]);
 
+/**
+ * How a mission's tasks are routed. learned: the scoreboard router with multi-agent modes (the default). static: the
+ * capability router without learning or modes. single: one agent does all the work in one shot (no revisions, no
+ * other agents) — the "agent alone" baseline the eval harness compares Brio against.
+ */
+export const MissionRouting = z.discriminatedUnion("strategy", [
+  z.object({ strategy: z.literal("learned") }),
+  z.object({ strategy: z.literal("static") }),
+  z.object({ strategy: z.literal("single"), agentId: Id }),
+]);
+export type MissionRouting = z.infer<typeof MissionRouting>;
+
 export const Mission = WorkspaceScoped.extend({
   projectId: Id.nullable(),
   title: z.string().trim().min(1).max(200),
@@ -26,6 +38,7 @@ export const Mission = WorkspaceScoped.extend({
   status: MissionStatus,
   priority: MissionPriority,
   budget: MissionBudget,
+  routing: MissionRouting,
   assumptions: z.array(z.string()),
   report: Json.nullable(),
   createdBy: Id.nullable(),
