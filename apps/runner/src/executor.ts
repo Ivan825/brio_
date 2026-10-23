@@ -8,6 +8,7 @@ import {
   type AdapterEvent,
   type AgentAdapter,
   adapterFor,
+  cloudBrowserProvider,
   type Dispatch,
   type FetchLike,
   fetchProvider,
@@ -156,7 +157,7 @@ export class AttemptExecutor {
         ? deps.mailboxServer
         : null;
     // The workspace's search and fetch tools, filled in once the run can meter them; CLIs see them over MCP too.
-    const research: Pick<ToolProviders, "search" | "fetch"> = {};
+    const research: Pick<ToolProviders, "search" | "fetch" | "browser"> = {};
     const mailboxToken = cliMailbox?.register(mailbox, research) ?? null;
     if (mailboxToken) deps.redactor.register(mailboxToken);
     let worktree: PreparedWorktree | null = null;
@@ -257,7 +258,7 @@ export class AttemptExecutor {
             return append("message.sent", { kind: "question", to: "user", body: e.question });
         }
       };
-      for (const kind of ["search", "fetch"] as const) {
+      for (const kind of ["search", "fetch", "browser"] as const) {
         const ref = dispatch.tools?.[kind];
         if (!ref) continue;
         const toolCredential = ref.credentialRef
@@ -279,7 +280,8 @@ export class AttemptExecutor {
           },
         };
         if (kind === "search") research.search = searchProvider(binding, toolCtx);
-        else research.fetch = fetchProvider(binding, toolCtx);
+        else if (kind === "fetch") research.fetch = fetchProvider(binding, toolCtx);
+        else research.browser = cloudBrowserProvider(binding, toolCtx);
       }
       if (mailboxToken)
         input.mcpServers = [

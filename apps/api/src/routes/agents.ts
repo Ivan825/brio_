@@ -110,10 +110,10 @@ export async function agentRoutes(app: FastifyInstance, ctx: AppContext) {
     const body = AgentBody.parse(req.body);
     const connector = await connectorFor(workspaceId, body.connectorId);
     const kind = connectorConfig(connector).service?.kind;
-    if (kind === "search" || kind === "fetch")
+    if (kind === "search" || kind === "fetch" || kind === "cloud-browser")
       throw new HttpError(
         422,
-        `${connector.displayName} is a ${kind} tool every agent uses, not an agent`,
+        `${connector.displayName} is a ${kind === "cloud-browser" ? "cloud browser" : kind} tool agents use, not an agent`,
         "tool_connector",
       );
     const row = one(

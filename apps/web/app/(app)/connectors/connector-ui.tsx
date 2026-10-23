@@ -157,6 +157,12 @@ function InstalledCard({ c }: { c: InstalledConnector }) {
           on confidential tasks).
         </p>
       )}
+      {c.serviceKind === "cloud-browser" && (
+        <p className="text-xs text-fg-muted">
+          Infrastructure, not an agent: computer-use agents with the option{" "}
+          <span className="font-mono">browser: cloud</span> run on it, held to each task&apos;s sites.
+        </p>
+      )}
       {c.health.ok === false && c.health.error && (
         <p className="font-mono text-xs text-danger">{c.health.error}</p>
       )}
@@ -358,6 +364,7 @@ const SERVICE_KIND: Record<ServiceSummary["kind"], string> = {
   search: "web search for every agent",
   fetch: "page reader for every agent",
   browser: "browser agent",
+  "cloud-browser": "cloud browser for computer use",
 };
 
 /** What a run costs, in the service's own unit, as the install form says it. */

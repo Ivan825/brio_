@@ -89,6 +89,7 @@ const SERVICE_ESTIMATE_USD: Record<string, number> = {
   hosted: 1,
   media: 0.2,
   research: 0.3,
+  "cloud-browser": 0,
   search: 0.02,
   fetch: 0.01,
   browser: 0.5,
@@ -214,14 +215,14 @@ export function installablePresets(
 }
 
 /**
- * The workspace's search and fetch tools for an attempt (ADAPTER_SPEC §2.9): the oldest active, healthy connector of
- * each kind. A confidential task gets none, so nothing of it goes to a third-party search engine.
+ * The workspace's tools for an attempt: search and fetch (ADAPTER_SPEC §2.9) and a cloud browser for computer use — the
+ * oldest active, healthy connector of each kind. A confidential task gets none, so nothing of it leaves for a third party.
  */
 export async function toolsFor(
   ctx: AppContext,
   workspaceId: string,
   sensitivity: string,
-): Promise<{ search?: ToolRef; fetch?: ToolRef } | undefined> {
+): Promise<{ search?: ToolRef; fetch?: ToolRef; browser?: ToolRef } | undefined> {
   if (sensitivity === "confidential") return undefined;
   const rows = await ctx.db
     .select()
@@ -234,14 +235,16 @@ export async function toolsFor(
       ),
     )
     .orderBy(asc(schema.connectors.createdAt));
-  const out: { search?: ToolRef; fetch?: ToolRef } = {};
+  const out: { search?: ToolRef; fetch?: ToolRef; browser?: ToolRef } = {};
+  const slot = { search: "search", fetch: "fetch", "cloud-browser": "browser" } as const;
   for (const row of rows) {
     const stored = row.config as unknown as StoredConnectorConfig;
     if (!stored.service) continue;
     const sv = registry().service(stored.service);
-    if (!sv || (sv.kind !== "search" && sv.kind !== "fetch") || out[sv.kind]) continue;
+    const kind = sv ? slot[sv.kind as keyof typeof slot] : undefined;
+    if (!sv || !kind || out[kind]) continue;
     if ((row.health as { ok?: boolean }).ok === false) continue;
-    out[sv.kind] = {
+    out[kind] = {
       connectorId: row.id,
       credentialRef: row.credentialRef,
       connector: connectorConfig(row),
@@ -249,5 +252,5 @@ export async function toolsFor(
         sv.pricing.unit === "usd" || sv.pricing.unit === "unmetered" ? null : (sv.pricing.usdPerUnit ?? null),
     };
   }
-  return out.search || out.fetch ? out : undefined;
+  return out.search || out.fetch || out.browser ? out : undefined;
 }

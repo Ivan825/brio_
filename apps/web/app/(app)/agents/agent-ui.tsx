@@ -79,8 +79,10 @@ export function AgentList({ agents }: { agents: AgentSummary[] }) {
 const num = (v: string) => (v.trim() === "" ? undefined : Number(v));
 
 export function AgentBuilder({ connectors: all }: { connectors: InstalledConnector[] }) {
-  // Search and page-fetch connectors are tools every agent uses, never agents themselves.
-  const connectors = all.filter((c) => c.serviceKind !== "search" && c.serviceKind !== "fetch");
+  // Search, page-fetch and cloud-browser connectors are tools agents use, never agents themselves.
+  const connectors = all.filter(
+    (c) => c.serviceKind !== "search" && c.serviceKind !== "fetch" && c.serviceKind !== "cloud-browser",
+  );
   const router = useRouter();
   const ids = useId();
   const [connectorId, setConnectorId] = useState(connectors[0]?.id ?? "");

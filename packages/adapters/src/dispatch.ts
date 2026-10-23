@@ -38,8 +38,10 @@ export interface Dispatch {
   bases?: string[];
   /** Files written into the worktree's .brio/ before the run (handoff packets, the contract), never part of the diff. */
   files?: Array<{ path: string; content: string }>;
-  /** The workspace's web search and page fetch tools; absent when it has none, or for confidential tasks. */
-  tools?: { search?: ToolRef; fetch?: ToolRef };
+  /**
+   * The workspace's web search, page fetch and cloud browser; absent when it has none, or for confidential tasks.
+   */
+  tools?: { search?: ToolRef; fetch?: ToolRef; browser?: ToolRef };
   /** Attach the repository's file list (the planner's repo map). */
   repoMap?: boolean;
   /**

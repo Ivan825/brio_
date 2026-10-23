@@ -20,7 +20,7 @@ export interface PresetSummary {
 export interface ServiceSummary {
   key: string;
   name: string;
-  kind: "hosted" | "media" | "research" | "search" | "fetch" | "browser";
+  kind: "hosted" | "media" | "research" | "search" | "fetch" | "browser" | "cloud-browser";
   credential: { kind: "key" | "json"; hint: string };
   settings: Array<{
     key: string;

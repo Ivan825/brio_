@@ -179,21 +179,31 @@ export class AttemptRunner {
       limits,
       mcpServers: [],
     };
-    const sandbox = chooseSandbox({
-      route: adapter.route,
-      taskType: input.sandboxTaskType ?? taskType,
-      agentSetting: agent.sandboxProfile as AgentSandboxSetting,
-      vendorHosts: cli?.egressHosts ?? [],
-      ...(adapter.route === "browser" ? { browseHosts: browseHostsOf(contract) } : {}),
-      maxMinutes: limits.maxMinutes,
-      // Reviewers and judges only read; makers of a contract that changes files get a worktree.
-      writesFiles:
-        !input.sandboxTaskType &&
-        (Boolean(contract.expectedFootprint?.paths.length) ||
-          // Generated media with a place in the repository (an output path) is part of the change too.
-          contract.outputs.some((o) => o.kind === "diff" || o.kind === "file" || Boolean(o.path))),
-    });
+    // A computer-use agent on a cloud browser needs no local one (the cloud session holds the site allowlist itself).
+    const cloudBrowser = adapter.route === "browser" && agent.options?.browser === "cloud";
+    const sandbox = cloudBrowser
+      ? null
+      : chooseSandbox({
+          route: adapter.route,
+          taskType: input.sandboxTaskType ?? taskType,
+          agentSetting: agent.sandboxProfile as AgentSandboxSetting,
+          vendorHosts: cli?.egressHosts ?? [],
+          ...(adapter.route === "browser" ? { browseHosts: browseHostsOf(contract) } : {}),
+          maxMinutes: limits.maxMinutes,
+          // Reviewers and judges only read; makers of a contract that changes files get a worktree.
+          writesFiles:
+            !input.sandboxTaskType &&
+            (Boolean(contract.expectedFootprint?.paths.length) ||
+              // Generated media with a place in the repository (an output path) is part of the change too.
+              contract.outputs.some((o) => o.kind === "diff" || o.kind === "file" || Boolean(o.path))),
+        });
     const tools = await toolsFor(ctx, input.workspaceId, contract.sensitivity);
+    if (cloudBrowser && !tools?.browser)
+      throw new HttpError(
+        422,
+        `${agent.name} uses a cloud browser (options.browser = cloud), and the workspace has no healthy Browserbase or Steel connector`,
+        "no_cloud_browser",
+      );
     let repo: Dispatch["repo"] = null;
     if (mission.projectId) {
       const [project] = await ctx.db.select().from(projects).where(eq(projects.id, mission.projectId));

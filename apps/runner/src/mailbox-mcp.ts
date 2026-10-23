@@ -16,7 +16,7 @@ export const SANDBOX_MAILBOX_URL = "http://brio-mailbox:8080/mcp";
 type Text = { content: Array<{ type: "text"; text: string }> };
 const text = (t: string): Text => ({ content: [{ type: "text", text: t }] });
 
-type Research = Pick<ToolProviders, "search" | "fetch">;
+type Research = Pick<ToolProviders, "search" | "fetch" | "browser">;
 
 const clip = (t: string, max = 20_000) => (t.length <= max ? t : `${t.slice(0, max)}\n…[truncated]`);
 
