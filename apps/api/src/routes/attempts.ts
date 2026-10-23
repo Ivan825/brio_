@@ -23,6 +23,10 @@ export function presentAttempt(a: typeof attempts.$inferSelect) {
     tokensIn: a.tokensIn,
     tokensOut: a.tokensOut,
     exitReason: a.exitReason,
+    /** In a multi-agent mode: make, revise, review, judge or merge. */
+    purpose: (a.dispatch as { mode?: { purpose: string } } | null)?.mode?.purpose ?? null,
+    /** What this attempt counted for on the scoreboard (pass, revise, fail), once its task finished. */
+    scored: a.scored,
   };
 }
 

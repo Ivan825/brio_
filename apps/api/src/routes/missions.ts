@@ -142,6 +142,7 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
         blockedReason: t.blockedReason,
         revisions: t.revisions,
         sensitivity: t.contract.sensitivity,
+        ...routeView(t.modeParams),
         attempts: attemptRows.filter((a) => a.taskId === t.id).map(presentAttempt),
       })),
     };
@@ -217,5 +218,29 @@ function present(m: typeof missions.$inferSelect) {
     autoApprove: m.autoApprove,
     budget: m.budget,
     createdAt: m.createdAt,
+  };
+}
+
+/** How the router staffed a task and why, and the result a multi-agent mode settled on (for the board). */
+function routeView(params: Record<string, unknown>) {
+  const p = params as {
+    route?: {
+      mode: string;
+      agents: { agentId: string; role: string }[];
+      rationale: string;
+      degraded?: string;
+    };
+    result?: { attemptId: string; note: string };
+  };
+  return {
+    route: p.route
+      ? {
+          mode: p.route.mode,
+          agents: p.route.agents,
+          rationale: p.route.rationale,
+          degraded: p.route.degraded ?? null,
+        }
+      : null,
+    result: p.result ?? null,
   };
 }
