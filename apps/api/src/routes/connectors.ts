@@ -1,5 +1,6 @@
 import {
   adapterFor,
+  fetchAgentCard,
   IMPLEMENTED_FAMILIES,
   type ModelInfo,
   pinoSink,
@@ -7,10 +8,11 @@ import {
   registerManusWebhook,
   ServiceClient,
   serviceBase,
+  taskTypesFromSkills,
 } from "@brio/adapters";
 import { schema } from "@brio/db";
 import { ApiStyle, type ConnectorEntry, registry } from "@brio/registry";
-import { ConnectorRoute } from "@brio/schema";
+import { ConnectorRoute, TaskType } from "@brio/schema";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
@@ -41,11 +43,14 @@ const CreateConnector = z.object({
   baseUrl: z.url().optional(),
   region: z.string().min(1).optional(),
   apiStyle: ApiStyle.optional(),
+  /** The task types its agents take (A2A agents: defaults to what its skills suggest). */
+  taskTypes: z.array(TaskType).min(1).max(TaskType.options.length).optional(),
 });
 const UpdateConnector = z.object({
   displayName: z.string().trim().min(1).max(80).optional(),
   apiKey: ApiKey.optional(),
   status: z.enum(["active", "disabled"]).optional(),
+  taskTypes: z.array(TaskType).min(1).max(TaskType.options.length).optional(),
 });
 const Params = z.object({ id: z.uuid() });
 
@@ -68,6 +73,8 @@ function present(row: ConnectorRow) {
     serviceKind: service?.kind ?? null,
     settings: cfg.settings ?? {},
     adapter: cfg.adapter ?? service?.adapter ?? preset?.family ?? null,
+    taskTypes: cfg.taskTypes ?? null,
+    agentCard: cfg.agentCard ?? null,
     baseUrl: cfg.baseUrl,
     region: cfg.region ?? null,
     apiStyle: cfg.apiStyle ?? preset?.apiStyles[0] ?? null,
@@ -223,7 +230,8 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
           "bad_setting",
         );
     }
-    if (!body.apiKey) throw new HttpError(422, `${sv.name} needs an API key`, "api_key_required");
+    if (!body.apiKey && sv.auth.scheme !== "optional-bearer")
+      throw new HttpError(422, `${sv.name} needs an API key`, "api_key_required");
     let baseUrl: string;
     try {
       baseUrl = serviceBase({
@@ -313,6 +321,44 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
       );
     });
     let checked = await check(row);
+    // An A2A agent: read its card for what it says it does; its skills suggest the task types it takes.
+    if ((config as StoredConnectorConfig).service === "a2a") {
+      const card = await fetchAgentCard(
+        new ServiceClient(connectorConfig(checked), {
+          credential: await credentialOf(ctx, checked),
+          fetch: ctx.fetch,
+        }),
+      ).catch(() => null);
+      const skills = (card?.skills ?? []).map((k) => ({
+        id: k.id,
+        name: k.name,
+        description: k.description.slice(0, 500),
+        tags: k.tags,
+      }));
+      checked = one(
+        await ctx.db
+          .update(connectors)
+          .set({
+            ...(card ? { displayName: body.displayName ?? card.name.slice(0, 80) } : {}),
+            config: {
+              ...(checked.config as Record<string, unknown>),
+              taskTypes: body.taskTypes ?? (card ? taskTypesFromSkills(skills) : ["write.summary"]),
+              ...(card
+                ? {
+                    agentCard: {
+                      name: card.name,
+                      description: card.description.slice(0, 1000),
+                      skills: skills.map(({ tags: _t, ...k }) => k),
+                    },
+                  }
+                : {}),
+            },
+          })
+          .where(eq(connectors.id, checked.id))
+          .returning(),
+        "connector",
+      );
+    }
     // Manus reports stopped tasks by webhook when Brio has a public address to send them to (the board learns at
     // once; runs still poll). Registration failing leaves polling alone, and says why.
     if ((config as StoredConnectorConfig).service === "manus" && ctx.config.APP_URL.startsWith("https://")) {
@@ -369,6 +415,9 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
             credentialRef,
             ...(body.displayName ? { displayName: body.displayName } : {}),
             ...(body.status ? { status: body.status } : {}),
+            ...(body.taskTypes
+              ? { config: { ...(row.config as Record<string, unknown>), taskTypes: body.taskTypes } }
+              : {}),
           })
           .where(eq(connectors.id, row.id))
           .returning(),

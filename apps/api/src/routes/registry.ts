@@ -6,8 +6,13 @@ import type { AppContext } from "../context";
 import { requireSession } from "../http";
 
 /** What a service's credential is, for the install form. */
-const CREDENTIAL: Record<string, { kind: "key" | "json"; hint: string }> = {
+const CREDENTIAL: Record<string, { kind: "key" | "json"; hint: string; optional?: boolean }> = {
   bearer: { kind: "key", hint: "API key" },
+  "optional-bearer": {
+    kind: "key",
+    hint: "Bearer token (leave empty if the agent needs none)",
+    optional: true,
+  },
   header: { kind: "key", hint: "API key" },
   "aws-sigv4": {
     kind: "json",

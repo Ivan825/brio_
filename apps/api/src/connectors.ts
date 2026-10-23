@@ -33,6 +33,14 @@ export interface StoredConnectorConfig {
   /** Service connectors (hosted agents, media, search, browsers): the registry service and its install settings. */
   service?: string;
   settings?: Record<string, string>;
+  /** The task types this connector's agents take, when the person or its Agent Card says (A2A agents). */
+  taskTypes?: string[];
+  /** An A2A agent's card as read at install: its name, what it says it does, its skills. */
+  agentCard?: {
+    name: string;
+    description: string;
+    skills: Array<{ id: string; name: string; description: string }>;
+  };
   /** A vendor webhook registered for this connector (Manus): where it points, and its id or why it failed. */
   webhook?: { url: string; id?: string | null; error?: string };
   baseUrl: string;
@@ -84,7 +92,17 @@ export function adapterOf(row: ConnectorRow): AgentAdapter {
 }
 
 /** Who is behind a connector: the preset's vendor, or the service's (the vocabulary reviewers are diversified by). */
-export const vendorOf = (cc: ConnectorConfig): string => cc.service?.vendor ?? cc.presetKey ?? cc.registryKey;
+export const vendorOf = (cc: ConnectorConfig): string => {
+  // Each A2A agent is its own vendor (by host), so one can review another's work.
+  if (cc.service?.adapter === "a2a") {
+    try {
+      return `a2a:${new URL(cc.baseUrl).host}`;
+    } catch {
+      return "a2a";
+    }
+  }
+  return cc.service?.vendor ?? cc.presetKey ?? cc.registryKey;
+};
 
 /** Typical cost of one run of a service agent before the scoreboard knows better (for budget fit and routing). */
 const SERVICE_ESTIMATE_USD: Record<string, number> = {

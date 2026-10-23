@@ -58,9 +58,11 @@ export async function routeAgents(ctx: AppContext, workspaceId: string): Promise
       model: agent.model,
       route: adapter.route,
       vendor: vendorOf(cc),
-      taskTypes: registry()
-        .taskTypesOf(connector.registryKey)
-        .filter((t) => !cc.service?.taskTypes || cc.service.taskTypes.includes(t)),
+      taskTypes:
+        (connector.config as { taskTypes?: string[] }).taskTypes ??
+        registry()
+          .taskTypesOf(connector.registryKey)
+          .filter((t) => !cc.service?.taskTypes || cc.service.taskTypes.includes(t)),
       local: cc.preset?.local ?? false,
       runnable: metering.runnable && connector.status !== "disabled",
     });
