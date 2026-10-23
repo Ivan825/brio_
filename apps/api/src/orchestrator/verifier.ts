@@ -27,7 +27,7 @@ import { type Actor, type EventType, TaskContract } from "@brio/schema";
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { AppContext } from "../context";
 import { HttpError } from "../http";
-import { routeAgents } from "./agents";
+import { missionAgents } from "./agents";
 import type { Scoreboard } from "./scoreboard";
 
 const { artifacts, attempts, blobs, contracts, missions, tasks } = schema;
@@ -439,7 +439,7 @@ export class Verifier {
 
   /** Reviewers for this result, best first, never from the maker's vendor (pickReviewer). */
   private async reviewerPicker(m: Mission, t: Task, a: Attempt) {
-    const agents = await routeAgents(this.ctx, m.workspaceId);
+    const agents = await missionAgents(this.ctx, m);
     const maker = agents.find((x) => x.id === a.agentId);
     const makerVendor =
       maker?.vendor ??

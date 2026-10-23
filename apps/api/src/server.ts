@@ -28,6 +28,7 @@ import { approvalRoutes } from "./routes/approvals";
 import { attemptRoutes } from "./routes/attempts";
 import { authRoutes } from "./routes/auth";
 import { connectorRoutes } from "./routes/connectors";
+import { crewRoutes } from "./routes/crews";
 import { devRoutes } from "./routes/dev";
 import { evalRoutes } from "./routes/evals";
 import { healthRoutes } from "./routes/health";
@@ -180,6 +181,7 @@ export async function buildServer({
   await a2aRoutes(app, ctx);
   await inboxRoutes(app, ctx);
   await approvalRoutes(app, ctx);
+  await crewRoutes(app, ctx);
   if (config.BRIO_DEV_OUTBOX && config.NODE_ENV !== "production") await devRoutes(app, ctx);
   ctx.orchestrator.start();
 

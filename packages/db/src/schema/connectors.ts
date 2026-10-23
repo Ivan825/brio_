@@ -107,7 +107,8 @@ export const crews = pgTable(
     workspaceId: ws(),
     name: text().notNull(),
     agentIds: uuid().array().notNull().default(sql`'{}'::uuid[]`),
-    routingPrefs: jsonb().$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+    /** pins: the crew's agent for a task type, used unless the plan pins another. */
+    routingPrefs: jsonb().$type<{ pins?: Record<string, string> }>().notNull().default(sql`'{}'::jsonb`),
     ...timestamps(),
     deletedAt: deletedAt(),
   },

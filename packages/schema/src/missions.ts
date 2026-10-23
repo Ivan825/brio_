@@ -28,6 +28,8 @@ export const MissionRouting = z.discriminatedUnion("strategy", [
   z.object({ strategy: z.literal("learned") }),
   z.object({ strategy: z.literal("static") }),
   z.object({ strategy: z.literal("single"), agentId: Id }),
+  /** Only a crew's agents, with its preferred agent per task type (PRD glossary: Crew). */
+  z.object({ strategy: z.literal("crew"), crewId: Id }),
 ]);
 export type MissionRouting = z.infer<typeof MissionRouting>;
 

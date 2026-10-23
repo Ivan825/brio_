@@ -67,7 +67,12 @@ export const missions = pgTable(
     autoApprove: boolean().notNull().default(false),
     /** learned (default), static, or single with an agentId (schema MissionRouting). */
     routing: jsonb()
-      .$type<{ strategy: "learned" } | { strategy: "static" } | { strategy: "single"; agentId: string }>()
+      .$type<
+        | { strategy: "learned" }
+        | { strategy: "static" }
+        | { strategy: "single"; agentId: string }
+        | { strategy: "crew"; crewId: string }
+      >()
       .notNull()
       .default(sql`'{"strategy":"learned"}'::jsonb`),
     /** Why the mission cannot move (no agents, open questions...); null when it can. */

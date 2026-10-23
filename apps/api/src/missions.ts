@@ -1,7 +1,7 @@
 // Starting a mission: the one way in, for the web app, the REST API, Brio's MCP server and its A2A server alike.
 import { schema } from "@brio/db";
 import { type Actor, MissionPriority, MissionRouting, PlanGraph } from "@brio/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import type { AppContext } from "./context";
 import { HttpError, one, requireMember, type SessionInfo } from "./http";
@@ -61,6 +61,19 @@ export async function createMission(
       .from(schema.agents)
       .where(and(eq(schema.agents.id, body.routing.agentId), eq(schema.agents.workspaceId, workspaceId)));
     if (!agent) throw new HttpError(422, "the single agent is not in this workspace", "unknown_agent");
+  }
+  if (body.routing.strategy === "crew") {
+    const [crew] = await ctx.db
+      .select({ id: schema.crews.id })
+      .from(schema.crews)
+      .where(
+        and(
+          eq(schema.crews.id, body.routing.crewId),
+          eq(schema.crews.workspaceId, workspaceId),
+          isNull(schema.crews.deletedAt),
+        ),
+      );
+    if (!crew) throw new HttpError(422, "the crew is not in this workspace", "unknown_crew");
   }
   const issue = body.issueUrl ? await readIssue(ctx, workspaceId, body.issueUrl, body.projectId) : undefined;
   const mission = await ctx.db.transaction(async (tx) => {

@@ -41,7 +41,7 @@ import { RUNNABLE_TASK, renderInstructions } from "../attempts";
 import type { AppContext } from "../context";
 import { proposeDelivery } from "../deliveries";
 import { HttpError } from "../http";
-import { routeAgents, type WorkspaceAgent } from "./agents";
+import { crewPin, missionAgents, type WorkspaceAgent } from "./agents";
 import { approvePlan, latestPlan, storePlan } from "./plans";
 import { saveMissionReport } from "./report";
 import { attemptAgentKey, Scoreboard } from "./scoreboard";
@@ -365,7 +365,7 @@ export class Orchestrator {
   }
 
   private async dispatchPlanner(m: Mission, task: Task): Promise<void> {
-    const agents = await routeAgents(this.ctx, m.workspaceId);
+    const agents = await missionAgents(this.ctx, m);
     const route = choosePlanner(agents, m.plannerAgentId);
     if (!route.ok) return this.block(m, `planning: ${route.reason}`);
     let repo = false;
@@ -570,14 +570,16 @@ export class Orchestrator {
     // mode's pick, or the last attempt) and builds on it.
     const rerouting = revising ? paramsOf(fresh).reroute : undefined;
     const previous = revising && !rerouting ? await this.resultAttempt(fresh, false) : undefined;
-    const agents = await routeAgents(this.ctx, m.workspaceId);
+    const agents = await missionAgents(this.ctx, m);
     const contract = TaskContract.parse(fresh.contract);
     const decision = await this.route(
       m,
       fresh,
       contract,
       rerouting ? agents.filter((a) => !rerouting.exclude.includes(a.id)) : agents,
-      rerouting ? null : (previous?.agentId ?? fresh.pinnedAgentId),
+      rerouting
+        ? null
+        : (previous?.agentId ?? fresh.pinnedAgentId ?? (await crewPin(this.ctx, m, fresh.type))),
       Boolean(rerouting),
     );
     if (!decision.ok) {
@@ -874,7 +876,7 @@ export class Orchestrator {
 
   /** Each agent's pass rate on the task's type (the scoreboard, decayed): what a tie between passing results goes by. */
   private async priorsOf(m: Mission, t: Task, agentIds: string[]): Promise<Record<string, number>> {
-    const agents = (await routeAgents(this.ctx, m.workspaceId)).filter((a) => agentIds.includes(a.id));
+    const agents = (await missionAgents(this.ctx, m)).filter((a) => agentIds.includes(a.id));
     const scores = await this.scores.get(m.workspaceId, [...new Set(agents.map((a) => a.scoreKey))], t.type);
     return Object.fromEntries(
       agents.map((a) => {
@@ -1486,7 +1488,7 @@ export class Orchestrator {
     if (!failed) return false;
     // Let the rest of the plan settle first: its results are worth keeping.
     if (rows.some((t) => ["leased", "running", "verifying", "revise"].includes(t.status))) return true;
-    if (!choosePlanner(await routeAgents(this.ctx, m.workspaceId), m.plannerAgentId).ok) return false;
+    if (!choosePlanner(await missionAgents(this.ctx, m), m.plannerAgentId).ok) return false;
     const plan = await latestApproved(this.ctx.db, m.id);
     if (!plan) return false;
     const doneKeys = new Set(rows.filter((t) => t.status === "done").map((t) => t.key));

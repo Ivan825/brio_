@@ -69,3 +69,38 @@ export async function routeAgents(ctx: AppContext, workspaceId: string): Promise
   }
   return out;
 }
+
+/**
+ * The agents a mission may use: the workspace's, or only its crew's (a deleted crew leaves none, so the mission says it
+ * is blocked rather than quietly using everyone).
+ */
+export async function missionAgents(
+  ctx: AppContext,
+  m: Pick<typeof schema.missions.$inferSelect, "workspaceId" | "routing">,
+): Promise<WorkspaceAgent[]> {
+  const all = await routeAgents(ctx, m.workspaceId);
+  if (m.routing.strategy !== "crew") return all;
+  const crew = await crewOf(ctx, m.workspaceId, m.routing.crewId);
+  return crew ? all.filter((a) => crew.agentIds.includes(a.id)) : [];
+}
+
+/** The crew's preferred agent for a task type, if it has one. */
+export async function crewPin(
+  ctx: AppContext,
+  m: Pick<typeof schema.missions.$inferSelect, "workspaceId" | "routing">,
+  taskType: string,
+): Promise<string | null> {
+  if (m.routing.strategy !== "crew") return null;
+  const crew = await crewOf(ctx, m.workspaceId, m.routing.crewId);
+  return crew?.routingPrefs.pins?.[taskType] ?? null;
+}
+
+async function crewOf(ctx: AppContext, workspaceId: string, id: string) {
+  const [crew] = await ctx.db
+    .select()
+    .from(schema.crews)
+    .where(
+      and(eq(schema.crews.id, id), eq(schema.crews.workspaceId, workspaceId), isNull(schema.crews.deletedAt)),
+    );
+  return crew ?? null;
+}
