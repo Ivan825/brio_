@@ -78,7 +78,9 @@ export function AgentList({ agents }: { agents: AgentSummary[] }) {
 
 const num = (v: string) => (v.trim() === "" ? undefined : Number(v));
 
-export function AgentBuilder({ connectors }: { connectors: InstalledConnector[] }) {
+export function AgentBuilder({ connectors: all }: { connectors: InstalledConnector[] }) {
+  // Search and page-fetch connectors are tools every agent uses, never agents themselves.
+  const connectors = all.filter((c) => c.serviceKind !== "search" && c.serviceKind !== "fetch");
   const router = useRouter();
   const ids = useId();
   const [connectorId, setConnectorId] = useState(connectors[0]?.id ?? "");
@@ -188,7 +190,7 @@ export function AgentBuilder({ connectors }: { connectors: InstalledConnector[] 
           >
             {connectors.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.displayName} · {c.preset}
+                {c.displayName} · {c.presetName ?? c.preset ?? c.service}
               </option>
             ))}
           </Select>

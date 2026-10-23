@@ -21,6 +21,32 @@ test("the catalogue groups all 98 connectors and marks Meta region-limited", asy
   await expect(page.getByTestId("catalogue-openai-api")).toBeVisible();
 });
 
+test("unsupported entries point to legitimate alternatives; a service installs with its own form", async ({
+  page,
+}) => {
+  await signIn(page, uniqueEmail("services"));
+  await createWorkspace(page, "Services");
+  await page.goto("/connectors");
+  const mj = page.getByTestId("alternatives-midjourney");
+  await expect(mj).toContainText("Black Forest Labs Flux");
+  await mj.getByRole("link", { name: "Black Forest Labs Flux" }).click();
+  await expect(page).toHaveURL(/#connector-black-forest-labs-flux$/);
+
+  // Exa has no free key check, so adding it calls nobody; it is a tool every agent uses, not an agent.
+  const row = page.getByTestId("catalogue-exa-tavily-parallel");
+  await row.getByRole("button", { name: "Add key" }).click();
+  await expect(row.getByLabel("Service")).toHaveValue("exa");
+  await expect(row.getByText("web search for every agent")).toBeVisible();
+  await row.getByLabel("API key").fill("e2e-exa-key-0123456789");
+  await row.getByRole("button", { name: "Add Exa search" }).click();
+  const installed = page.getByTestId("installed-connector");
+  await expect(installed).toHaveCount(1);
+  await expect(installed).toContainText("Exa search");
+  await expect(installed).toContainText("web_search");
+  await page.goto("/agents");
+  await expect(page.getByLabel(/^Connector/).locator("option")).toHaveCount(0);
+});
+
 test("add a key, list models live, build an agent and run a task with metered cost", async ({ page }) => {
   await signIn(page, uniqueEmail("operator"));
   await createWorkspace(page, "Metered");

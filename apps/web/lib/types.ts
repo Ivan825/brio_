@@ -16,6 +16,27 @@ export interface PresetSummary {
   notes: string | null;
 }
 
+/** A service connector's install facts (registry `services`, D-62): hosted agents, media, research, search, browsers. */
+export interface ServiceSummary {
+  key: string;
+  name: string;
+  kind: "hosted" | "media" | "research" | "search" | "fetch" | "browser";
+  credential: { kind: "key" | "json"; hint: string };
+  settings: Array<{
+    key: string;
+    label: string;
+    required: boolean;
+    pattern?: string;
+    placeholder?: string;
+    help?: string;
+  }>;
+  pricing: { unit: string; usdPerUnit?: number; perCallUsd?: number; pricePreset?: string; note: string };
+  keyCheck: boolean;
+  docsUrl: string;
+  verifiedOn: string;
+  notes: string | null;
+}
+
 export interface CatalogueConnector {
   id: string;
   name: string;
@@ -35,6 +56,9 @@ export interface CatalogueConnector {
   /** Set for coding CLIs: they run in a sandbox with the key of their vendor's preset. */
   cli: string | null;
   presets: PresetSummary[];
+  services: ServiceSummary[];
+  /** For unsupported entries: the supported connectors that do the same job legitimately. */
+  alternatives: Array<{ id: string; name: string }>;
 }
 
 export interface Catalogue {
@@ -57,8 +81,12 @@ export interface InstalledConnector {
   name: string;
   displayName: string;
   route: string;
-  preset: string;
-  presetName: string;
+  /** The model-API preset; null for service connectors. */
+  preset: string | null;
+  presetName: string | null;
+  service: string | null;
+  serviceKind: ServiceSummary["kind"] | null;
+  settings: Record<string, string>;
   baseUrl: string;
   region: string | null;
   apiStyle: string | null;

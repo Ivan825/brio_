@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useId, useMemo, useState } from "react";
 import { Button } from "@/components/button";
 import { Chip } from "@/components/chip";
-import { FormError, Input, Label, Select } from "@/components/field";
+import { FormError, Input, Label, Select, Textarea } from "@/components/field";
 import { api } from "@/lib/api";
 import { perM, tokens } from "@/lib/format";
 import type {
@@ -13,6 +13,7 @@ import type {
   ConnectorModel,
   InstalledConnector,
   PresetSummary,
+  ServiceSummary,
 } from "@/lib/types";
 
 const STATUS_TONE = { v: "success", e: "muted", p: "warning", d: "warning", x: "danger" } as const;
@@ -145,9 +146,17 @@ function InstalledCard({ c }: { c: InstalledConnector }) {
         {!c.hasKey && <Chip>no key</Chip>}
       </div>
       <p className="truncate font-mono text-xs text-fg-muted">
-        {c.preset} · {c.baseUrl}
+        {c.presetName ?? c.preset ?? c.service} · {c.baseUrl}
         {c.apiStyle ? ` · ${c.apiStyle}` : ""}
+        {Object.entries(c.settings ?? {}).map(([k, v]) => ` · ${k} ${v}`)}
       </p>
+      {c.serviceKind && (c.serviceKind === "search" || c.serviceKind === "fetch") && (
+        <p className="text-xs text-fg-muted">
+          A tool, not an agent: every agent of this workspace gets it as{" "}
+          <span className="font-mono">{c.serviceKind === "search" ? "web_search" : "fetch_url"}</span> (except
+          on confidential tasks).
+        </p>
+      )}
       {c.health.ok === false && c.health.error && (
         <p className="font-mono text-xs text-danger">{c.health.error}</p>
       )}
@@ -342,11 +351,168 @@ function AddConnector({ connector, onDone }: { connector: CatalogueConnector; on
   );
 }
 
+const SERVICE_KIND: Record<ServiceSummary["kind"], string> = {
+  hosted: "hosted agent",
+  media: "media model",
+  research: "research agent",
+  search: "web search for every agent",
+  fetch: "page reader for every agent",
+  browser: "browser agent",
+};
+
+/** What a run costs, in the service's own unit, as the install form says it. */
+function pricingLine(p: ServiceSummary["pricing"]): string {
+  if (p.unit === "token")
+    return `tokens at the model's price${p.perCallUsd ? ` + $${p.perCallUsd} a search call` : ""}`;
+  if (p.unit === "usd") return "the vendor reports each run's cost";
+  if (p.unit === "unmetered") return "not metered in dollars: bounded by time";
+  return p.usdPerUnit !== undefined
+    ? `$${p.usdPerUnit} per ${p.unit}`
+    : `set a price per ${p.unit} on the agent`;
+}
+
+/** Installing a service connector (D-62): which service, its settings, and the credential its auth scheme takes. */
+function AddService({ connector, onDone }: { connector: CatalogueConnector; onDone: () => void }) {
+  const router = useRouter();
+  const ids = useId();
+  const [serviceKey, setServiceKey] = useState(connector.services[0]?.key ?? "");
+  const service = connector.services.find((x) => x.key === serviceKey);
+  const [settings, setSettings] = useState<Record<string, string>>({});
+  const [secret, setSecret] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!service) return null;
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const filled = Object.fromEntries(Object.entries(settings).filter(([, v]) => v.trim()));
+      await api("/v1/connectors", {
+        method: "POST",
+        body: {
+          registryKey: connector.id,
+          service: serviceKey,
+          apiKey: secret.trim(),
+          ...(Object.keys(filled).length ? { settings: filled } : {}),
+        },
+      });
+      setSecret("");
+      onDone();
+      router.refresh();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      className="flex flex-col gap-3 border-t border-line pt-3"
+      aria-label={`Add ${connector.name}`}
+    >
+      {connector.services.length > 1 && (
+        <div className="flex flex-col gap-1">
+          <Label htmlFor={`${ids}-service`}>Service</Label>
+          <Select
+            id={`${ids}-service`}
+            value={serviceKey}
+            onChange={(e) => {
+              setServiceKey(e.target.value);
+              setSettings({});
+            }}
+          >
+            {connector.services.map((x) => (
+              <option key={x.key} value={x.key}>
+                {x.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
+      <div className="flex flex-wrap gap-1">
+        <Chip tone="info">{SERVICE_KIND[service.kind]}</Chip>
+        <Chip title={service.pricing.note}>{pricingLine(service.pricing)}</Chip>
+      </div>
+      {service.notes && <p className="text-xs text-fg-muted">{service.notes}</p>}
+      {service.settings.map((st) => (
+        <div key={st.key} className="flex flex-col gap-1">
+          <Label htmlFor={`${ids}-${st.key}`}>
+            {st.label}
+            {st.required ? "" : " (optional)"}
+          </Label>
+          <Input
+            id={`${ids}-${st.key}`}
+            required={st.required}
+            pattern={st.pattern}
+            placeholder={st.placeholder}
+            value={settings[st.key] ?? ""}
+            onChange={(e) => setSettings((v) => ({ ...v, [st.key]: e.target.value }))}
+            className="font-mono"
+          />
+          {st.help && <p className="text-2xs text-fg-subtle">{st.help}</p>}
+        </div>
+      ))}
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={`${ids}-secret`}>
+          {service.credential.kind === "json" ? "Credentials (JSON)" : "API key"}
+        </Label>
+        {service.credential.kind === "json" ? (
+          <Textarea
+            id={`${ids}-secret`}
+            required
+            rows={3}
+            spellCheck={false}
+            autoComplete="off"
+            placeholder={service.credential.hint}
+            value={secret}
+            onChange={(e) => setSecret(e.target.value)}
+            className="font-mono"
+          />
+        ) : (
+          <Input
+            id={`${ids}-secret`}
+            type="password"
+            required
+            autoComplete="off"
+            spellCheck={false}
+            value={secret}
+            onChange={(e) => setSecret(e.target.value)}
+            className="font-mono"
+          />
+        )}
+      </div>
+      <p className="font-mono text-2xs text-fg-subtle">
+        {service.keyCheck
+          ? "the key is checked when you add it"
+          : "no free key check: the first run checks the key"}{" "}
+        · verified {service.verifiedOn} ·{" "}
+        <a className="text-focus hover:underline" href={service.docsUrl} target="_blank" rel="noreferrer">
+          vendor docs
+        </a>
+      </p>
+      <FormError>{error}</FormError>
+      <div className="flex gap-2">
+        <Button type="submit" variant="primary" disabled={busy}>
+          {busy ? "Adding…" : `Add ${service.name}`}
+        </Button>
+        <Button variant="ghost" onClick={onDone}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 function CatalogueRow({ c }: { c: CatalogueConnector }) {
   const [adding, setAdding] = useState(false);
   return (
     <li
-      className="flex flex-col gap-2 rounded-md border border-line bg-surface p-3"
+      id={`connector-${c.id}`}
+      className="flex scroll-mt-4 flex-col gap-2 rounded-md border border-line bg-surface p-3"
       data-testid={`catalogue-${c.id}`}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -371,12 +537,31 @@ function CatalogueRow({ c }: { c: CatalogueConnector }) {
       </div>
       <p className="text-xs text-fg-muted">{c.notes}</p>
       {!c.supported ? (
-        <p className="font-mono text-2xs text-danger">
-          not supported: no official API. See the notes for the legitimate route.
-        </p>
+        <div className="flex flex-col gap-1">
+          <p className="font-mono text-2xs text-danger">
+            not supported: no official API, and Brio never drives consumer apps or reuses their sign-ins.
+          </p>
+          {c.alternatives.length > 0 && (
+            <p className="text-xs text-fg-muted" data-testid={`alternatives-${c.id}`}>
+              Use instead:{" "}
+              {c.alternatives.map((a, i) => (
+                <span key={a.id}>
+                  {i > 0 && ", "}
+                  <a className="text-focus hover:underline" href={`#connector-${a.id}`}>
+                    {a.name}
+                  </a>
+                </span>
+              ))}
+            </p>
+          )}
+        </div>
       ) : c.implemented ? (
         adding ? (
-          <AddConnector connector={c} onDone={() => setAdding(false)} />
+          c.presets.length === 0 && c.services.length > 0 ? (
+            <AddService connector={c} onDone={() => setAdding(false)} />
+          ) : (
+            <AddConnector connector={c} onDone={() => setAdding(false)} />
+          )
         ) : (
           <div>
             <Button size="sm" onClick={() => setAdding(true)}>
