@@ -5,6 +5,7 @@ export * from "./leases/index";
 export * from "./modes/index";
 export * from "./plan/index";
 export * from "./pricing/index";
+export * from "./report/index";
 export * from "./router/index";
 export * from "./sandbox/index";
 export * from "./scheduler/index";

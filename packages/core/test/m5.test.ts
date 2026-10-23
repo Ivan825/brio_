@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildMissionReport,
   citationsPresent,
   citedSources,
   extractLinks,
@@ -9,9 +10,11 @@ import {
   parseRubric,
   pickReviewer,
   probeMedia,
+  type ReportTask,
   type ReviewerCandidate,
   readAxe,
   readLighthouse,
+  renderMissionReport,
   seeded,
   validateAgainstSchema,
   verdict,
@@ -302,5 +305,107 @@ describe("contract conformance by schema", () => {
       ]),
     );
     expect(findJsonSchema("# Prose only\n\nGET /hello returns 200")).toBeNull();
+  });
+});
+
+describe("mission report", () => {
+  const task = (over: Partial<ReportTask> = {}): ReportTask => ({
+    key: "api.auth",
+    title: "Add the callback",
+    type: "code.feature",
+    status: "done",
+    agent: "codex",
+    vendor: "openai",
+    mode: "best_of_n",
+    rationale: "codex chosen",
+    note: "chosen by the judge",
+    revisions: 1,
+    reroutes: 0,
+    carried: false,
+    costUsd: 0.31,
+    seconds: 120,
+    checks: [
+      { kind: "tests", hard: true, status: "passed", summary: "pnpm test exited 0" },
+      { kind: "lint", hard: false, status: "failed", summary: "2 warnings" },
+    ],
+    blockedReason: null,
+    ...over,
+  });
+
+  it("says what was done, by whom, with what evidence and what is still open", () => {
+    const r = buildMissionReport(
+      {
+        mission: {
+          title: "OAuth login",
+          goal: "Add OAuth login",
+          status: "done",
+          budgetUsd: 0.5,
+          createdAt: new Date("2026-10-23T10:00:00Z"),
+          endedAt: new Date("2026-10-23T10:12:30Z"),
+        },
+        tasks: [
+          task(),
+          task({
+            key: "docs",
+            title: "Document it",
+            status: "failed",
+            blockedReason: "rubric 2/5",
+            checks: [],
+          }),
+        ],
+        attempts: [
+          {
+            agent: "codex",
+            vendor: "openai",
+            costUsd: 0.31,
+            seconds: 120,
+            scored: "pass",
+            role: "candidate",
+          },
+          {
+            agent: "claude",
+            vendor: "anthropic",
+            costUsd: 0.4,
+            seconds: 90,
+            scored: "pass",
+            role: "candidate",
+          },
+          { agent: "gemini", vendor: "google", costUsd: 0.02, seconds: 10, scored: null, role: "judge" },
+        ],
+        integration: {
+          status: "passed",
+          branch: "brio/x/integration-v1-r1",
+          commit: "abcdef1234567890",
+          round: 1,
+          conflicts: [],
+          checks: [{ command: "pnpm test", passed: true }],
+        },
+        assumptions: ["the app uses Next.js"],
+        unanswered: ["Which OAuth provider?"],
+        replans: 0,
+      },
+      new Date("2026-10-23T11:00:00Z"),
+    );
+    expect(r).toMatchObject({ costUsd: 0.73, minutes: 12.5, attempts: 3 });
+    expect(r.agents.map((a) => [a.agent, a.attempts, a.passed])).toEqual([
+      ["claude", 1, 1],
+      ["codex", 1, 1],
+      ["gemini", 1, 0],
+    ]);
+    expect(r.openIssues.map((o) => o.kind)).toEqual([
+      "soft_check",
+      "failed_task",
+      "unanswered",
+      "budget",
+      "assumption",
+    ]);
+    const md = renderMissionReport(r);
+    expect(md).toContain("# OAuth login");
+    expect(md).toContain("**cost** $0.73 of $0.50");
+    expect(md).toContain(
+      "| Add the callback (`api.auth`) | done, 1 revision(s) | codex (openai) | best of n: chosen by the judge | tests ✓, lint ✗ | $0.31 |",
+    );
+    expect(md).toContain("Round 1: passed on `brio/x/integration-v1-r1` at `abcdef123456`.");
+    expect(md).toContain("- `docs` Document it failed: rubric 2/5");
   });
 });
