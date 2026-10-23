@@ -3,9 +3,11 @@
 // them and the report comes back in the tool result. The other tools read the mission; tokens are held to their
 // workspace. Needs Postgres.
 
+import { proxyOptionsFromEnv, runMcpProxy } from "@brio/cli";
 import { hasTestDatabase } from "@brio/db/testing";
 import { Client as McpClient } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client, type Harness, startHarness } from "./helpers";
 import { type Reply, ScriptedVendors, taskTitle } from "./vendors";
@@ -166,5 +168,21 @@ describe.skipIf(!hasTestDatabase)("M7: Brio as an MCP server", () => {
     expect((r as { isError?: boolean }).isError).toBe(true);
     expect(textOf(r)).toBe("mission not found");
     await elsewhere.close();
+  });
+
+  it("serves the same tools over stdio through `brio mcp` (here, an in-memory pair)", async () => {
+    expect(() => proxyOptionsFromEnv({})).toThrow(/BRIO_TOKEN/);
+    const opts = proxyOptionsFromEnv({ BRIO_URL: url.origin, BRIO_TOKEN: token });
+    const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+    const proxy = await runMcpProxy(opts, serverSide);
+    const local = new McpClient({ name: "stdio-client", version: "1.0.0" });
+    await local.connect(clientSide);
+    expect((await local.listTools()).tools.map((t) => t.name)).toContain("delegate");
+    const status = textOf(
+      await local.callTool({ name: "mission_status", arguments: { mission_id: missionId } }),
+    );
+    expect(status).toMatch(/— done/);
+    await local.close();
+    await proxy.close();
   });
 });
