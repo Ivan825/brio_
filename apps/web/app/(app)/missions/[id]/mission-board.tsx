@@ -219,7 +219,10 @@ export function MissionBoard({
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-8">
       <header className="flex flex-col gap-2">
         <p className="font-mono text-2xs uppercase tracking-[0.08em] text-fg-muted">
-          mission · {mission.id.slice(0, 8)}
+          mission · {mission.id.slice(0, 8)} ·{" "}
+          <Link href={`/missions/${mission.id}/report`} className="text-focus hover:underline">
+            report
+          </Link>
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-xl font-semibold tracking-tight">{mission.title}</h1>
