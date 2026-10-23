@@ -83,6 +83,8 @@ function present(row: ConnectorRow) {
     region: cfg.region ?? null,
     apiStyle: cfg.apiStyle ?? preset?.apiStyles[0] ?? null,
     hasKey: row.credentialRef !== null,
+    /** A CLI under the person's own sign-in, for agents on a local runner. */
+    localLogin: Boolean((row.config as { localLogin?: unknown }).localLogin),
     health: row.health,
     status: row.status,
     regionLimited: preset?.regionLimited ?? entry?.regionLimited ?? null,

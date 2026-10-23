@@ -52,6 +52,8 @@ export async function registryRoutes(app: FastifyInstance, ctx: AppContext) {
             alternatives: (c.alternatives ?? []).map((id) => ({ id, name: r.connector(id)?.name ?? id })),
             taskTypes: r.taskTypesOf(c.id),
             cli: cliFor(c)?.adapter.key ?? null,
+            // A local runner may run this CLI under the person's own sign-in (the vendor's terms, M8).
+            localLogin: cliFor(c) ? (c.localLogin ?? null) : null,
             services: r.servicesFor(c.id).map(({ key, service: sv }) => ({
               key,
               name: sv.name,

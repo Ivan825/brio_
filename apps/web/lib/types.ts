@@ -55,6 +55,8 @@ export interface CatalogueConnector {
   taskTypes: string[];
   /** Set for coding CLIs: they run in a sandbox with the key of their vendor's preset. */
   cli: string | null;
+  /** Runs under the person's own sign-in on a local runner: "allowed", "own-use" (their own work only), or not. */
+  localLogin: "allowed" | "own-use" | null;
   presets: PresetSummary[];
   services: ServiceSummary[];
   /** For unsupported entries: the supported connectors that do the same job legitimately. */
@@ -99,6 +101,8 @@ export interface InstalledConnector {
   region: string | null;
   apiStyle: string | null;
   hasKey: boolean;
+  /** A CLI under the person's own sign-in: its agents run on a local runner. */
+  localLogin?: boolean;
   health: Health;
   status: "active" | "disabled" | "error";
   regionLimited: string | null;
@@ -136,6 +140,22 @@ export interface AgentSummary {
   price: Price | null;
   runnable: boolean;
   modelListed: boolean;
+  /** The local runner it runs on; null for the cloud. */
+  runnerId?: string | null;
+  localLogin?: boolean;
+  createdAt: string;
+}
+
+export interface RunnerSummary {
+  id: string;
+  name: string;
+  mode: "docker" | "host";
+  ownerId: string;
+  prefix: string;
+  consent: { host: { by: string; at: string; text: string } } | null;
+  capabilities: { clis?: Array<{ key: string; version: string }>; docker?: boolean; os?: string };
+  online: boolean;
+  lastSeenAt: string | null;
   createdAt: string;
 }
 
@@ -163,6 +183,8 @@ export interface ProjectSummary {
   defaultBranch: string | null;
   hasToken: boolean;
   githubRepo: string | null;
+  /** The local runner whose machine holds the repository, if any. */
+  runnerId: string | null;
   createdAt: string;
 }
 

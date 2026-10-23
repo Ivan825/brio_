@@ -18,3 +18,12 @@ test("make an API token for MCP clients: shown once, listed by prefix, revoked",
   await row.getByRole("button", { name: "Revoke" }).click();
   await expect(page.getByTestId("api-token")).toHaveCount(0);
 });
+
+test("local runners: how to make this machine one, in the workspace's settings", async ({ page }) => {
+  await signIn(page, uniqueEmail("runners"));
+  await createWorkspace(page, "Runners");
+  await page.goto("/settings");
+  await expect(page.getByRole("heading", { name: "Local runners" })).toBeVisible();
+  await expect(page.getByText("brio runner register --name laptop")).toBeVisible();
+  await expect(page.getByTestId("runner")).toHaveCount(0);
+});

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { EmptyState } from "@/components/empty-state";
 import { getWorkspaces, serverApi } from "@/lib/server-api";
-import type { ProjectSummary } from "@/lib/types";
+import type { ProjectSummary, RunnerSummary } from "@/lib/types";
 import { NewProject, ProjectList } from "./project-forms";
 
 export const metadata: Metadata = { title: "Projects" };
@@ -16,7 +16,10 @@ export default async function ProjectsPage() {
         Projects are the repositories missions work on. They live in a workspace.
       </EmptyState>
     );
-  const { data } = await serverApi<{ projects: ProjectSummary[] }>("/v1/projects");
+  const [{ data }, runners] = await Promise.all([
+    serverApi<{ projects: ProjectSummary[] }>("/v1/projects"),
+    serverApi<{ runners: RunnerSummary[] }>("/v1/runners"),
+  ]);
   const projects = data?.projects ?? [];
   const canEdit = active.role === "owner" || active.role === "admin";
   const canCreate = canEdit || active.role === "member";
@@ -31,7 +34,7 @@ export default async function ProjectsPage() {
         </p>
       </header>
       {projects.length > 0 && <ProjectList projects={projects} canEdit={canEdit} />}
-      {canCreate && <NewProject />}
+      {canCreate && <NewProject runners={runners.data?.runners ?? []} />}
     </div>
   );
 }

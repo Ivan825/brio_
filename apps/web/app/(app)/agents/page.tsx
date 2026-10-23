@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
 import { serverApi } from "@/lib/server-api";
-import type { AgentSummary, InstalledConnector } from "@/lib/types";
+import type { AgentSummary, InstalledConnector, RunnerSummary } from "@/lib/types";
 import { AgentBuilder, AgentList } from "./agent-ui";
 
 export const metadata: Metadata = { title: "Agents" };
 
 export default async function Page() {
-  const [agents, connectors] = await Promise.all([
+  const [agents, connectors, runners] = await Promise.all([
     serverApi<{ agents: AgentSummary[] }>("/v1/agents"),
     serverApi<{ connectors: InstalledConnector[] }>("/v1/connectors"),
+    serverApi<{ runners: RunnerSummary[] }>("/v1/runners"),
   ]);
   const usable = (connectors.data?.connectors ?? []).filter((c) => c.status !== "disabled");
   return (
@@ -22,7 +23,7 @@ export default async function Page() {
         </p>
       </header>
       <AgentList agents={agents.data?.agents ?? []} />
-      <AgentBuilder connectors={usable} />
+      <AgentBuilder connectors={usable} runners={runners.data?.runners ?? []} />
     </div>
   );
 }

@@ -114,3 +114,22 @@ test("add a key, list models live, build an agent and run a task with metered co
   await expect(page.getByTestId("score-row")).toHaveCount(1);
   await expect(page.getByTestId("score-row")).toContainText("planner");
 });
+
+test("a coding CLI under your own sign-in, where the vendor allows it: no key, its agents run on your machine", async ({
+  page,
+}) => {
+  await signIn(page, uniqueEmail("signin"));
+  await createWorkspace(page, "Sign-in");
+  await page.goto("/connectors");
+  const row = page.getByTestId("catalogue-google-antigravity");
+  await row.getByRole("button", { name: "Add key" }).click();
+  await row.getByLabel(/Use my own antigravity sign-in/).check();
+  await expect(row.getByLabel(/API key/)).toHaveCount(0);
+  await row.getByRole("button", { name: /^Add / }).click();
+  const installed = page.getByTestId("installed-connector");
+  await expect(installed).toHaveCount(1);
+  await expect(installed).toContainText("your own sign-in · local runner");
+  await page.goto("/agents");
+  await expect(page.getByLabel("Runs on")).toBeVisible();
+  await expect(page.getByText("Register one first: brio runner register --name laptop")).toBeVisible();
+});

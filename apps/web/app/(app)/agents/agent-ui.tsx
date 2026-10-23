@@ -8,7 +8,7 @@ import { Chip } from "@/components/chip";
 import { FormError, Input, Label, Select, Textarea } from "@/components/field";
 import { api } from "@/lib/api";
 import { perM, usd } from "@/lib/format";
-import type { AgentSummary, ConnectorModel, InstalledConnector } from "@/lib/types";
+import type { AgentSummary, ConnectorModel, InstalledConnector, RunnerSummary } from "@/lib/types";
 
 export function AgentList({ agents }: { agents: AgentSummary[] }) {
   const router = useRouter();
@@ -78,7 +78,13 @@ export function AgentList({ agents }: { agents: AgentSummary[] }) {
 
 const num = (v: string) => (v.trim() === "" ? undefined : Number(v));
 
-export function AgentBuilder({ connectors: all }: { connectors: InstalledConnector[] }) {
+export function AgentBuilder({
+  connectors: all,
+  runners = [],
+}: {
+  connectors: InstalledConnector[];
+  runners?: RunnerSummary[];
+}) {
   // Search, page-fetch and cloud-browser connectors are tools agents use, never agents themselves.
   const connectors = all.filter(
     (c) =>
@@ -104,6 +110,7 @@ export function AgentBuilder({ connectors: all }: { connectors: InstalledConnect
   const [priceIn, setPriceIn] = useState("");
   const [priceOut, setPriceOut] = useState("");
   const [options, setOptions] = useState("");
+  const [runnerId, setRunnerId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -135,6 +142,8 @@ export function AgentBuilder({ connectors: all }: { connectors: InstalledConnect
     );
 
   const chosen = models.find((m) => m.id === model);
+  // A CLI under the person's own sign-in runs only on a local runner.
+  const signIn = Boolean(connectors.find((c) => c.id === connectorId)?.localLogin);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -171,6 +180,7 @@ export function AgentBuilder({ connectors: all }: { connectors: InstalledConnect
           priceOverride: override,
           options: parsed,
           tools: tools.map((connectorId) => ({ connectorId })),
+          ...(signIn && runnerId ? { runnerId } : {}),
         },
       });
       setName("");
@@ -358,6 +368,28 @@ export function AgentBuilder({ connectors: all }: { connectors: InstalledConnect
             (voice, voiceId), a cloud browser for computer use (browser: cloud).
           </p>
         </div>
+        {signIn && (
+          <div className="flex flex-col gap-1 md:col-span-2">
+            <Label htmlFor={`${ids}-runner`}>Runs on</Label>
+            <Select
+              id={`${ids}-runner`}
+              required
+              value={runnerId}
+              onChange={(e) => setRunnerId(e.target.value)}
+            >
+              <option value="">choose your local runner</option>
+              {runners.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name} ({r.mode}){r.online ? "" : " · offline"}
+                </option>
+              ))}
+            </Select>
+            <p className="text-xs text-fg-muted">
+              This connector runs the CLI under your own sign-in, so its agents run on your machine.
+              {runners.length ? "" : " Register one first: brio runner register --name laptop"}
+            </p>
+          </div>
+        )}
         <div className="flex flex-col gap-2 md:col-span-2">
           <FormError>{error}</FormError>
           <div>

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { EmptyState } from "@/components/empty-state";
 import { getWorkspaces, serverApi } from "@/lib/server-api";
+import type { RunnerSummary } from "@/lib/types";
+import { LocalRunners } from "./runners";
 import {
   type ApiTokenRow,
   ApiTokens,
@@ -33,6 +35,7 @@ export default async function SettingsPage() {
     ? ((await serverApi<{ tokens: ApiTokenRow[] }>("/v1/tokens")).data?.tokens ?? [])
     : [];
   const origin = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+  const runners = (await serverApi<{ runners: RunnerSummary[] }>("/v1/runners")).data?.runners ?? [];
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-10 px-6 py-8">
@@ -85,6 +88,17 @@ export default async function SettingsPage() {
           <ApiTokens tokens={tokens} origin={origin} />
         </section>
       )}
+
+      <section aria-labelledby="runners" className="flex flex-col gap-3">
+        <h2 id="runners" className="font-mono text-2xs uppercase tracking-[0.08em] text-fg-muted">
+          Local runners
+        </h2>
+        <p className="text-xs text-fg-muted">
+          Your own machine as a runner: agents bound to it run there, on projects that live there, with coding
+          CLIs signed in as you. It connects out to Brio; nothing connects in.
+        </p>
+        <LocalRunners runners={runners} origin={origin} />
+      </section>
 
       <section aria-labelledby="security" className="flex flex-col gap-3">
         <h2 id="security" className="font-mono text-2xs uppercase tracking-[0.08em] text-fg-muted">

@@ -4,11 +4,11 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { Button } from "@/components/button";
 import { Chip } from "@/components/chip";
-import { FormError, Input, Label } from "@/components/field";
+import { FormError, Input, Label, Select } from "@/components/field";
 import { api } from "@/lib/api";
-import type { ProjectSummary } from "@/lib/types";
+import type { ProjectSummary, RunnerSummary } from "@/lib/types";
 
-export function NewProject() {
+export function NewProject({ runners = [] }: { runners?: RunnerSummary[] }) {
   const router = useRouter();
   const [form, setForm] = useState({
     name: "",
@@ -16,6 +16,7 @@ export function NewProject() {
     defaultBranch: "",
     gitToken: "",
     githubRepo: "",
+    runnerId: "",
   });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -29,7 +30,7 @@ export function NewProject() {
     try {
       const body = Object.fromEntries(Object.entries(form).filter(([, v]) => v.trim()));
       await api("/v1/projects", { method: "POST", body });
-      setForm({ name: "", repoUrl: "", defaultBranch: "", gitToken: "", githubRepo: "" });
+      setForm({ name: "", repoUrl: "", defaultBranch: "", gitToken: "", githubRepo: "", runnerId: "" });
       router.refresh();
     } catch (err) {
       setError((err as Error).message);
@@ -59,11 +60,24 @@ export function NewProject() {
             onChange={set("defaultBranch")}
           />
         </div>
+        {runners.length > 0 && (
+          <div className="flex flex-col gap-1 sm:col-span-2">
+            <Label htmlFor="p-runner">Lives on</Label>
+            <Select id="p-runner" value={form.runnerId} onChange={set("runnerId")}>
+              <option value="">Brio&apos;s cloud (a git URL)</option>
+              {runners.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}: a path on that machine
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
         <div className="flex flex-col gap-1 sm:col-span-2">
           <Label htmlFor="p-repo">Repository</Label>
           <Input
             id="p-repo"
-            placeholder="https://github.com/acme/site.git"
+            placeholder={form.runnerId ? "/Users/me/code/site" : "https://github.com/acme/site.git"}
             value={form.repoUrl}
             onChange={set("repoUrl")}
           />
@@ -141,6 +155,7 @@ function ProjectRow({ project: p, canEdit }: { project: ProjectSummary; canEdit:
         {p.defaultBranch && <Chip>{p.defaultBranch}</Chip>}
         <Chip tone={p.hasToken ? "success" : "muted"}>{p.hasToken ? "token set" : "no token"}</Chip>
         {p.githubRepo && <Chip>PRs → {p.githubRepo}</Chip>}
+        {p.runnerId && <Chip tone="info">on a local runner</Chip>}
       </div>
       <p className="truncate font-mono text-xs text-fg-muted">
         {p.repoUrl ?? "no repository: missions start empty"}

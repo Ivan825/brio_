@@ -220,7 +220,11 @@ function InstalledCard({ c }: { c: InstalledConnector }) {
         <HealthChip c={c} />
         {c.regionLimited && <Chip tone="warning">{c.regionLimited}</Chip>}
         {c.local && <Chip>local</Chip>}
-        {!c.hasKey && <Chip>no key</Chip>}
+        {c.localLogin ? (
+          <Chip tone="info">your own sign-in · local runner</Chip>
+        ) : (
+          !c.hasKey && <Chip>no key</Chip>
+        )}
       </div>
       <p className="truncate font-mono text-xs text-fg-muted">
         {c.presetName ?? c.preset ?? c.service} · {c.baseUrl}
@@ -310,10 +314,12 @@ function AddConnector({ connector, onDone }: { connector: CatalogueConnector; on
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [apiStyle, setApiStyle] = useState("");
+  const [signIn, setSignIn] = useState(false);
+  const [ownUse, setOwnUse] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   if (!preset) return null;
-  const needsKey = preset.auth !== "none" && preset.auth !== "optional-bearer";
+  const needsKey = !signIn && preset.auth !== "none" && preset.auth !== "optional-bearer";
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -325,7 +331,8 @@ function AddConnector({ connector, onDone }: { connector: CatalogueConnector; on
         body: {
           registryKey: connector.id,
           preset: presetKey,
-          ...(apiKey ? { apiKey } : {}),
+          ...(apiKey && !signIn ? { apiKey } : {}),
+          ...(signIn ? { localLogin: true, ...(ownUse ? { ownUse: true } : {}) } : {}),
           ...(region ? { region } : {}),
           ...(baseUrl ? { baseUrl } : {}),
           ...(apiStyle ? { apiStyle } : {}),
@@ -406,7 +413,27 @@ function AddConnector({ connector, onDone }: { connector: CatalogueConnector; on
           </Select>
         </div>
       )}
-      {preset.auth !== "none" && (
+      {connector.cli && connector.localLogin && (
+        <div className="flex flex-col gap-1 rounded-md border border-line p-2 text-xs">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={signIn} onChange={(e) => setSignIn(e.target.checked)} />
+            Use my own {connector.cli} sign-in on a local runner (no key)
+          </label>
+          {signIn && (
+            <p className="text-fg-muted">
+              Your agents run this CLI on your machine with <span className="font-mono">brio runner</span>,
+              signed in as you; Brio never reads its sign-in. The vendor bills your plan.
+            </p>
+          )}
+          {signIn && connector.localLogin === "own-use" && (
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={ownUse} onChange={(e) => setOwnUse(e.target.checked)} />
+              It is for my own work (the vendor&apos;s terms allow sign-in use only for that)
+            </label>
+          )}
+        </div>
+      )}
+      {preset.auth !== "none" && !signIn && (
         <div className="flex flex-col gap-1">
           <Label htmlFor={`${ids}-key`}>API key{needsKey ? "" : " (optional)"}</Label>
           <Input
