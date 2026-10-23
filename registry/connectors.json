@@ -2773,5 +2773,253 @@
       "title": "Grok 4.20 on OpenRouter",
       "url": "https://openrouter.ai/x-ai/grok-4.20/api"
     }
-  ]
+  ],
+  "services": {
+    "claude-managed-agents": {
+      "connector": "claude-managed-agents",
+      "name": "Claude Managed Agents",
+      "vendor": "anthropic",
+      "kind": "hosted",
+      "adapter": "claude-managed-agents",
+      "baseUrl": "https://api.anthropic.com/v1",
+      "auth": {
+        "scheme": "header",
+        "header": "x-api-key"
+      },
+      "extraHeaders": {
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "managed-agents-2026-04-01"
+      },
+      "settings": [
+        {
+          "key": "environmentId",
+          "label": "Environment id",
+          "required": false,
+          "pattern": "^env_",
+          "help": "A cloud environment to run in; one is created on first use when empty."
+        }
+      ],
+      "health": {
+        "method": "GET",
+        "path": "/agents?limit=1"
+      },
+      "pricing": {
+        "unit": "usd",
+        "note": "Each session reports its list cost (USD cents); a budget cap is sent with the session."
+      },
+      "docsUrl": "https://platform.claude.com/docs/en/managed-agents/sessions",
+      "verifiedOn": "2026-10-23",
+      "notes": "Beta. Not ZDR/HIPAA eligible yet. Output files come through the Files API; there is no structured PR field."
+    },
+    "openai-agents": {
+      "connector": "openai-agents-api",
+      "name": "OpenAI Agents API",
+      "vendor": "openai",
+      "kind": "hosted",
+      "adapter": "openai-agents",
+      "baseUrl": "https://api.openai.com/v1",
+      "auth": {
+        "scheme": "bearer"
+      },
+      "extraHeaders": {
+        "OpenAI-Beta": "agents=v1"
+      },
+      "health": {
+        "method": "GET",
+        "path": "/agents/sessions?limit=1&order=desc"
+      },
+      "pricing": {
+        "unit": "token",
+        "pricePreset": "openai",
+        "note": "Session usage in tokens at the model's price; hosted sandboxes bill at container rates during active turns."
+      },
+      "docsUrl": "https://developers.openai.com/api/docs/guides/agents-api/overview",
+      "verifiedOn": "2026-10-23",
+      "notes": "Public beta since 10 Sep 2026; hosted browser since 29 Sep 2026 asks approval for site access and sign-in. US data residency only, no ZDR."
+    },
+    "gemini-managed-agents": {
+      "connector": "gemini-managed-agents",
+      "name": "Gemini managed agents (Interactions API)",
+      "vendor": "gemini",
+      "kind": "hosted",
+      "adapter": "gemini-managed-agents",
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+      "auth": {
+        "scheme": "header",
+        "header": "x-goog-api-key"
+      },
+      "extraHeaders": {
+        "Api-Revision": "2026-05-20"
+      },
+      "health": {
+        "method": "GET",
+        "path": "/models?pageSize=1"
+      },
+      "pricing": {
+        "unit": "token",
+        "pricePreset": "gemini",
+        "note": "Interaction usage in tokens; environment compute is not billed during the preview. Capped with max_total_tokens."
+      },
+      "models": {
+        "path": "/agents",
+        "static": []
+      },
+      "docsUrl": "https://ai.google.dev/gemini-api/docs/interactions/agents",
+      "verifiedOn": "2026-10-23",
+      "notes": "Managed agents are in public preview; the Interactions API is GA."
+    },
+    "jules": {
+      "connector": "jules",
+      "name": "Jules",
+      "vendor": "gemini",
+      "kind": "hosted",
+      "adapter": "jules",
+      "baseUrl": "https://jules.googleapis.com/v1alpha",
+      "auth": {
+        "scheme": "header",
+        "header": "x-goog-api-key"
+      },
+      "settings": [
+        {
+          "key": "source",
+          "label": "Repository source",
+          "required": false,
+          "pattern": "^sources/",
+          "placeholder": "sources/github-myorg-myrepo",
+          "help": "A GitHub repository connected to Jules; empty runs without a repository."
+        }
+      ],
+      "health": {
+        "method": "GET",
+        "path": "/sources?pageSize=1"
+      },
+      "pricing": {
+        "unit": "unmetered",
+        "note": "Jules reports no cost; runs are bounded by time."
+      },
+      "docsUrl": "https://developers.google.com/jules/api/reference/rest",
+      "verifiedOn": "2026-10-23",
+      "notes": "GitHub repositories only. No cancel method; Brio stops following a cancelled session."
+    },
+    "devin": {
+      "connector": "devin",
+      "name": "Devin",
+      "vendor": "cognition",
+      "kind": "hosted",
+      "adapter": "devin",
+      "baseUrl": "https://api.devin.ai/v3/organizations/{orgId}",
+      "auth": {
+        "scheme": "bearer"
+      },
+      "settings": [
+        {
+          "key": "orgId",
+          "label": "Organization id",
+          "pattern": "^org-",
+          "placeholder": "org-…"
+        }
+      ],
+      "health": {
+        "method": "GET",
+        "path": "/sessions?first=1"
+      },
+      "pricing": {
+        "unit": "acu",
+        "note": "Sessions report ACUs consumed; set the agent's USD per ACU to meter them. Capped with max_acu_limit."
+      },
+      "docsUrl": "https://docs.devin.ai/api-reference/overview",
+      "verifiedOn": "2026-10-23",
+      "notes": "v3 API (v1/v2 deprecated). Keys start with cog_. No API to approve a safe-mode action."
+    },
+    "manus": {
+      "connector": "manus",
+      "name": "Manus",
+      "vendor": "manus",
+      "kind": "hosted",
+      "adapter": "manus",
+      "baseUrl": "https://api.manus.ai",
+      "auth": {
+        "scheme": "header",
+        "header": "x-manus-api-key"
+      },
+      "health": {
+        "method": "GET",
+        "path": "/v2/user.me"
+      },
+      "pricing": {
+        "unit": "credit",
+        "note": "Tasks report credits used; set the agent's USD per credit to meter them."
+      },
+      "docsUrl": "https://open.manus.ai/docs/v2/task-lifecycle",
+      "verifiedOn": "2026-10-23",
+      "notes": "v2 API (v1 deprecated)."
+    },
+    "bedrock-agentcore": {
+      "connector": "bedrock-agentcore",
+      "name": "Amazon Bedrock AgentCore Runtime",
+      "vendor": "aws",
+      "kind": "hosted",
+      "adapter": "bedrock-agentcore",
+      "baseUrl": "https://bedrock-agentcore.{region}.amazonaws.com",
+      "auth": {
+        "scheme": "aws-sigv4",
+        "service": "bedrock-agentcore"
+      },
+      "settings": [
+        {
+          "key": "region",
+          "label": "AWS region",
+          "pattern": "^[a-z]{2}(-[a-z]+)+-\\d$",
+          "placeholder": "us-east-1"
+        },
+        {
+          "key": "runtimeArn",
+          "label": "Agent runtime ARN",
+          "pattern": "^arn:aws[a-z-]*:bedrock-agentcore:",
+          "placeholder": "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/…"
+        }
+      ],
+      "health": null,
+      "pricing": {
+        "unit": "unmetered",
+        "note": "Runtime usage is billed by AWS (CloudWatch); nothing in the API response. Runs are bounded by time."
+      },
+      "docsUrl": "https://docs.aws.amazon.com/bedrock-agentcore/latest/APIReference/API_InvokeAgentRuntime.html",
+      "verifiedOn": "2026-10-23",
+      "notes": "Hosts your own agent; the payload is {\"prompt\": …} and the reply is the agent's text (SSE or JSON). The key is JSON {accessKeyId, secretAccessKey, sessionToken?}."
+    },
+    "foundry-agents": {
+      "connector": "foundry-agent-service",
+      "name": "Microsoft Foundry Agent Service",
+      "vendor": "azure",
+      "kind": "hosted",
+      "adapter": "foundry-agents",
+      "baseUrl": "{endpoint}",
+      "auth": {
+        "scheme": "entra",
+        "scope": "https://ai.azure.com/.default"
+      },
+      "settings": [
+        {
+          "key": "endpoint",
+          "label": "Project endpoint",
+          "pattern": "^https://[a-z0-9-]+\\.services\\.ai\\.azure\\.com/api/projects/[^/]+$",
+          "placeholder": "https://<resource>.services.ai.azure.com/api/projects/<project>"
+        },
+        {
+          "key": "agentName",
+          "label": "Agent name",
+          "placeholder": "brio-coder"
+        }
+      ],
+      "health": null,
+      "pricing": {
+        "unit": "unmetered",
+        "note": "Azure bills the deployment; set a price on the agent to meter tokens."
+      },
+      "docsUrl": "https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/runtime-components",
+      "verifiedOn": "2026-10-23",
+      "notes": "Entra auth: the key is JSON {tenantId, clientId, clientSecret} for a service principal. Runs use the Responses API in background mode."
+    }
+  }
 }

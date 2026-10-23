@@ -168,6 +168,76 @@ export const Preset = z
   });
 export type Preset = z.infer<typeof Preset>;
 
+/** What a service connector is for (non-model APIs: hosted agents, media, search, page fetching, browsers). */
+export const ServiceKind = z.enum(["hosted", "media", "search", "fetch", "browser"]);
+export type ServiceKind = z.infer<typeof ServiceKind>;
+
+/** How a service's credential is sent. */
+export const ServiceAuth = z.discriminatedUnion("scheme", [
+  z.object({ scheme: z.literal("bearer") }),
+  /** A named header carrying the key (x-api-key, x-goog-api-key, x-manus-api-key…). */
+  z.object({ scheme: z.literal("header"), header: z.string().min(1) }),
+  /** AWS Signature V4; the credential is JSON {accessKeyId, secretAccessKey, sessionToken?}. */
+  z.object({ scheme: z.literal("aws-sigv4"), service: z.string().min(1) }),
+  /** Microsoft Entra: the credential is JSON {tenantId, clientId, clientSecret} (client credentials) or a token. */
+  z.object({ scheme: z.literal("entra"), scope: z.string().min(1) }),
+]);
+export type ServiceAuth = z.infer<typeof ServiceAuth>;
+
+/** A non-secret value the user gives when installing (an org id, a project endpoint, a region). */
+export const ServiceSetting = z.object({
+  key: z.string().regex(/^[a-z][a-zA-Z0-9]*$/),
+  label: z.string().min(1),
+  required: z.boolean().default(true),
+  pattern: z.string().optional(),
+  placeholder: z.string().optional(),
+  help: z.string().optional(),
+});
+export type ServiceSetting = z.infer<typeof ServiceSetting>;
+
+/**
+ * A service connector's wire facts, as data like the model presets (D-62). Behaviour lives in the adapter named by
+ * `adapter`; base URLs may use {setting} placeholders filled from the connector's settings.
+ */
+export const Service = z.object({
+  connector: z.string().min(1),
+  name: z.string().min(1),
+  /** Who runs it, in the presets' vocabulary where one exists (so reviewers differ from makers across both). */
+  vendor: z.string().regex(/^[a-z0-9-]+$/),
+  kind: ServiceKind,
+  adapter: z.string().min(1),
+  /** With {setting} placeholders when it depends on the install (a region, a project endpoint). */
+  baseUrl: z.string().min(1),
+  auth: ServiceAuth,
+  extraHeaders: z.record(z.string(), z.string()).default({}),
+  settings: z.array(ServiceSetting).default([]),
+  /** A call that checks the key without spending money, and the statuses that mean a bad key. */
+  health: z
+    .object({
+      method: z.enum(["GET", "POST"]).default("GET"),
+      path: z.string().startsWith("/"),
+      badKey: z.array(z.number().int()).default([401, 403]),
+    })
+    .nullable(),
+  /**
+   * What a run is billed in. token: priced like the model preset in `pricePreset`; usd: the vendor reports dollars;
+   * credit/acu/image/second/character/request: the agent's options.usdPerUnit converts; unmetered: bounded by time.
+   */
+  pricing: z.object({
+    unit: z.enum(["token", "usd", "credit", "acu", "image", "second", "character", "request", "unmetered"]),
+    pricePreset: z.string().optional(),
+    note: z.string().min(1),
+  }),
+  /** Agents, models or voices it offers: a list path, or the documented ids. */
+  models: z
+    .object({ path: z.string().nullable(), static: z.array(z.string()).default([]) })
+    .default({ path: null, static: [] }),
+  docsUrl: z.url(),
+  verifiedOn: z.iso.date(),
+  notes: z.string().optional(),
+});
+export type Service = z.infer<typeof Service>;
+
 export const RegistryFile = z.object({
   version: z.string(),
   generatedOn: z.iso.date(),
@@ -177,6 +247,7 @@ export const RegistryFile = z.object({
   categories: z.array(Category).min(1),
   connectors: z.array(ConnectorEntry).min(1),
   presets: z.record(z.string().regex(/^[a-z0-9-]+$/), Preset),
+  services: z.record(z.string().regex(/^[a-z0-9-]+$/), Service).default({}),
   sources: z.array(z.object({ title: z.string(), url: z.url() })),
 });
 export type RegistryFile = z.infer<typeof RegistryFile>;

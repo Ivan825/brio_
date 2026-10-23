@@ -8,6 +8,7 @@ import {
   type Preset,
   RegistryFile,
   type RegistryFile as RegistryFileType,
+  type Service,
   type Tier,
 } from "./schema";
 
@@ -41,6 +42,7 @@ export class Registry {
   readonly categories: readonly Category[];
   readonly connectors: readonly ConnectorEntry[];
   readonly presets: Readonly<Record<string, Preset>>;
+  readonly services: Readonly<Record<string, Service>>;
   readonly generatedOn: string;
   private readonly byId: Map<string, ConnectorEntry>;
   private readonly categoryById: Map<string, Category>;
@@ -49,6 +51,7 @@ export class Registry {
     this.categories = file.categories;
     this.connectors = file.connectors;
     this.presets = file.presets;
+    this.services = file.services;
     this.generatedOn = file.generatedOn;
     this.byId = new Map(file.connectors.map((c) => [c.id, c]));
     this.categoryById = new Map(file.categories.map((c) => [c.id, c]));
@@ -65,6 +68,17 @@ export class Registry {
 
   preset(key: string): Preset | undefined {
     return this.presets[key];
+  }
+
+  service(key: string): Service | undefined {
+    return this.services[key];
+  }
+
+  /** The services a connector offers (e.g. "openai-image-voice" → openai-image, openai-speech). */
+  servicesFor(connectorId: string): Array<{ key: string; service: Service }> {
+    return Object.entries(this.services)
+      .filter(([, sv]) => sv.connector === connectorId)
+      .map(([key, service]) => ({ key, service }));
   }
 
   /** The presets that reach a connector (e.g. "together-fireworks-deepinfra" → together, fireworks). */
@@ -137,6 +151,18 @@ export class Registry {
       const c = this.byId.get(p.connector);
       if (!c) problems.push(`preset ${key}: unknown connector ${p.connector}`);
       else if (!c.supported) problems.push(`preset ${key}: connector ${c.id} is unsupported`);
+    }
+    for (const [key, sv] of Object.entries(this.services)) {
+      const c = this.byId.get(sv.connector);
+      if (!c) problems.push(`service ${key}: unknown connector ${sv.connector}`);
+      else if (!c.supported) problems.push(`service ${key}: connector ${c.id} is unsupported`);
+      if (sv.pricing.unit === "token" && !sv.pricing.pricePreset)
+        problems.push(`service ${key}: token pricing needs a pricePreset`);
+      if (sv.pricing.pricePreset && !this.presets[sv.pricing.pricePreset])
+        problems.push(`service ${key}: unknown pricePreset ${sv.pricing.pricePreset}`);
+      for (const m of sv.baseUrl.matchAll(/\{(\w+)\}/g))
+        if (!sv.settings.some((x) => x.key === m[1]))
+          problems.push(`service ${key}: base URL uses unknown setting ${m[1]}`);
     }
     if (problems.length) throw new RegistryError(`invalid registry:\n- ${problems.join("\n- ")}`);
   }
