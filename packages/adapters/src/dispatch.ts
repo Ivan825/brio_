@@ -22,4 +22,35 @@ export interface Dispatch {
   image: "base" | "cli";
   /** The project repository to work on; null gives the mission an empty repository. */
   repo: { url: string; branch: string | null } | null;
+  /**
+   * Branches of finished upstream attempts (in the runner's repository cache) to start from instead of the repository
+   * branch: one is used as is, several are merged. A conflict fails the attempt (merge tasks arrive in M5).
+   */
+  bases?: string[];
+  /** Files written into the worktree's .brio/ before the run (handoff packets, the contract), never part of the diff. */
+  files?: Array<{ path: string; content: string }>;
+  /** Attach the repository's file list (the planner's repo map). */
+  repoMap?: boolean;
+}
+
+export type CheckStatus = "pending" | "running" | "passed" | "failed" | "needs_human";
+
+/** One acceptance check of an attempt's result (ROUTING §4.1) and how it went. */
+export interface CheckItem {
+  index: number;
+  kind: string;
+  hard: boolean;
+  command?: string;
+  status: CheckStatus;
+  summary?: string;
+  /** Output tail, redacted. */
+  output?: string;
+  exitCode?: number | null;
+  durationMs?: number;
+}
+
+/** attempts.checks: the verifier's working state for one attempt. */
+export interface AttemptChecks {
+  requestedAt: string;
+  items: CheckItem[];
 }

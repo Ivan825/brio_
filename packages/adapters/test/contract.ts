@@ -100,6 +100,10 @@ export function harness(spec: ContractSpec, vendor: FakeVendor, over: Partial<Ru
 
 const progressMailbox = (notes: string[]): Mailbox => ({
   askAgent: async () => "no one is listening",
+  inbox: async () => [],
+  answer: async () => {},
+  requestReview: async () => {},
+  getBrief: async () => "",
   reportBlocker: async () => {},
   reportProgress: async (note) => {
     notes.push(note);

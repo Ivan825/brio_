@@ -39,6 +39,8 @@ export interface McpServerConfig {
   name: string;
   transport: "stdio" | "http";
   url?: string;
+  /** For http: request headers (the mailbox's per-attempt bearer token). Secret: never logged. */
+  headers?: Record<string, string>;
   command?: string;
   args?: string[];
 }
@@ -251,12 +253,27 @@ export interface SearchProvider {
   search(query: string, opts: { limit: number; signal: AbortSignal }): Promise<SearchResult[]>;
 }
 
-/** The Brio mailbox (ADAPTER_SPEC §2.6). The server side arrives in M3. */
+export interface InboxMessage {
+  id: string;
+  kind: string;
+  /** Who sent it: a task key, or "user". */
+  from: string;
+  body: string;
+}
+
+/** The Brio mailbox (ADAPTER_SPEC §2.6): how an agent talks to the other agents of its mission and to the user. */
 export interface Mailbox {
+  /** Asks the agent working on another task; waits a while for the answer. */
   askAgent(taskKey: string, question: string): Promise<string>;
+  /** Questions and notes addressed to this task that have not been read yet; reading marks them read. */
+  inbox(): Promise<InboxMessage[]>;
+  answer(messageId: string, text: string): Promise<void>;
   reportBlocker(description: string): Promise<void>;
+  requestReview(note: string): Promise<void>;
   reportProgress(note: string): Promise<void>;
   getContract(name: string): Promise<string>;
+  /** The mission brief: goal, contracts and incoming handoffs (memory arrives in M9). */
+  getBrief(): Promise<string>;
 }
 
 export interface ToolProviders {

@@ -12,6 +12,7 @@ import type {
   AgentAdapter,
   AgentConfig,
   ConnectorConfig,
+  McpServerConfig,
   RunContext,
   RunInput,
   RunResult,
@@ -70,6 +71,15 @@ export interface CliSpec {
    * both go through the vendor preset's model API.
    */
   keyCheck?: "vendor" | "on-first-run";
+  /**
+   * How this CLI is given MCP servers (the Brio mailbox): extra argv, environment and files. CLIs without MCP support
+   * leave it out and run without the mailbox.
+   */
+  mcp?(servers: McpServerConfig[]): {
+    argv?: (argv: string[]) => string[];
+    env?: Record<string, string>;
+    files?: Array<{ path: string; content: string }>;
+  };
 }
 
 /** Longest prompt passed as one argv element (Linux caps a single argument at 128 KiB). */
@@ -176,8 +186,10 @@ export function createCliAdapter(spec: CliSpec): AgentAdapter & { spec: CliSpec 
       if (!config.price && !spec.reportsCost && !spec.unmetered && !config.connector.preset.pricing.free)
         return finish("failed", `no price for ${config.model}: set one on the agent before running it`);
 
+      const mcp = input.mcpServers.length && spec.mcp ? spec.mcp(input.mcpServers) : {};
       try {
-        for (const f of spec.files?.(input, config) ?? []) await outer.sandbox.writeFile(f.path, f.content);
+        for (const f of [...(spec.files?.(input, config) ?? []), ...(mcp.files ?? [])])
+          await outer.sandbox.writeFile(f.path, f.content);
       } catch (e) {
         return finish("failed", `could not prepare the worktree: ${(e as Error).message}`);
       }
@@ -192,11 +204,12 @@ export function createCliAdapter(spec: CliSpec): AgentAdapter & { spec: CliSpec 
         }
         prompt = `Your full task is in ${PROMPT_FILE}. Read it first and follow it exactly.`;
       }
-      const env: Record<string, string> = { ...spec.env };
+      const env: Record<string, string> = { ...spec.env, ...mcp.env };
       if (secret) for (const name of spec.credentialEnv) env[name] = secret;
       let proc: ReturnType<RunContext["sandbox"]["spawn"]>;
       try {
-        proc = outer.sandbox.spawn(spec.argv(prompt, config, input), {
+        const argv = spec.argv(prompt, config, input);
+        proc = outer.sandbox.spawn(mcp.argv ? mcp.argv(argv) : argv, {
           env,
           ...(spec.promptVia === "stdin" ? { stdin: prompt } : {}),
         });

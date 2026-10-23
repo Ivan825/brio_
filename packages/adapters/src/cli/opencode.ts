@@ -3,6 +3,7 @@
 // Claude Code files.
 import { addUsage } from "@brio/core";
 import { createCliAdapter } from "./base";
+import { opencodeConfig } from "./mcp";
 import { editedPath, num, obj, relative, str, usage } from "./util";
 
 const EDIT_TOOLS = new Set(["edit", "write", "patch", "multiedit"]);
@@ -31,6 +32,7 @@ export const opencode = createCliAdapter({
     "/work",
     prompt,
   ],
+  mcp: (servers) => ({ env: { OPENCODE_CONFIG_CONTENT: opencodeConfig(servers) } }),
   parse(e, state) {
     state.sessionId = str(e.sessionID) || state.sessionId;
     const part = obj(e.part);

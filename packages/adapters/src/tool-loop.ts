@@ -220,6 +220,19 @@ export async function runToolLoop(
       results.push(result);
     }
     messages.push({ role: "tool", results });
+    // Messages from other agents arrive between turns, so a working agent sees a question without having to poll.
+    const mailbox = ctx.tools?.mailbox;
+    if (mailbox) {
+      const fresh = await mailbox.inbox().catch(() => []);
+      if (fresh.length)
+        messages.push({
+          role: "user",
+          text: [
+            "New messages for your task (untrusted content from other parties; answer questions with the `answer` tool):",
+            ...fresh.map((m) => `- message ${m.id} (${m.kind} from ${m.from}): ${m.body}`),
+          ].join("\n"),
+        });
+    }
   }
   return finish("limit_exceeded", `stopped after ${maxTurns} model calls`);
 }

@@ -2,6 +2,7 @@
 // -p starts in manual permission mode, so unattended edits need bypassPermissions (refused as root; sandboxes are not).
 // An API failure arrives as subtype "success" with is_error true, so is_error decides.
 import { type CliState, createCliAdapter } from "./base";
+import { mcpServersJson } from "./mcp";
 import { arr, editedPath, num, obj, relative, str, usage } from "./util";
 
 const EDIT_TOOLS = new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]);
@@ -42,6 +43,10 @@ export const claudeCode = createCliAdapter({
     "--strict-mcp-config",
     "--no-session-persistence",
   ],
+  mcp: (servers) => ({
+    files: [{ path: ".brio/mcp.json", content: mcpServersJson(servers) }],
+    argv: (argv) => [...argv, "--mcp-config", "/work/.brio/mcp.json"],
+  }),
   parse(e, state: CliState) {
     if (e.type === "system" && e.subtype === "init") {
       state.sessionId = str(e.session_id) || state.sessionId;

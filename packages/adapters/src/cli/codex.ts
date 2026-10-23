@@ -3,6 +3,7 @@
 // Codex reports tokens per turn but no cost: cost comes from the OpenAI price table.
 import { addUsage } from "@brio/core";
 import { createCliAdapter } from "./base";
+import { codexMcp } from "./mcp";
 import { arr, num, obj, relative, str, usage } from "./util";
 
 export const codex = createCliAdapter({
@@ -33,6 +34,11 @@ export const codex = createCliAdapter({
     "feedback.enabled=false",
     prompt,
   ],
+  mcp: (servers) => {
+    const { args, env } = codexMcp(servers);
+    // The prompt stays the last argument.
+    return { env, argv: (argv) => [...argv.slice(0, -1), ...args, argv.at(-1) as string] };
+  },
   parse(e, state) {
     switch (e.type) {
       case "thread.started":

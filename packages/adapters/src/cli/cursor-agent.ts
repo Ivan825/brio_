@@ -3,6 +3,7 @@
 // bounded by time (D-37). Its default config attributes commits to the agent; Brio makes the commits, but the setting
 // is turned off anyway (CLAUDE.md rule 9).
 import { createCliAdapter } from "./base";
+import { mcpServersJson } from "./mcp";
 import { arr, editedPath, obj, relative, str } from "./util";
 
 const CLI_CONFIG = JSON.stringify({
@@ -25,7 +26,7 @@ export const cursorAgent = createCliAdapter({
   argv: (prompt, config) => [
     "sh",
     "-c",
-    'mkdir -p "$HOME/.cursor" && printf "%s" "$1" > "$HOME/.cursor/cli-config.json" && shift && exec cursor-agent "$@"',
+    'mkdir -p "$HOME/.cursor" && printf "%s" "$1" > "$HOME/.cursor/cli-config.json" && if [ -n "$BRIO_MCP_JSON" ]; then printf "%s" "$BRIO_MCP_JSON" > "$HOME/.cursor/mcp.json"; fi && shift && exec cursor-agent "$@"',
     "sh",
     CLI_CONFIG,
     "-p",
@@ -42,6 +43,7 @@ export const cursorAgent = createCliAdapter({
     config.model,
     prompt,
   ],
+  mcp: (servers) => ({ env: { BRIO_MCP_JSON: mcpServersJson(servers) } }),
   parse(e, state) {
     if (e.type === "system" && e.subtype === "init") {
       state.sessionId = str(e.session_id) || state.sessionId;

@@ -29,8 +29,14 @@ const EPHEMERAL = { type: "ephemeral" } as const;
 
 function messages(req: TurnRequest): Obj[] {
   const out: Obj[] = [];
+  /** Consecutive user turns (tool results, then injected messages) become one turn with several blocks. */
+  const pushUser = (blocks: Obj[]) => {
+    const last = out.at(-1);
+    if (last?.role === "user" && Array.isArray(last.content)) (last.content as Obj[]).push(...blocks);
+    else out.push({ role: "user", content: blocks });
+  };
   for (const m of req.messages) {
-    if (m.role === "user") out.push({ role: "user", content: [{ type: "text", text: m.text }] });
+    if (m.role === "user") pushUser([{ type: "text", text: m.text }]);
     else if (m.role === "assistant") {
       const content = Array.isArray(m.vendor)
         ? m.vendor
@@ -40,15 +46,14 @@ function messages(req: TurnRequest): Obj[] {
           ];
       out.push({ role: "assistant", content });
     } else
-      out.push({
-        role: "user",
-        content: m.results.map((r) => ({
+      pushUser(
+        m.results.map((r) => ({
           type: "tool_result",
           tool_use_id: r.call.id,
           content: r.output,
           ...(r.isError ? { is_error: true } : {}),
         })),
-      });
+      );
   }
   // Cache the conversation so far: each tool-loop turn then pays cache-read prices for everything before it.
   const last = out.at(-1);

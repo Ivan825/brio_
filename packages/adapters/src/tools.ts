@@ -137,6 +137,52 @@ export function mailboxTools(ctx: Pick<RunContext, "tools">): Tool[] {
       run: (args) => mailbox.askAgent(str(args, "task_key"), str(args, "question")),
     },
     {
+      name: "inbox",
+      description:
+        "Read questions and notes other agents (or the user) sent to your task. Answer questions with `answer`.",
+      parameters: { type: "object", properties: {}, additionalProperties: false },
+      run: async () => {
+        const messages = await mailbox.inbox();
+        return messages.length
+          ? messages.map((m) => `message ${m.id} (${m.kind} from ${m.from}): ${m.body}`).join("\n")
+          : "no new messages";
+      },
+    },
+    {
+      name: "answer",
+      description: "Answer a question another agent asked you (use the message id from your inbox).",
+      parameters: {
+        type: "object",
+        properties: { message_id: { type: "string" }, text: { type: "string" } },
+        required: ["message_id", "text"],
+        additionalProperties: false,
+      },
+      run: async (args) => {
+        await mailbox.answer(str(args, "message_id"), str(args, "text"));
+        return "answered";
+      },
+    },
+    {
+      name: "request_review",
+      description: "Ask a person to review something before you go on.",
+      parameters: {
+        type: "object",
+        properties: { note: { type: "string" } },
+        required: ["note"],
+        additionalProperties: false,
+      },
+      run: async (args) => {
+        await mailbox.requestReview(str(args, "note"));
+        return "review requested";
+      },
+    },
+    {
+      name: "get_brief",
+      description: "Read the mission brief: the goal, agreed contracts and what earlier tasks handed over.",
+      parameters: { type: "object", properties: {}, additionalProperties: false },
+      run: () => mailbox.getBrief(),
+    },
+    {
       name: "report_blocker",
       description: "Report something that stops you from finishing this task.",
       parameters: {
