@@ -1,0 +1,17 @@
+@import "@brio/brand/tokens.css";
+@import "@brio/brand/shadcn.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    line-height: 1.55;
+  }
+}
+
+/* The cursor goes solid when nothing is running (brand/BRAND.md §1). */
+.brio-cursor[data-state="idle"] {
+  animation: none;
+}
