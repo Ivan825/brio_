@@ -18,7 +18,8 @@
       "!pnpm-lock.yaml",
       "!registry/connectors.json",
       "!brand",
-      "!packages/brand/source"
+      "!packages/brand/tokens.css",
+      "!packages/brand/tailwind.preset.ts"
     ]
   },
   "formatter": {

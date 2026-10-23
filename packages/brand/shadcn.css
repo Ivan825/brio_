@@ -1,0 +1,27 @@
+/* shadcn/ui variables mapped onto Brio tokens (brand/BRAND.md §6).
+   Import after tokens.css. Never put colour literals here: every value points at a Brio token,
+   so dark/light switching in tokens.css carries through.
+
+   Note: Brio keeps its own --primary and --accent (brass). shadcn's "accent" role (hover fill)
+   is exposed as --accent-hover-bg instead; Brio components use bg-surface-2 for hover. */
+:root {
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--surface);
+  --card-foreground: var(--text);
+  --popover: var(--surface);
+  --popover-foreground: var(--text);
+  --primary-foreground: var(--on-primary);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--text);
+  --muted: var(--surface-2);
+  --muted-foreground: var(--text-muted);
+  --accent-foreground: var(--text);
+  --accent-hover-bg: var(--surface-2);
+  --destructive: var(--danger);
+  --destructive-foreground: var(--on-primary);
+  --border: var(--line);
+  --input: var(--line);
+  --ring: var(--focus);
+  --radius: var(--radius-md);
+}

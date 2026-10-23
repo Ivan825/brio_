@@ -1,0 +1,24 @@
+{
+  "name": "@brio/brand",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Brio brand: tokens, Tailwind presets, logo files and brand strings. The only place colours are defined.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tokens.css": "./tokens.css",
+    "./shadcn.css": "./shadcn.css",
+    "./tailwind.preset": "./tailwind.preset.ts",
+    "./shadcn.preset": "./shadcn.preset.ts",
+    "./colour-check": "./src/colour-check.ts",
+    "./logo/*": "./logo/*",
+    "./fonts/*": "./fonts/*"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.19"
+  }
+}
