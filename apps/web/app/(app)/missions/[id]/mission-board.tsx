@@ -8,6 +8,7 @@ import { useRunning } from "@/components/running";
 import { RUNNING_STATUSES, StatusChip } from "@/components/status-chip";
 import { usd } from "@/lib/format";
 import type { AgentSummary, AttemptSummary } from "@/lib/types";
+import { type Delivery, DeliveryPanel } from "./delivery-panel";
 import { MessagesPanel, type MissionMessage } from "./messages-panel";
 import { PlanPanel, type PlanView } from "./plan-panel";
 import { TaskList } from "./task-list";
@@ -25,6 +26,7 @@ export interface MissionDetail {
   };
   plan: PlanView | null;
   tasks: MissionTask[];
+  deliveries: Delivery[];
 }
 
 export interface MissionTask {
@@ -66,7 +68,7 @@ type Connection = "connecting" | "live" | "reconnecting";
 
 /** Events that change the mission's shape (plan, task states, messages): the page re-reads its data on them. */
 const STRUCTURAL =
-  /^(plan|task|mission|message|review|judge|approval|check|handoff|contract|lease)\.|^attempt\.(queued|started|finished)$/;
+  /^(plan|task|mission|message|review|judge|approval|check|handoff|contract|lease|delivery)\.|^attempt\.(queued|started|finished)$/;
 
 function summarise(e: BoardEvent): string {
   const p = e.payload;
@@ -109,7 +111,15 @@ function summarise(e: BoardEvent): string {
     case "review.verdict":
       return `${p.taskKey} · ${p.verdict}${(p.reasons as string[] | undefined)?.length ? ` · ${(p.reasons as string[]).join("; ")}` : ""}`;
     case "approval.requested":
-      return `${p.taskKey} · ${p.what}`;
+      return `${p.taskKey ? `${p.taskKey} · ` : ""}${p.what}${p.branch ? ` · ${p.branch}` : ""}`;
+    case "approval.decided":
+      return `${String(p.action ?? "").replaceAll("_", " ")} · ${p.decision}${p.reason ? ` · ${p.reason}` : ""}`;
+    case "delivery.started":
+      return `${p.branch} · ${String(p.commit ?? "").slice(0, 12)}`;
+    case "delivery.done":
+      return p.url ? `${p.branch} · ${p.url}` : String(p.branch ?? "");
+    case "delivery.failed":
+      return String(p.error ?? "");
     case "contract.changed":
       return `${p.name} v${p.from} → v${p.to}`;
     case "attempt.queued":
@@ -251,6 +261,11 @@ export function MissionBoard({
         <PlanPanel missionId={mission.id} plan={plan} agents={agents} />
       )}
       {openForUser.length > 0 && <MessagesPanel messages={openForUser} />}
+      <DeliveryPanel
+        missionId={mission.id}
+        deliveries={initial.deliveries ?? []}
+        missionDone={mission.status === "done"}
+      />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
         <section aria-labelledby="tasks-title" className="flex min-w-0 flex-col gap-3">
