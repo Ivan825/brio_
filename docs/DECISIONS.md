@@ -21,5 +21,8 @@ Status key: **Decided** (build on it), **Default** (chosen so work can proceed; 
 | D-15 | Platform keys (Brio pays vendors, resells with margin) in addition to BYOK | Open (before billing) | Lower friction for non-technical users | BYOK only + platform fee |
 | D-16 | Relay as optional coordination backend for teams already on it | Default: later (M9+) | Interop goodwill | Ignore |
 | D-17 | Claude Code may push to `origin` as the owner's logged-in account (Ivan825) when the owner authorises it, in small per-step pushes; no bot/AI identity, co-author trailer or AI GitHub Action ever touches the repo | Decided (23 Oct 2026) | Owner instruction at M0 start | Owner pushes everything (D-05) |
+| D-18 | TypeScript 6.0.x, not 7.x | Default (M0) | TS 7 is the native (Go) compiler without the JS compiler API that Next.js, drizzle-kit and other tools still load | TS 7 (revisit once the toolchain supports it) |
+| D-19 | Tailwind CSS 3.4 LTS | Default (M0) | `brand/tailwind.preset.ts` is a v3 JS preset (`presets`, `darkMode`); v3 uses it unchanged | Tailwind 4 with `@config` compat layer |
+| D-20 | Internal workspace packages export TypeScript source (`exports: ./src/index.ts`), no per-package build | Default (M0) | No build ordering or stale `dist/` during development; Next.js uses `transpilePackages`, the API runs through tsx | Per-package tsc/tsup builds (add if a package is published to npm, e.g. `sdk`) |
 
 When you change or add a decision, add a row, keep the old one with status **Superseded by D-xx**, and note the commit.

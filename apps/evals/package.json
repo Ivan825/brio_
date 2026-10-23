@@ -1,0 +1,15 @@
+{
+  "name": "@brio/evals",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Golden-mission benchmark harness",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "evals": "node -e \"console.error('TODO(milestone-5): golden-mission evals land in M5'); process.exit(1)\""
+  }
+}

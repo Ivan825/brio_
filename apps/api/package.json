@@ -1,0 +1,14 @@
+{
+  "name": "@brio/api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Fastify API: REST, SSE, MCP and A2A servers; hosts the orchestrator loop",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  }
+}

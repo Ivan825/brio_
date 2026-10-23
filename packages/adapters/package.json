@@ -1,0 +1,14 @@
+{
+  "name": "@brio/adapters",
+  "version": "0.0.0",
+  "private": true,
+  "description": "AgentAdapter implementations, one folder per connector family",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  }
+}

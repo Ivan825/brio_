@@ -1,0 +1,14 @@
+{
+  "name": "@brio/vault",
+  "version": "0.0.0",
+  "private": true,
+  "description": "BYOK secret storage with envelope encryption and redaction",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@brio/memory",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Project memory graph (Postgres tables + pgvector)",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  }
+}

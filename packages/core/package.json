@@ -1,0 +1,14 @@
+{
+  "name": "@brio/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Planner, router, scheduler, lease manager, verifier, scoreboard (pure logic)",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  }
+}

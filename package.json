@@ -1,0 +1,30 @@
+{
+  "name": "brio",
+  "private": true,
+  "description": "Brio — every AI, one ensemble. Multi-agent orchestrator.",
+  "license": "AGPL-3.0-only",
+  "packageManager": "pnpm@10.11.1",
+  "engines": {
+    "node": ">=22 <23"
+  },
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "biome check . && turbo run lint",
+    "format": "biome check --write .",
+    "test": "turbo run test",
+    "e2e": "turbo run e2e",
+    "db:generate": "pnpm --filter @brio/db db:generate",
+    "db:migrate": "pnpm --filter @brio/db db:migrate",
+    "db:seed": "pnpm --filter @brio/db db:seed",
+    "evals": "pnpm --filter @brio/evals evals"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.2",
+    "@types/node": "^22.19.0",
+    "turbo": "2.11.10",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  }
+}

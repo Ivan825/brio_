@@ -1,0 +1,14 @@
+{
+  "name": "@brio/registry",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Loads and validates registry/connectors.json; capability lookup",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  }
+}
