@@ -9,6 +9,11 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aws-sdk/client-kms": "3.1156.0",
+    "@brio/db": "workspace:*",
+    "drizzle-orm": "0.45.4"
   }
 }
