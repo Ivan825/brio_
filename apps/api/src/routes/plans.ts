@@ -6,6 +6,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { AppContext } from "../context";
 import { HttpError, requireMember, requireSession } from "../http";
+import { cancelMission } from "../missions";
 import { approvePlan, editPlan } from "../orchestrator/plans";
 
 const { missions, plans } = schema;
@@ -88,19 +89,7 @@ export async function planRoutes(app: FastifyInstance, ctx: AppContext) {
 
   app.post("/v1/missions/:id/cancel", async (req) => {
     const { s, m } = await missionFor(req, ["owner", "admin", "member"]);
-    const [done] = await ctx.db
-      .update(missions)
-      .set({ status: "cancelled" })
-      .where(and(eq(missions.id, m.id), eq(missions.status, m.status)))
-      .returning();
-    if (!done) throw new HttpError(409, "the mission changed; try again", "conflict");
-    await ctx.events.append(ctx.db, {
-      workspaceId: m.workspaceId,
-      missionId: m.id,
-      type: "mission.failed",
-      actor: `user:${s.userId}`,
-      payload: { reason: "cancelled by a person" },
-    });
+    await cancelMission(ctx, m, `user:${s.userId}`);
     return { cancelled: true };
   });
 }

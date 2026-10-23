@@ -90,3 +90,20 @@ export async function createMission(
   if (!body.plan) await ctx.orchestrator.startMission(mission);
   return mission;
 }
+
+/** Cancels a mission a person (or an A2A caller) gave up on; its running work stops on the orchestrator's next pass. */
+export async function cancelMission(ctx: AppContext, m: typeof missions.$inferSelect, actor: Actor) {
+  const [done] = await ctx.db
+    .update(missions)
+    .set({ status: "cancelled" })
+    .where(and(eq(missions.id, m.id), eq(missions.status, m.status)))
+    .returning();
+  if (!done) throw new HttpError(409, "the mission changed; try again", "conflict");
+  await ctx.events.append(ctx.db, {
+    workspaceId: m.workspaceId,
+    missionId: m.id,
+    type: "mission.failed",
+    actor,
+    payload: { reason: "cancelled by a person" },
+  });
+}

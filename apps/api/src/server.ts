@@ -13,6 +13,7 @@ import {
 import cors from "@fastify/cors";
 import Fastify, { type FastifyInstance } from "fastify";
 import { ZodError } from "zod";
+import { a2aRoutes } from "./a2a/server";
 import { AttemptRunner } from "./attempts";
 import { createAuth } from "./auth";
 import type { Config } from "./config";
@@ -174,6 +175,7 @@ export async function buildServer({
   await tokenRoutes(app, ctx);
   await oauthRoutes(app, ctx);
   await mcpRoutes(app, ctx);
+  await a2aRoutes(app, ctx);
   if (config.BRIO_DEV_OUTBOX && config.NODE_ENV !== "production") await devRoutes(app, ctx);
   ctx.orchestrator.start();
 
