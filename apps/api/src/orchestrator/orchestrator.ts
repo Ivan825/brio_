@@ -49,6 +49,8 @@ type Task = typeof tasks.$inferSelect;
 type Attempt = typeof attempts.$inferSelect;
 
 export const PLANNING_TASK_KEY = "brio.plan";
+/** Revised plans the planner may propose after a task fails for good. */
+export const MAX_REPLANS = 1;
 /** Planner retries when its answer is not a valid plan. */
 export const MAX_PLANNING_RETRIES = 2;
 const MAX_PARALLEL = 4;
@@ -87,6 +89,8 @@ type ModeParams = {
   reroute?: { exclude: string[]; reasons: string[] };
   /** The task failed for good (no more revisions, agents or mode steps). */
   final?: boolean;
+  /** The task was done in an earlier plan version and carried over unchanged (approvePlan). */
+  carriedFrom?: string;
 };
 const paramsOf = (t: Task) => t.modeParams as ModeParams;
 /** Attempts that made a result (single-mode makers and a mode's makers and mergers), not reviewers or judges. */
@@ -291,7 +295,7 @@ export class Orchestrator {
             tx,
             m,
             parsed.graph,
-            "planner",
+            (m.report as { replan?: unknown } | null)?.replan ? "replan" : "planner",
             `agent:${attempt.agentId}`,
           );
           await tx
@@ -353,7 +357,10 @@ export class Orchestrator {
       repo = Boolean(p?.repoUrl);
     }
     const feedback = task.revisions > 0 && task.blockedReason ? task.blockedReason.split("\n") : undefined;
-    const notes = (m.report as { plannerNotes?: string[] } | null)?.plannerNotes;
+    const { plannerNotes: notes, replan } = (m.report ?? {}) as {
+      plannerNotes?: string[];
+      replan?: { failed: { key: string; title: string; reasons: string[] }; done: unknown[] };
+    };
     const instructions = plannerInstructions({
       goal: m.goal,
       repoFiles: [],
@@ -362,6 +369,7 @@ export class Orchestrator {
       ...(m.budget.usd !== undefined ? { budgetUsd: m.budget.usd } : {}),
       ...(feedback ? { feedback } : {}),
       ...(notes?.length ? { userNotes: notes } : {}),
+      ...(replan ? { replan } : {}),
     });
     try {
       if (m.status === "draft" || m.blockedReason)
@@ -457,6 +465,10 @@ export class Orchestrator {
           gt(leases.expiresAt, new Date()),
         ),
       );
+    // Tasks carried over from an earlier plan version hand their work to the new plan's tasks once.
+    for (const t of fresh)
+      if (paramsOf(t).carriedFrom && t.status === "done" && (await this.markOnce(t.id, "handed-off")))
+        await this.handOffCarried(m, t);
     const snapshot: SchedTask[] = fresh.map((t) => ({
       id: t.id,
       key: t.key,
@@ -525,6 +537,7 @@ export class Orchestrator {
           await this.finishMission(m);
           break;
         case "mission_failed": {
+          if (await this.proposeReplan(m, fresh, a.reason)) break;
           const [done] = await this.ctx.db
             .update(missions)
             .set({ status: "failed", blockedReason: a.reason })
@@ -1364,6 +1377,118 @@ export class Orchestrator {
     let contract: { name: string; version: string } | null = null;
     if (t.type.startsWith("design.")) contract = await this.registerContract(m, t, a, output);
 
+    await this.handOff(m, t, a, checks, output, agentKey, dispatch?.agent?.connector.presetKey ?? "unknown");
+    const cost = await this.ctx.db
+      .select({ usd: sql<number>`coalesce(sum(${attempts.costUsd}), 0)::float` })
+      .from(attempts)
+      .where(eq(attempts.taskId, t.id));
+    await this.emit(
+      this.ctx.db,
+      m,
+      "task.done",
+      {
+        taskKey: t.key,
+        attemptId: a.id,
+        agent: agentKey,
+        checks: checks.items.map((i) => ({ kind: i.kind, status: i.status })),
+        costUsd: cost[0]?.usd ?? 0,
+        contract,
+        mode: paramsOf(t).route?.mode ?? "single",
+        ...(softFailures.length ? { softFailures } : {}),
+        ...(paramsOf(t).result ? { note: paramsOf(t).result?.note } : {}),
+      },
+      { taskId: t.id },
+    );
+  }
+
+  /**
+   * After a task failed for good (verdict: revise, reroute, fail), the planner proposes a revised plan once, when nothing
+   * else is still working. Done tasks it keeps unchanged carry their work over (approvePlan). False: fail the mission.
+   */
+  private async proposeReplan(m: Mission, rows: Task[], reason: string): Promise<boolean> {
+    const report = (m.report ?? {}) as { replans?: number };
+    if ((report.replans ?? 0) >= MAX_REPLANS) return false;
+    const failed = rows.find((t) => t.status === "failed");
+    if (!failed) return false;
+    // Let the rest of the plan settle first: its results are worth keeping.
+    if (rows.some((t) => ["leased", "running", "verifying", "revise"].includes(t.status))) return true;
+    if (!choosePlanner(await routeAgents(this.ctx, m.workspaceId), m.plannerAgentId).ok) return false;
+    const plan = await latestApproved(this.ctx.db, m.id);
+    if (!plan) return false;
+    const doneKeys = new Set(rows.filter((t) => t.status === "done").map((t) => t.key));
+    const replan = {
+      failed: {
+        key: failed.key,
+        title: failed.title,
+        reasons: (failed.blockedReason ?? reason).split("; ").filter(Boolean).slice(0, 10),
+      },
+      done: plan.graph.tasks.filter((t) => doneKeys.has(t.key)),
+    };
+    const claimed = await this.ctx.db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(missions)
+        .set({
+          status: "planning",
+          blockedReason: null,
+          report: { ...(m.report ?? {}), replans: (report.replans ?? 0) + 1, replan },
+        })
+        .where(and(eq(missions.id, m.id), eq(missions.status, "running")))
+        .returning();
+      if (!row) return false;
+      await tx
+        .update(tasks)
+        .set({ status: "ready", revisions: 0, blockedReason: null })
+        .where(and(eq(tasks.missionId, m.id), eq(tasks.planVersion, 0)));
+      await this.emit(tx, m, "mission.replanning", {
+        reason,
+        failedTask: failed.key,
+        reasons: replan.failed.reasons,
+        keep: [...doneKeys],
+      });
+      return true;
+    });
+    if (claimed) {
+      await this.releaseMissionLeases(m);
+      this.schedule(m.id);
+    }
+    return true;
+  }
+
+  /** The handoffs (and a task.done) of a task carried over from an earlier plan version. */
+  private async handOffCarried(m: Mission, t: Task): Promise<void> {
+    const a = await this.resultAttempt(t);
+    if (!a) return;
+    const checks = (a.checks as AttemptChecks | null) ?? { requestedAt: new Date().toISOString(), items: [] };
+    const d = a.dispatch as { agent?: { model: string; connector: { presetKey: string } } } | null;
+    const agentKey = attemptAgentKey(a.dispatch) ?? a.agentId;
+    await this.handOff(
+      m,
+      t,
+      a,
+      checks,
+      await this.attemptOutput(a),
+      agentKey,
+      d?.agent?.connector.presetKey ?? "unknown",
+    );
+    await this.emit(
+      this.ctx.db,
+      m,
+      "task.done",
+      { taskKey: t.key, attemptId: a.id, agent: agentKey, carried: true, costUsd: 0, mode: "carried" },
+      { taskId: t.id },
+    );
+  }
+
+  /** A handoff packet from a finished task to each task that depends on it (in the same plan version). */
+  private async handOff(
+    m: Mission,
+    t: Task,
+    a: Attempt,
+    checks: AttemptChecks,
+    output: string,
+    agentKey: string,
+    vendor: string,
+  ): Promise<void> {
     const downstream = await this.ctx.db
       .select()
       .from(tasks)
@@ -1375,10 +1500,12 @@ export class Orchestrator {
         ),
       );
     const artifactsOf = await this.ctx.db.select().from(artifacts).where(eq(artifacts.attemptId, a.id));
+    // What it received (as the task it was carried over from, too): decisions keep flowing down the chain.
+    const carriedFrom = paramsOf(t).carriedFrom;
     const received = await this.ctx.db
       .select({ packet: handoffs.packet })
       .from(handoffs)
-      .where(eq(handoffs.toTaskId, t.id));
+      .where(inArray(handoffs.toTaskId, carriedFrom ? [t.id, carriedFrom] : [t.id]));
     const inheritedDecisions = received.flatMap((r) => r.packet.decisions);
     const activeContracts = await this.ctx.db
       .select()
@@ -1392,7 +1519,7 @@ export class Orchestrator {
         from: {
           taskKey: t.key,
           agentKey,
-          vendor: dispatch?.agent?.connector.presetKey ?? "unknown",
+          vendor,
           summary: output.split(/\n\s*\n/)[0]?.slice(0, 600) ?? "",
           output,
         },
@@ -1428,27 +1555,6 @@ export class Orchestrator {
         { taskId: d.id },
       );
     }
-    const cost = await this.ctx.db
-      .select({ usd: sql<number>`coalesce(sum(${attempts.costUsd}), 0)::float` })
-      .from(attempts)
-      .where(eq(attempts.taskId, t.id));
-    await this.emit(
-      this.ctx.db,
-      m,
-      "task.done",
-      {
-        taskKey: t.key,
-        attemptId: a.id,
-        agent: agentKey,
-        checks: checks.items.map((i) => ({ kind: i.kind, status: i.status })),
-        costUsd: cost[0]?.usd ?? 0,
-        contract,
-        mode: paramsOf(t).route?.mode ?? "single",
-        ...(softFailures.length ? { softFailures } : {}),
-        ...(paramsOf(t).result ? { note: paramsOf(t).result?.note } : {}),
-      },
-      { taskId: t.id },
-    );
   }
 
   private async registerContract(m: Mission, t: Task, a: Attempt, output: string) {

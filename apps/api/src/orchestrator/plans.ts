@@ -2,12 +2,23 @@
 // approving one materialises its tasks. Pure helpers plus the database writes.
 import { applyPlanEdit, type LintResult, lintPlan, type PlanEdit } from "@brio/core";
 import { type DbOrTx, schema } from "@brio/db";
-import type { Actor, EventType, PlanGraph } from "@brio/schema";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { type Actor, type EventType, type PlanGraph, TaskContract } from "@brio/schema";
+import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import type { AppContext } from "../context";
 import { HttpError } from "../http";
 
-const { missions, plans, tasks } = schema;
+const { attempts, missions, plans, tasks } = schema;
+
+/** JSON with sorted keys, so two equal contracts compare equal whatever order their fields came in. */
+function canonical(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(canonical).join(",")}]`;
+  if (v && typeof v === "object")
+    return `{${Object.keys(v)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${canonical((v as Record<string, unknown>)[k])}`)
+      .join(",")}}`;
+  return JSON.stringify(v);
+}
 
 export type PlanRow = typeof plans.$inferSelect;
 
@@ -31,7 +42,7 @@ export async function storePlan(
   tx: DbOrTx,
   mission: typeof missions.$inferSelect,
   graph: PlanGraph,
-  origin: "planner" | "user",
+  origin: "planner" | "user" | "replan",
   actor: Actor,
 ): Promise<{ plan: PlanRow; lint: LintResult }> {
   const lint = lintPlan(graph, {
@@ -55,7 +66,7 @@ export async function storePlan(
     })
     .returning();
   if (!plan) throw new Error("plan insert returned nothing");
-  const type: EventType = origin === "planner" ? "plan.proposed" : "plan.edited";
+  const type: EventType = origin === "user" ? "plan.edited" : "plan.proposed";
   await ctx.events.append(tx, {
     workspaceId: mission.workspaceId,
     missionId: mission.id,
@@ -73,6 +84,7 @@ export async function storePlan(
       questions: lint.graph.questions,
       lint: { errors: lint.errors.length, warnings: lint.warnings.length, fixes: lint.fixes.length },
       estimate: lint.estimate,
+      ...(origin === "replan" ? { replan: true } : {}),
     },
   });
   return { plan, lint };
@@ -132,22 +144,71 @@ export async function approvePlan(
     if (!locked) throw new HttpError(409, "the mission is not waiting for approval", "not_awaiting_approval");
     await tx.update(plans).set({ status: "approved", approvedBy: userId }).where(eq(plans.id, plan.id));
 
+    // A replan keeps finished work: a done task of the previous approved version that the new plan keeps unchanged
+    // (same key, type and contract) is carried over as done, with its result, instead of running again.
+    const [prev] = await tx
+      .select()
+      .from(plans)
+      .where(and(eq(plans.missionId, mission.id), eq(plans.status, "approved"), lt(plans.version, version)))
+      .orderBy(desc(plans.version))
+      .limit(1);
+    const carried = new Map<string, { id: string; resultArtifactId: string | null; attemptId: string }>();
+    if (prev) {
+      const old = await tx
+        .select()
+        .from(tasks)
+        .where(
+          and(eq(tasks.missionId, mission.id), eq(tasks.planVersion, prev.version), eq(tasks.status, "done")),
+        );
+      for (const t of plan.graph.tasks) {
+        const o = old.find((x) => x.key === t.key);
+        if (!o || o.type !== t.type) continue;
+        if (canonical(TaskContract.parse(o.contract)) !== canonical(TaskContract.parse(t.contract))) continue;
+        const picked = (o.modeParams as { result?: { attemptId: string } }).result?.attemptId;
+        const [a] = picked
+          ? [{ id: picked }]
+          : await tx
+              .select({ id: attempts.id })
+              .from(attempts)
+              .where(
+                and(
+                  eq(attempts.taskId, o.id),
+                  eq(attempts.status, "succeeded"),
+                  sql`coalesce(${attempts.dispatch}->'mode'->>'purpose', 'make') in ('make', 'revise', 'merge')`,
+                ),
+              )
+              .orderBy(desc(attempts.endedAt))
+              .limit(1);
+        if (a) carried.set(t.key, { id: o.id, resultArtifactId: o.resultArtifactId, attemptId: a.id });
+      }
+    }
+
     const inserted = await tx
       .insert(tasks)
       .values(
-        plan.graph.tasks.map((t) => ({
-          workspaceId: mission.workspaceId,
-          missionId: mission.id,
-          planVersion: version,
-          key: t.key,
-          type: t.type,
-          title: t.title,
-          contract: t.contract,
-          mode: t.suggestedMode,
-          modeParams: t.modeParams ?? {},
-          pinnedAgentId: t.pinnedAgentId ?? null,
-          budget: t.contract.budget ?? {},
-        })),
+        plan.graph.tasks.map((t) => {
+          const c = carried.get(t.key);
+          return {
+            workspaceId: mission.workspaceId,
+            missionId: mission.id,
+            planVersion: version,
+            key: t.key,
+            type: t.type,
+            title: t.title,
+            contract: t.contract,
+            mode: t.suggestedMode,
+            modeParams: c
+              ? {
+                  ...(t.modeParams ?? {}),
+                  carriedFrom: c.id,
+                  result: { attemptId: c.attemptId, note: `carried over from plan v${prev?.version}` },
+                }
+              : (t.modeParams ?? {}),
+            pinnedAgentId: t.pinnedAgentId ?? null,
+            budget: t.contract.budget ?? {},
+            ...(c ? { status: "done" as const, resultArtifactId: c.resultArtifactId } : {}),
+          };
+        }),
       )
       .returning({ id: tasks.id, key: tasks.key });
     const idOf = new Map(inserted.map((r) => [r.key, r.id]));
@@ -162,7 +223,7 @@ export async function approvePlan(
     await ctx.events.append(tx, {
       ...base,
       type: "plan.approved",
-      payload: { version, tasks: inserted.length },
+      payload: { version, tasks: inserted.length, ...(carried.size ? { carried: [...carried.keys()] } : {}) },
     });
     await ctx.events.append(tx, { ...base, type: "mission.started", actor: "system", payload: { version } });
     return plan;
