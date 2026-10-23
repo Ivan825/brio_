@@ -212,7 +212,10 @@ export class DockerSandbox implements SandboxHandle {
       .map((f) => posix.relative(WORKDIR, f));
   }
 
-  spawn(argv: string[], opts: { env: Record<string, string>; stdin?: string }): SandboxProcess {
+  spawn(
+    argv: string[],
+    opts: { env: Record<string, string>; stdin?: string; interactive?: boolean },
+  ): SandboxProcess {
     // Secrets go through a 0600 env file read once by the docker CLI, never through argv (visible in `ps`).
     const envFile = join(this.scratchDir, `env-${randomBytes(8).toString("hex")}`);
     const envText = Object.entries(opts.env)
@@ -240,7 +243,10 @@ export class DockerSandbox implements SandboxHandle {
         resolveExit({ code: null, stderr: e.message });
       });
       c.stdin.on("error", () => {});
-      c.stdin.end(opts.stdin ?? "");
+      // Interactive protocols (ACP) keep stdin open and write to it as they go.
+      if (opts.interactive) {
+        if (opts.stdin) c.stdin.write(opts.stdin);
+      } else c.stdin.end(opts.stdin ?? "");
       return c;
     });
     child.catch((e: Error) => resolveExit({ code: null, stderr: e.message }));
@@ -249,7 +255,21 @@ export class DockerSandbox implements SandboxHandle {
       const rl = createInterface({ input: c.stdout, crlfDelay: Number.POSITIVE_INFINITY });
       for await (const line of rl) yield line;
     })();
-    return { lines, exit, kill: () => this.kill() };
+    // Writes before the process has started wait for it, in order.
+    let pending: Promise<unknown> = child;
+    const stdin = opts.interactive
+      ? {
+          write: (text: string) => {
+            pending = pending
+              .then((c) => (c as { stdin: { write(t: string): void } }).stdin.write(text))
+              .catch(() => {});
+          },
+          end: () => {
+            pending = pending.then((c) => (c as { stdin: { end(): void } }).stdin.end()).catch(() => {});
+          },
+        }
+      : undefined;
+    return { lines, exit, kill: () => this.kill(), ...(stdin ? { stdin } : {}) };
   }
 
   /** Stops everything in the sandbox at once (cancel, limit breach). The worktree stays on the host. */

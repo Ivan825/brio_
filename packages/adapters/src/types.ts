@@ -114,6 +114,8 @@ export interface SandboxProcess {
   exit: Promise<{ code: number | null; stderr: string }>;
   /** Kills the process. Idempotent. */
   kill(): Promise<void>;
+  /** Writes to the process's stdin, for interactive protocols (ACP); present only when spawned interactive. */
+  stdin?: { write(text: string): void; end(): void };
 }
 
 /**
@@ -130,7 +132,10 @@ export interface SandboxHandle {
     opts?: { timeoutMs?: number },
   ): Promise<{ exitCode: number; stdout: string; stderr: string }>;
   /** Starts a long-running process (a coding CLI) with its own environment; secrets go only in `env`. */
-  spawn(argv: string[], opts: { env: Record<string, string>; stdin?: string }): SandboxProcess;
+  spawn(
+    argv: string[],
+    opts: { env: Record<string, string>; stdin?: string; interactive?: boolean },
+  ): SandboxProcess;
 }
 
 /** A logger whose output has already been through the redactor. */
