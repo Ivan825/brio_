@@ -62,6 +62,9 @@ export interface RouteOptions {
 interface Scored extends Candidate {
   sample: number;
   utility: number;
+  /** The same utility with the posterior mean instead of a sample, and the posterior's standard deviation. */
+  meanUtility: number;
+  sd: number;
 }
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -79,6 +82,9 @@ function norm(xs: number[]): (x: number) => number {
  */
 export const WARM_UP_TRIES = 2;
 
+/** How close (in utility) a second agent must be to the leader to join a best-of-n or ensemble (D-63). */
+export const MODE_MARGIN: Record<Priority, number> = { quality: 0.25, balanced: 0.15, cheap: 0.1, fast: 0.1 };
+
 /** Thompson sample + cost/latency/Elo utility for every candidate, best first; untried candidates go first. */
 export function rank(cands: Candidate[], priority: Priority, rng: Rng, warmUp = WARM_UP_TRIES): Scored[] {
   const l = LAMBDAS[priority];
@@ -90,13 +96,10 @@ export function rank(cands: Candidate[], priority: Priority, rng: Rng, warmUp = 
       const sample = sampleBeta(c.score.alpha, c.score.beta, rng);
       const cost = c.score.n ? c.score.avgCost : c.estUsd;
       const explore = c.score.n < warmUp ? 1 : 0;
-      const utility =
-        explore +
-        sample +
-        l.elo * nElo(c.score.elo) -
-        l.cost * nCost(cost) -
-        l.time * nTime(c.score.latencyS);
-      return { ...c, sample, utility };
+      const rest = l.elo * nElo(c.score.elo) - l.cost * nCost(cost) - l.time * nTime(c.score.latencyS);
+      const { alpha: a, beta: b } = c.score;
+      const sd = Math.sqrt((a * b) / ((a + b) ** 2 * (a + b + 1)));
+      return { ...c, sample, utility: explore + sample + rest, meanUtility: passRate(c.score) + rest, sd };
     })
     .sort((a, b) => b.utility - a.utility);
 }
@@ -218,8 +221,18 @@ export function routeLearned(task: LearnedTask, candidates: Candidate[], o: Rout
         2,
         Math.min(task.modeParams?.n ?? (spread.length >= 3 && o.priority === "quality" ? 3 : 2), 5),
       );
-      const picked = (spread.length >= 2 ? spread : ranked).slice(0, n);
-      if (picked.length < 2) return single(`${label} needs 2+ agents; running single`);
+      const source = spread.length >= 2 ? spread : ranked;
+      if (source.length < 2) return single(`${label} needs 2+ agents; running single`);
+      // A candidate is worth paying for only if it could plausibly be the best: its expected utility plus a standard
+      // deviation of its quality reaches the leader's expected utility less a margin. Unknown agents always can; a
+      // well-measured weaker one cannot (D-63). A plan or person asking for the mode keeps it as asked.
+      const lead = Math.max(...source.map((c) => c.meanUtility));
+      const plausible = (c: Scored) => c.meanUtility + c.sd >= lead - MODE_MARGIN[o.priority];
+      const picked = (task.modeExplicit ? source : source.filter(plausible)).slice(0, n);
+      if (picked.length < 2)
+        return single(
+          `no second agent is close to ${best.agent.name} on ${task.type}; ${label} would add a weaker result, so running single`,
+        );
       const merger =
         wanted === "ensemble" ? (independent(everyone, new Set(), new Set()) ?? best) : undefined;
       // Tests decide best-of-n; a judge from outside the candidates breaks ties between passing results (two

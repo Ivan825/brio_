@@ -175,6 +175,34 @@ describe("router", () => {
     expect(defaultMode(task({ type: "write.summary" }), "cheap")).toBe("cascade");
   });
 
+  it("adds a best-of-n candidate only if it could plausibly be the best", () => {
+    const known = (passes: number, fails: number) => ({
+      ...freshScore(now),
+      alpha: 1 + passes,
+      beta: 1 + fails,
+      n: passes + fails,
+    });
+    const strong = cand(agent("coder", "anthropic"), { score: known(36, 4) });
+    const weak = cand(agent("mini", "openai"), { score: known(12, 28) });
+    const d = routeLearned(task(), [strong, weak], opts({ everyone: [strong, weak] }));
+    expect(d).toMatchObject({ ok: true, mode: "single" });
+    expect(d.ok && d.degraded).toMatch(/no second agent is close to coder/);
+    // Two agents nobody knows yet could each be the best: both run.
+    const fresh = [cand(agent("a", "anthropic")), cand(agent("b", "openai"))];
+    expect(routeLearned(task(), fresh, opts({ everyone: fresh }))).toMatchObject({
+      ok: true,
+      mode: "best_of_n",
+    });
+    // Asked for on purpose, the mode runs as asked.
+    expect(
+      routeLearned(
+        task({ modeExplicit: true, mode: "best_of_n" }),
+        [strong, weak],
+        opts({ everyone: [strong, weak] }),
+      ),
+    ).toMatchObject({ mode: "best_of_n" });
+  });
+
   it("staffs best-of-n and debate from different vendors, with an independent judge", () => {
     const bon = routeLearned(task(), team, opts());
     expect(bon.ok && bon.mode).toBe("best_of_n");
