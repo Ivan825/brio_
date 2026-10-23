@@ -2,3 +2,4 @@
 export * from "./docker";
 export * from "./images";
 export * from "./sandbox/docker-sandbox";
+export * from "./worktree";
