@@ -250,6 +250,32 @@ describe("antigravity", () => {
     expect(events).toContainEqual({ kind: "file_edit", path: "math.js", op: "modify" });
   });
 
+  it("under the person's own sign-in (local runner): the plain binary, no key, settings untouched, nothing metered", async () => {
+    const adapter = by("antigravity");
+    const sbx = fakeSandbox(read("antigravity.ndjson"));
+    const events: AdapterEvent[] = [];
+    const result = await adapter.run(
+      helloInput(),
+      { ...agentFor(adapter), price: null, options: { localLogin: true } },
+      {
+        credential: null,
+        emit: (e) => events.push(e),
+        signal: new AbortController().signal,
+        sandbox: sbx.sandbox,
+        logger: { debug() {}, info() {}, warn() {}, error() {} },
+        fetch: globalThis.fetch,
+      },
+    );
+    expect(result.status, result.error).toBe("completed");
+    const s = sbx.spawned[0]!;
+    expect(s.argv[0]).toBe("agy");
+    expect(s.argv.join(" ")).not.toContain("modelProvider");
+    expect(s.env.GEMINI_API_KEY).toBeUndefined();
+    expect(events.some((e) => e.kind === "cost")).toBe(false);
+    expect(result.usage.usd).toBe(0);
+    expect(result.tokens.outputTokens).toBe(800);
+  });
+
   it("an ERROR result fails the run even when agy exits 0 (issue 548)", async () => {
     const { result } = await run(by("antigravity"), read("antigravity-error.ndjson"), {}, { exitCode: 0 });
     expect(result.status).toBe("failed");

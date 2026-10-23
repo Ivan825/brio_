@@ -14,6 +14,21 @@ const EDIT_TOOLS = new Set([
 ]);
 const SETTINGS = JSON.stringify({ modelProvider: "gemini" });
 
+/** The headless run itself: the same whether agy is in key mode or under the person's own sign-in. */
+const run = (prompt: string, model: string, minutes: number) => [
+  "-p",
+  prompt,
+  "--output-format",
+  "stream-json",
+  "--dangerously-skip-permissions",
+  "--model",
+  model,
+  "--print-timeout",
+  `${Math.max(1, Math.ceil(minutes))}m`,
+  "--add-dir",
+  "/work",
+];
+
 export const antigravity = createCliAdapter({
   key: "antigravity",
   connector: "google-antigravity",
@@ -29,18 +44,10 @@ export const antigravity = createCliAdapter({
     'd="$HOME/.gemini/antigravity-cli" && mkdir -p "$d" && printf "%s" "$1" > "$d/settings.json" && shift && exec agy "$@"',
     "sh",
     SETTINGS,
-    "-p",
-    prompt,
-    "--output-format",
-    "stream-json",
-    "--dangerously-skip-permissions",
-    "--model",
-    config.model,
-    "--print-timeout",
-    `${Math.max(1, Math.ceil(input.limits.maxMinutes))}m`,
-    "--add-dir",
-    "/work",
+    ...run(prompt, config.model, input.limits.maxMinutes),
   ],
+  // The official binary under the person's own sign-in (local runner only): their settings are left alone.
+  localArgv: (prompt, config, input) => ["agy", ...run(prompt, config.model, input.limits.maxMinutes)],
   parse(e, state) {
     if (e.event === "init") {
       state.sessionId = str(e.conversation_id) || state.sessionId;

@@ -52,6 +52,11 @@ export interface CliSpec {
   image: string;
   /** argv for one headless run; the prompt goes in argv or on stdin. */
   argv(prompt: string, config: AgentConfig, input: RunInput): string[];
+  /**
+   * argv when a local runner runs the CLI under the person's own sign-in (M8, registry `localLogin`): the same run,
+   * without anything that sets up key mode (which would rewrite the person's CLI settings). Default: `argv`.
+   */
+  localArgv?(prompt: string, config: AgentConfig, input: RunInput): string[];
   promptVia: "arg" | "stdin";
   /** Files to write into the worktree before the run (MCP config, hook config). Paths relative to the worktree. */
   files?(input: RunInput, config: AgentConfig): Array<{ path: string; content: string }>;
@@ -190,7 +195,15 @@ export function createCliAdapter(spec: CliSpec): AgentAdapter & { spec: CliSpec 
         } as RunResult);
 
       if (!outer.sandbox.available) return finish("failed", "CLI agents run only inside a sandbox");
-      if (!config.price && !spec.reportsCost && !spec.unmetered && !presetOf(config.connector).pricing.free)
+      // Under the person's own sign-in (a local runner), the vendor bills their plan: no key, no metering here.
+      const localLogin = config.options?.localLogin === true;
+      if (
+        !localLogin &&
+        !config.price &&
+        !spec.reportsCost &&
+        !spec.unmetered &&
+        !presetOf(config.connector).pricing.free
+      )
         return finish("failed", `no price for ${config.model}: set one on the agent before running it`);
 
       const mcp = input.mcpServers.length && spec.mcp ? spec.mcp(input.mcpServers) : {};
@@ -212,7 +225,7 @@ export function createCliAdapter(spec: CliSpec): AgentAdapter & { spec: CliSpec 
         prompt = `Your full task is in ${PROMPT_FILE}. Read it first and follow it exactly.`;
       }
       const env: Record<string, string> = { ...spec.env, ...mcp.env };
-      if (secret) for (const name of spec.credentialEnv) env[name] = secret;
+      if (secret && !localLogin) for (const name of spec.credentialEnv) env[name] = secret;
 
       if (config.options?.protocol === "acp") {
         if (!spec.acp)
@@ -232,7 +245,7 @@ export function createCliAdapter(spec: CliSpec): AgentAdapter & { spec: CliSpec 
           state.result = r.text;
           state.sessionId = r.sessionId;
           state.finished = true;
-          if (r.usd !== undefined && r.usd > usd) {
+          if (!localLogin && r.usd !== undefined && r.usd > usd) {
             emit({ kind: "cost", usd: roundUsd(r.usd - usd), model: config.model, priceSource: "vendor" });
             usd = r.usd;
           }
@@ -266,7 +279,7 @@ export function createCliAdapter(spec: CliSpec): AgentAdapter & { spec: CliSpec 
       }
       let proc: ReturnType<RunContext["sandbox"]["spawn"]>;
       try {
-        const argv = spec.argv(prompt, config, input);
+        const argv = (localLogin && spec.localArgv ? spec.localArgv : spec.argv)(prompt, config, input);
         proc = outer.sandbox.spawn(mcp.argv ? mcp.argv(argv) : argv, {
           env,
           ...(spec.promptVia === "stdin" ? { stdin: prompt } : {}),
@@ -296,7 +309,9 @@ export function createCliAdapter(spec: CliSpec): AgentAdapter & { spec: CliSpec 
             for (const e of spec.parseText?.(trimmed, state) ?? []) emit(e);
           }
 
-          const now = state.vendorCostUsd ?? (config.price ? costOf(state.usage, config.price) : 0);
+          const now = localLogin
+            ? 0
+            : (state.vendorCostUsd ?? (config.price ? costOf(state.usage, config.price) : 0));
           if (now > usd) {
             const delta = now - usd;
             usd = now;
