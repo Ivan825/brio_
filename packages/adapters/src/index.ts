@@ -2,6 +2,7 @@
 import { ADAPTERS_BY_FAMILY } from "./api-family-registry";
 import { CLI_ADAPTERS } from "./cli/index";
 import {
+  a2a,
   BROWSER_ADAPTERS,
   HOSTED_ADAPTERS,
   MEDIA_ADAPTERS,
@@ -16,6 +17,7 @@ export const ADAPTERS: Readonly<Record<string, AgentAdapter>> = {
   ...Object.fromEntries(CLI_ADAPTERS.map((a) => [a.key, a])),
   ...Object.fromEntries(HOSTED_ADAPTERS.map((a) => [a.key, a])),
   ...Object.fromEntries(BROWSER_ADAPTERS.map((a) => [a.key, a])),
+  a2a,
   ...Object.fromEntries(MEDIA_ADAPTERS.map((a) => [a.key, a])),
   ...Object.fromEntries(RESEARCH_AGENT_ADAPTERS.map((a) => [a.key, a])),
   ...Object.fromEntries(RESEARCH_TOOL_ADAPTERS.map((a) => [a.key, a])),

@@ -3921,6 +3921,38 @@
       "docsUrl": "https://docs.aws.amazon.com/nova-act/latest/APIReference/Welcome.html",
       "verifiedOn": "2026-10-24",
       "notes": "The AWS service API (SigV4, IAM nova-act:*), client-actuated: Brio runs each step's browser actions on Chromium in the attempt's browser sandbox, reaching only the task's sites. A UI takeover (sign-in, captcha) is refused."
+    },
+    "a2a": {
+      "connector": "a2a-protocol",
+      "name": "A2A agent",
+      "vendor": "a2a",
+      "kind": "a2a",
+      "adapter": "a2a",
+      "baseUrl": "{url}",
+      "auth": {
+        "scheme": "optional-bearer"
+      },
+      "settings": [
+        {
+          "key": "url",
+          "label": "Agent URL",
+          "required": true,
+          "pattern": "^https?://",
+          "placeholder": "https://agent.example.com",
+          "help": "Its Agent Card must be at <url>/.well-known/agent-card.json."
+        }
+      ],
+      "health": {
+        "method": "GET",
+        "path": "/.well-known/agent-card.json"
+      },
+      "pricing": {
+        "unit": "unmetered",
+        "note": "A2A agents report no cost: runs are bounded by time."
+      },
+      "docsUrl": "https://a2a-protocol.org/latest/specification/",
+      "verifiedOn": "2026-10-24",
+      "notes": "A2A v1.0 over JSON-RPC, through the official SDK. Its skills suggest the task types it takes; change them on the connector."
     }
   }
 }

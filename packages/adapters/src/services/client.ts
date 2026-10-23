@@ -114,6 +114,7 @@ export class ServiceClient {
     if (!raw) return out;
     switch (sv.auth.scheme) {
       case "bearer":
+      case "optional-bearer":
         return { ...out, authorization: `Bearer ${raw}` };
       case "header":
         return { ...out, [sv.auth.header]: raw };
@@ -132,6 +133,16 @@ export class ServiceClient {
         };
       }
     }
+  }
+
+  /** A request through Brio's guarded fetch, for SDKs that build their own (the A2A client); callers add headers. */
+  rawFetch(url: string, init: RequestInit = {}): Promise<Response> {
+    const signal = this.ctx.signal
+      ? init.signal
+        ? AbortSignal.any([this.ctx.signal, init.signal])
+        : this.ctx.signal
+      : init.signal;
+    return this.ctx.fetch(url, { ...init, ...(signal ? { signal } : {}) });
   }
 
   url(path: string, query?: Record<string, string | number | boolean | undefined>): string {

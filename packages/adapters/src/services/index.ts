@@ -20,6 +20,7 @@ export const HOSTED_ADAPTERS: readonly AgentAdapter[] = [
   foundryAgents,
 ];
 
+export * from "./a2a/index";
 export * from "./browser/index";
 export * from "./client";
 export { agentcoreText } from "./hosted/agentcore";

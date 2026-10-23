@@ -14,6 +14,7 @@
     "test:live": "vitest run --config vitest.live.config.ts"
   },
   "dependencies": {
+    "@a2a-js/sdk": "1.3.0",
     "@brio/core": "workspace:*",
     "@brio/registry": "workspace:*",
     "@brio/schema": "workspace:*",

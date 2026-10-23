@@ -172,8 +172,8 @@ export type Preset = z.infer<typeof Preset>;
 
 /** What a service connector is for (non-model APIs: hosted agents, media, search, page fetching, browsers). */
 /**
- * hosted agents, media models, research agents, search and fetch tools (every agent's), browser agents, and cloud
- * browsers (infrastructure computer use can run on).
+ * hosted agents, media models, research agents, search and fetch tools (every agent's), browser agents, cloud
+ * browsers (infrastructure computer use can run on), and A2A agents (any agent by its URL).
  */
 export const ServiceKind = z.enum([
   "hosted",
@@ -183,12 +183,15 @@ export const ServiceKind = z.enum([
   "fetch",
   "browser",
   "cloud-browser",
+  "a2a",
 ]);
 export type ServiceKind = z.infer<typeof ServiceKind>;
 
 /** How a service's credential is sent. */
 export const ServiceAuth = z.discriminatedUnion("scheme", [
   z.object({ scheme: z.literal("bearer") }),
+  /** A bearer token when the install has one, none otherwise (A2A agents that need no credential). */
+  z.object({ scheme: z.literal("optional-bearer") }),
   /** A named header carrying the key (x-api-key, x-goog-api-key, x-manus-api-key…). */
   z.object({ scheme: z.literal("header"), header: z.string().min(1) }),
   /** AWS Signature V4; the credential is JSON {accessKeyId, secretAccessKey, sessionToken?}. */
