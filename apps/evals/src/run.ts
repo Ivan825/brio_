@@ -40,6 +40,11 @@ export interface RunOptions {
   timeoutMs: number;
   /** Passes over the missions in the same workspace (the learned router keeps its history); the last one is scored. */
   epochs?: number;
+  /**
+   * Rate each mission's results as its user would, thumbs up or down by the hidden checks (POST /v1/attempts/:id/rating).
+   * The verifier only sees the contract's checks; a person's rating is how the router learns what they miss.
+   */
+  feedback?: boolean;
   /** Called before each mission (the simulation follows along). */
   onMission?: (strategy: string, mission: LoadedEvalMission) => void;
   log?: (line: string) => void;
@@ -124,6 +129,7 @@ export async function runEvals(o: RunOptions): Promise<EvalRun> {
             routingOf(strategy, agentIds),
             repo,
             o.timeoutMs,
+            o.feedback ?? false,
           );
           results.push(epochs > 1 ? { ...result, epoch } : result);
           log(
@@ -144,6 +150,7 @@ export async function runEvals(o: RunOptions): Promise<EvalRun> {
     finishedAt: new Date().toISOString(),
     missions: o.missions,
     epochs,
+    ...(o.feedback ? { feedback: true } : {}),
     summaries,
     results,
     verdict: evalVerdict(summaries),
@@ -159,6 +166,7 @@ async function runOne(
   routing: Record<string, unknown>,
   repo: string | null,
   timeoutMs: number,
+  feedback: boolean,
 ): Promise<EvalMissionResult> {
   let projectId: string | undefined;
   if (repo)
@@ -208,6 +216,16 @@ async function runOne(
     passed: false,
     reason: `could not score: ${err.message}`,
   }));
+  if (feedback) {
+    const ts = await stack.db.db.select().from(tasks).where(eq(tasks.missionId, id));
+    for (const t of ts) {
+      const a = await resultAttempt(stack, t);
+      if (a?.status === "succeeded")
+        await c
+          .request("POST", `/v1/attempts/${a.id}/rating`, { rating: score.passed ? 1 : -1 })
+          .catch(() => {});
+    }
+  }
   return {
     mission: m.key,
     strategy,

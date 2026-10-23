@@ -2,6 +2,7 @@
 //   offline (default): simulated agents of known skill (src/sim.ts); no keys, reproducible; what CI runs nightly.
 //   --live: your own agents and keys, from --agents <file.json> (EvalAgent[]: name, connector, model, keyEnv…).
 // Options: --missions a,b  --strategies learned,static,single:mini  --out <dir>  --timeout-min <n>  --epochs <n>
+//          --feedback   (rate each result as its user would, by the hidden checks: the learned router's outcome signal)
 //          --save-db <DATABASE_URL> --workspace <id>   (stores the run for the evals dashboard)
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -24,6 +25,7 @@ const { values } = parseArgs({
     workspace: { type: "string" },
     notes: { type: "string" },
     epochs: { type: "string" },
+    feedback: { type: "boolean", default: false },
   },
 });
 
@@ -65,6 +67,7 @@ const run = await runEvals({
   ...(sim ? { fetch: sim.fetch } : {}),
   timeoutMs: Number(values["timeout-min"] ?? (values.live ? 45 : 6)) * 60_000,
   epochs: Number(values.epochs ?? 1),
+  feedback: values.feedback,
   onMission: (strategy, m) => {
     if (sim) {
       sim.strategy = strategy;

@@ -61,6 +61,8 @@ export const EvalRun = z.object({
   missions: z.array(z.string()).max(500),
   /** Passes over the golden set; summaries and the verdict are for the last one. */
   epochs: z.number().int().positive().default(1),
+  /** Results were rated as their user would (by the hidden checks), feeding the learned router. */
+  feedback: z.boolean().optional(),
   summaries: z.array(EvalStrategySummary).max(50),
   results: z.array(EvalMissionResult).max(25_000),
   verdict: EvalVerdict,
