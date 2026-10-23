@@ -5,7 +5,7 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { AppContext } from "../context";
-import { forwardCookies, HttpError, one, requireMember, requireSession } from "../http";
+import { forwardCookies, HttpError, one, requireMember, requireSession, requireSignedIn } from "../http";
 
 const { workspaces, members, users, invitations } = schema;
 
@@ -42,7 +42,14 @@ export async function workspaceRoutes(app: FastifyInstance, ctx: AppContext) {
       })
       .from(members)
       .innerJoin(workspaces, eq(workspaces.id, members.workspaceId))
-      .where(and(eq(members.userId, s.userId), isNull(workspaces.deletedAt)))
+      .where(
+        and(
+          eq(members.userId, s.userId),
+          isNull(workspaces.deletedAt),
+          // An API token sees only its own workspace.
+          ...(s.tokenWorkspaceId ? [eq(workspaces.id, s.tokenWorkspaceId)] : []),
+        ),
+      )
       .orderBy(asc(workspaces.name));
     return {
       workspaces: rows.map((w) => ({ ...w, active: w.id === s.activeWorkspaceId })),
@@ -52,7 +59,7 @@ export async function workspaceRoutes(app: FastifyInstance, ctx: AppContext) {
 
   /** Creates a workspace (Better Auth organisation), makes the caller owner and switches to it. */
   app.post("/v1/workspaces", async (req, reply) => {
-    await requireSession(ctx, req);
+    requireSignedIn(await requireSession(ctx, req), "create workspaces");
     const body = CreateWorkspace.parse(req.body);
     const { headers, response } = await ctx.auth.api.createOrganization({
       body: { name: body.name, slug: body.slug ?? slugify(body.name) },
@@ -69,7 +76,7 @@ export async function workspaceRoutes(app: FastifyInstance, ctx: AppContext) {
   app.patch("/v1/workspaces/:id", async (req) => {
     const s = await requireSession(ctx, req);
     const { id } = Params.parse(req.params);
-    await requireMember(ctx, id, s.userId, ["owner", "admin"]);
+    await requireMember(ctx, id, s, ["owner", "admin"]);
     const body = UpdateWorkspace.parse(req.body);
     const w = one(
       await ctx.db.update(workspaces).set({ name: body.name }).where(eq(workspaces.id, id)).returning(),
@@ -82,7 +89,8 @@ export async function workspaceRoutes(app: FastifyInstance, ctx: AppContext) {
   app.delete("/v1/workspaces/:id", async (req, reply) => {
     const s = await requireSession(ctx, req);
     const { id } = Params.parse(req.params);
-    await requireMember(ctx, id, s.userId, ["owner"]);
+    requireSignedIn(s, "delete a workspace");
+    await requireMember(ctx, id, s, ["owner"]);
     await ctx.db.update(workspaces).set({ deletedAt: new Date() }).where(eq(workspaces.id, id));
     await ctx.ledger.append(ctx.db, {
       workspaceId: id,
@@ -96,7 +104,8 @@ export async function workspaceRoutes(app: FastifyInstance, ctx: AppContext) {
   app.post("/v1/workspaces/:id/activate", async (req, reply) => {
     const s = await requireSession(ctx, req);
     const { id } = Params.parse(req.params);
-    await requireMember(ctx, id, s.userId);
+    requireSignedIn(s, "switch workspaces");
+    await requireMember(ctx, id, s);
     const { headers } = await ctx.auth.api.setActiveOrganization({
       body: { organizationId: id },
       headers: fromNodeHeaders(req.headers),
@@ -109,7 +118,7 @@ export async function workspaceRoutes(app: FastifyInstance, ctx: AppContext) {
   app.get("/v1/workspaces/:id/members", async (req) => {
     const s = await requireSession(ctx, req);
     const { id } = Params.parse(req.params);
-    await requireMember(ctx, id, s.userId);
+    await requireMember(ctx, id, s);
     const rows = await ctx.db
       .select({
         userId: users.id,
@@ -138,7 +147,8 @@ export async function workspaceRoutes(app: FastifyInstance, ctx: AppContext) {
   app.post("/v1/workspaces/:id/invitations", async (req, reply) => {
     const s = await requireSession(ctx, req);
     const { id } = Params.parse(req.params);
-    await requireMember(ctx, id, s.userId, ["owner", "admin"]);
+    requireSignedIn(s, "invite people");
+    await requireMember(ctx, id, s, ["owner", "admin"]);
     const body = Invite.parse(req.body);
     const inv = await ctx.auth.api.createInvitation({
       body: { email: body.email, role: body.role, organizationId: id },

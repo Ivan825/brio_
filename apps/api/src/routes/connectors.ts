@@ -127,7 +127,7 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
   app.get("/v1/connectors", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s.userId);
+    await requireMember(ctx, workspaceId, s);
     const rows = await ctx.db
       .select()
       .from(connectors)
@@ -255,7 +255,7 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
   app.post("/v1/connectors", async (req, reply) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s.userId, ["owner", "admin"]);
+    await requireMember(ctx, workspaceId, s, ["owner", "admin"]);
     const body = CreateConnector.parse(req.body);
     const r = registry();
     const entry = r.connector(body.registryKey);
@@ -342,7 +342,7 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
   app.patch("/v1/connectors/:id", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s.userId, ["owner", "admin"]);
+    await requireMember(ctx, workspaceId, s, ["owner", "admin"]);
     const row = await load(workspaceId, Params.parse(req.params).id);
     const body = UpdateConnector.parse(req.body);
     const updated = await ctx.db.transaction(async (tx) => {
@@ -382,7 +382,7 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
   app.delete("/v1/connectors/:id", async (req, reply) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s.userId, ["owner", "admin"]);
+    await requireMember(ctx, workspaceId, s, ["owner", "admin"]);
     const row = await load(workspaceId, Params.parse(req.params).id);
     await ctx.db.transaction(async (tx) => {
       const now = new Date();
@@ -414,7 +414,7 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
   app.post("/v1/connectors/:id/health", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s.userId, ["owner", "admin", "member"]);
+    await requireMember(ctx, workspaceId, s, ["owner", "admin", "member"]);
     const row = await load(workspaceId, Params.parse(req.params).id);
     return { connector: present(await check(row)) };
   });
@@ -423,7 +423,7 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
   app.get("/v1/connectors/:id/models", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s.userId);
+    await requireMember(ctx, workspaceId, s);
     const row = await load(workspaceId, Params.parse(req.params).id);
     const refresh = (req.query as { refresh?: string }).refresh === "true";
     let cached = await ctx.db

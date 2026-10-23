@@ -21,7 +21,7 @@ export async function messageRoutes(app: FastifyInstance, ctx: AppContext) {
     const { id } = Params.parse(req.params);
     const [m] = await ctx.db.select().from(missions).where(eq(missions.id, id));
     if (!m) throw new HttpError(404, "mission not found", "not_found");
-    await requireMember(ctx, m.workspaceId, s.userId);
+    await requireMember(ctx, m.workspaceId, s);
     const rows = await ctx.db
       .select({ msg: messages, toTask: tasks.key })
       .from(messages)
@@ -49,7 +49,7 @@ export async function messageRoutes(app: FastifyInstance, ctx: AppContext) {
     const { text } = Answer.parse(req.body);
     const [q] = await ctx.db.select().from(messages).where(eq(messages.id, id));
     if (!q?.toUser) throw new HttpError(404, "no question for you with that id", "not_found");
-    await requireMember(ctx, q.workspaceId, s.userId, ["owner", "admin", "member"]);
+    await requireMember(ctx, q.workspaceId, s, ["owner", "admin", "member"]);
     if (q.status !== "open") throw new HttpError(409, "already answered", "answered");
     const row = await ctx.db.transaction(async (tx) => {
       const a = one(
@@ -90,7 +90,7 @@ export async function messageRoutes(app: FastifyInstance, ctx: AppContext) {
     const body = Review.parse(req.body);
     const [t] = await ctx.db.select().from(tasks).where(eq(tasks.id, id));
     if (!t) throw new HttpError(404, "task not found", "not_found");
-    await requireMember(ctx, t.workspaceId, s.userId, ["owner", "admin", "member"]);
+    await requireMember(ctx, t.workspaceId, s, ["owner", "admin", "member"]);
     const [m] = await ctx.db
       .select()
       .from(missions)

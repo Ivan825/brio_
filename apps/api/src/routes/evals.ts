@@ -15,7 +15,7 @@ export async function evalRoutes(app: FastifyInstance, ctx: AppContext) {
   app.get("/v1/evals/runs", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s.userId);
+    await requireMember(ctx, workspaceId, s);
     const rows = await ctx.db
       .select()
       .from(evalRuns)
@@ -41,7 +41,7 @@ export async function evalRoutes(app: FastifyInstance, ctx: AppContext) {
   app.get("/v1/evals/runs/:id", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s.userId);
+    await requireMember(ctx, workspaceId, s);
     const { id } = Params.parse(req.params);
     const [row] = await ctx.db
       .select()
@@ -54,7 +54,7 @@ export async function evalRoutes(app: FastifyInstance, ctx: AppContext) {
   app.post("/v1/evals/runs", { bodyLimit: 8 * 1024 * 1024 }, async (req, reply) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s.userId, ["owner", "admin", "member"]);
+    await requireMember(ctx, workspaceId, s, ["owner", "admin", "member"]);
     const run = EvalRun.parse(req.body);
     const [row] = await ctx.db
       .insert(evalRuns)

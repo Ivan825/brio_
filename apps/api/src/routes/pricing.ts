@@ -25,7 +25,7 @@ export async function pricingRoutes(app: FastifyInstance, ctx: AppContext) {
   /** Pulls live prices now. Prices are public data; any workspace admin may refresh them. */
   app.post("/v1/pricing/refresh", async (req) => {
     const s = await requireSession(ctx, req);
-    await requireMember(ctx, workspaceFor(req, s), s.userId, ["owner", "admin"]);
+    await requireMember(ctx, workspaceFor(req, s), s, ["owner", "admin"]);
     try {
       const updated = await ctx.pricing.refreshFromOpenRouter(AbortSignal.timeout(30_000));
       return { updated };

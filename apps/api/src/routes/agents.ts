@@ -94,7 +94,7 @@ export async function agentRoutes(app: FastifyInstance, ctx: AppContext) {
   app.get("/v1/agents", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s.userId);
+    await requireMember(ctx, workspaceId, s);
     const rows = await ctx.db
       .select()
       .from(agents)
@@ -106,7 +106,7 @@ export async function agentRoutes(app: FastifyInstance, ctx: AppContext) {
   app.post("/v1/agents", async (req, reply) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s.userId, ["owner", "admin", "member"]);
+    await requireMember(ctx, workspaceId, s, ["owner", "admin", "member"]);
     const body = AgentBody.parse(req.body);
     const connector = await connectorFor(workspaceId, body.connectorId);
     const kind = connectorConfig(connector).service?.kind;
@@ -129,7 +129,7 @@ export async function agentRoutes(app: FastifyInstance, ctx: AppContext) {
   app.patch("/v1/agents/:id", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s.userId, ["owner", "admin", "member"]);
+    await requireMember(ctx, workspaceId, s, ["owner", "admin", "member"]);
     const row = await load(workspaceId, Params.parse(req.params).id);
     const body = UpdateAgent.parse(req.body);
     const updated = one(
@@ -146,7 +146,7 @@ export async function agentRoutes(app: FastifyInstance, ctx: AppContext) {
   app.delete("/v1/agents/:id", async (req, reply) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s.userId, ["owner", "admin", "member"]);
+    await requireMember(ctx, workspaceId, s, ["owner", "admin", "member"]);
     const row = await load(workspaceId, Params.parse(req.params).id);
     await ctx.db.update(agents).set({ deletedAt: new Date() }).where(eq(agents.id, row.id));
     return reply.status(204).send();

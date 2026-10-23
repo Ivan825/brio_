@@ -26,7 +26,7 @@ export async function projectRoutes(app: FastifyInstance, ctx: AppContext) {
   app.get("/v1/projects", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s.userId);
+    await requireMember(ctx, workspaceId, s);
     const rows = await ctx.db
       .select()
       .from(projects)
@@ -47,7 +47,7 @@ export async function projectRoutes(app: FastifyInstance, ctx: AppContext) {
   app.post("/v1/projects", async (req, reply) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s.userId, ["owner", "admin", "member"]);
+    await requireMember(ctx, workspaceId, s, ["owner", "admin", "member"]);
     const body = CreateProject.parse(req.body);
     if (body.repoUrl) {
       if (isAbsolute(body.repoUrl)) {

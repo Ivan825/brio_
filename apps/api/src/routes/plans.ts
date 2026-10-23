@@ -23,7 +23,7 @@ export async function planRoutes(app: FastifyInstance, ctx: AppContext) {
     const { id } = Params.parse(req.params);
     const [m] = await ctx.db.select().from(missions).where(eq(missions.id, id));
     if (!m) throw new HttpError(404, "mission not found", "not_found");
-    await requireMember(ctx, m.workspaceId, s.userId, roles);
+    await requireMember(ctx, m.workspaceId, s, roles);
     return { s, m };
   };
 

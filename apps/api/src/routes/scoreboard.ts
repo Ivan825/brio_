@@ -29,7 +29,7 @@ export async function scoreboardRoutes(app: FastifyInstance, ctx: AppContext) {
   app.get("/v1/scoreboard", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s.userId);
+    await requireMember(ctx, workspaceId, s);
     const q = Query.parse(req.query);
     const rows = await ctx.db
       .select()
@@ -111,7 +111,7 @@ export async function scoreboardRoutes(app: FastifyInstance, ctx: AppContext) {
       .innerJoin(tasks, eq(tasks.id, attempts.taskId))
       .where(eq(attempts.id, id));
     if (!row) throw new HttpError(404, "attempt not found", "not_found");
-    await requireMember(ctx, row.attempt.workspaceId, s.userId, ["owner", "admin", "member"]);
+    await requireMember(ctx, row.attempt.workspaceId, s, ["owner", "admin", "member"]);
     const agentKey = attemptAgentKey(row.attempt.dispatch);
     if (!agentKey || row.attempt.status !== "succeeded")
       throw new HttpError(409, "only a finished attempt can be rated", "not_ratable");

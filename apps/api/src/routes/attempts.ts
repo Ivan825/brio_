@@ -35,7 +35,7 @@ export async function attemptRoutes(app: FastifyInstance, ctx: AppContext) {
   app.post("/v1/tasks/:id/attempts", async (req, reply) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s.userId, ["owner", "admin", "member"]);
+    await requireMember(ctx, workspaceId, s, ["owner", "admin", "member"]);
     const { id } = Params.parse(req.params);
     const { agentId } = RunBody.parse(req.body);
     const attempt = await ctx.attempts.start({ workspaceId, taskId: id, agentId, actor: `user:${s.userId}` });
@@ -45,7 +45,7 @@ export async function attemptRoutes(app: FastifyInstance, ctx: AppContext) {
   app.get("/v1/tasks/:id/attempts", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s.userId);
+    await requireMember(ctx, workspaceId, s);
     const { id } = Params.parse(req.params);
     const rows = await ctx.db
       .select()
@@ -58,7 +58,7 @@ export async function attemptRoutes(app: FastifyInstance, ctx: AppContext) {
   app.post("/v1/attempts/:id/cancel", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s.userId, ["owner", "admin", "member"]);
+    await requireMember(ctx, workspaceId, s, ["owner", "admin", "member"]);
     const cancelled = await ctx.attempts.cancel(Params.parse(req.params).id, workspaceId, s.userId);
     if (!cancelled) throw new HttpError(409, "the attempt is not running", "not_running");
     return { cancelled: true };
@@ -67,7 +67,7 @@ export async function attemptRoutes(app: FastifyInstance, ctx: AppContext) {
   app.get("/v1/attempts/:id/artifacts", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s.userId);
+    await requireMember(ctx, workspaceId, s);
     const rows = await ctx.db
       .select()
       .from(artifacts)
@@ -92,7 +92,7 @@ export async function attemptRoutes(app: FastifyInstance, ctx: AppContext) {
   app.get("/v1/artifacts/:id/content", async (req, reply) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s.userId);
+    await requireMember(ctx, workspaceId, s);
     const [row] = await ctx.db
       .select({ bytes: blobs.bytes, contentType: blobs.contentType, sha256: artifacts.sha256 })
       .from(artifacts)
@@ -113,7 +113,7 @@ export async function attemptRoutes(app: FastifyInstance, ctx: AppContext) {
   app.get("/v1/attempts/:id/output", async (req, reply) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s.userId);
+    await requireMember(ctx, workspaceId, s);
     const { id } = Params.parse(req.params);
     const [row] = await ctx.db
       .select({ bytes: blobs.bytes, contentType: blobs.contentType, sha256: artifacts.sha256 })

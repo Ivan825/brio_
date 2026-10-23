@@ -46,7 +46,7 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
   app.post("/v1/missions", async (req, reply) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s.userId, ["owner", "admin", "member"]);
+    await requireMember(ctx, workspaceId, s, ["owner", "admin", "member"]);
     const body = CreateMission.parse(req.body);
     const actor: Actor = `user:${s.userId}`;
     if (body.projectId) {
@@ -100,7 +100,7 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
   app.get("/v1/missions", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s.userId);
+    await requireMember(ctx, workspaceId, s);
     const rows = await ctx.db
       .select()
       .from(missions)
@@ -114,7 +114,7 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
   app.get("/v1/missions/:id/report", async (req, reply) => {
     const s = await requireSession(ctx, req);
     const m = await loadMission(ctx.db, Params.parse(req.params).id);
-    await requireMember(ctx, m.workspaceId, s.userId);
+    await requireMember(ctx, m.workspaceId, s);
     const saved = (m.report as { final?: MissionReport } | null)?.final;
     const report = saved ?? (await missionReport(ctx.db, m.id));
     if (!report) throw new HttpError(404, "mission not found", "not_found");
@@ -126,7 +126,7 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
   app.get("/v1/missions/:id", async (req) => {
     const s = await requireSession(ctx, req);
     const m = await loadMission(ctx.db, Params.parse(req.params).id);
-    await requireMember(ctx, m.workspaceId, s.userId);
+    await requireMember(ctx, m.workspaceId, s);
     const [plan] = await ctx.db
       .select()
       .from(plans)
@@ -187,7 +187,7 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
   app.get("/v1/missions/:id/events", async (req, reply) => {
     const s = await requireSession(ctx, req);
     const m = await loadMission(ctx.db, Params.parse(req.params).id);
-    await requireMember(ctx, m.workspaceId, s.userId);
+    await requireMember(ctx, m.workspaceId, s);
     const header = req.headers["last-event-id"];
     const raw =
       (Array.isArray(header) ? header[0] : header) ??
