@@ -59,17 +59,36 @@ export class BrioTools {
   private async settle(id: string, minutes: number, signal?: AbortSignal, onProgress?: (s: string) => void) {
     const until = Date.now() + minutes * 60_000;
     let last = "";
+    let waitingSeen = false;
     for (;;) {
       const m = await this.mission(id);
       if (m.status !== last) {
         last = m.status;
         onProgress?.(m.status);
       }
-      if (["done", "failed", "cancelled", "awaiting_approval"].includes(m.status)) return m;
+      if (["done", "failed", "cancelled"].includes(m.status)) return m;
+      if (m.status === "awaiting_approval" && (await this.reallyWaiting(m, waitingSeen))) return m;
+      waitingSeen = m.status === "awaiting_approval";
       if (m.status === "draft" && m.blockedReason) return m;
       if (Date.now() >= until || signal?.aborted) return m;
       await sleep(this.opts.pollMs ?? 2000, signal);
     }
+  }
+
+  /**
+   * Whether a mission awaiting approval is waiting for a person. A quick-start mission passes through the state on its
+   * way to running (its plan is stored, then approved a moment later), so it counts only once its plan is still
+   * proposed on a second look.
+   */
+  private async reallyWaiting(m: typeof missions.$inferSelect, seenBefore: boolean): Promise<boolean> {
+    const [plan] = await this.ctx.db
+      .select({ status: plans.status })
+      .from(plans)
+      .where(eq(plans.missionId, m.id))
+      .orderBy(desc(plans.version))
+      .limit(1);
+    if (plan?.status !== "proposed") return false;
+    return !m.autoApprove || seenBefore;
   }
 
   private link(id: string) {
