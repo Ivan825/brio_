@@ -10,7 +10,7 @@ Status column: update as you go (`todo` / `in progress` / `done (commit sha)`).
 | M1 | Connector framework, registry loader, model-API adapters, metering | M0 | done (23 Oct 2026, pushed in steps; live vendor runs await owner keys, see CHANGELOG) |
 | M2 | Sandboxed runner + coding-CLI adapters | M1 | done (23 Oct 2026, pushed in steps; live CLI runs await owner keys, see CHANGELOG) |
 | M3 | Missions, planner, task DAG engine, contracts, leases, handoffs, mailbox | M1 (M2 for code tasks) | done (23 Oct 2026, pushed in steps; live golden run awaits owner keys, see CHANGELOG) |
-| M4 ∥ | Router, execution modes, scoreboard | M3 | todo |
+| M4 ∥ | Router, execution modes, scoreboard | M3 | done (23 Oct 2026, pushed in steps; live golden run awaits owner keys, see CHANGELOG) |
 | M5 ∥ | Verifier, judge, merge, eval harness | M3 | todo |
 | M6 ∥ | Hosted-agent, browser, media and research adapters | M2 | todo |
 | M7 ∥ | Protocol surfaces: Brio MCP server, A2A server + client, ACP | M3 | todo |
