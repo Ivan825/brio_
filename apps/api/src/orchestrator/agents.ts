@@ -1,5 +1,4 @@
 // The workspace's agents as the router sees them: what each can do, where it runs, and whether it can run at all.
-import type { CliSpec } from "@brio/adapters";
 import { estimateCost, type RouteAgent } from "@brio/core";
 import { schema } from "@brio/db";
 import { registry } from "@brio/registry";

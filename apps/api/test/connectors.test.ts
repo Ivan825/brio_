@@ -111,7 +111,8 @@ describe.skipIf(!hasTestDatabase)("M1 acceptance: connectors, agents, metered ru
     const all = cats.flatMap((c) => c.connectors);
     expect(all).toHaveLength(98);
     expect(all.find((c) => c.id === "openai-api")?.implemented).toBe(true);
-    expect(all.find((c) => c.id === "jules")?.implemented).toBe(false);
+    expect(all.find((c) => c.id === "jules")?.implemented).toBe(true);
+    expect(all.find((c) => c.id === "runway")?.implemented).toBe(false);
     expect(all.find((c) => c.id === "meta-model-api-muse-spark")?.regionLimited).toBeTruthy();
   });
 

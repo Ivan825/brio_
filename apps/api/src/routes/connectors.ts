@@ -1,6 +1,13 @@
-import { adapterFor, IMPLEMENTED_FAMILIES, type ModelInfo, pinoSink, redactingLogger } from "@brio/adapters";
+import {
+  adapterFor,
+  IMPLEMENTED_FAMILIES,
+  type ModelInfo,
+  pinoSink,
+  redactingLogger,
+  serviceBase,
+} from "@brio/adapters";
 import { schema } from "@brio/db";
-import { ApiStyle, registry } from "@brio/registry";
+import { ApiStyle, type ConnectorEntry, registry } from "@brio/registry";
 import { ConnectorRoute } from "@brio/schema";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
@@ -23,6 +30,9 @@ const ApiKey = z.string().trim().min(8, "that does not look like an API key").ma
 const CreateConnector = z.object({
   registryKey: z.string().min(1),
   preset: z.string().min(1).optional(),
+  /** For service connectors: which of the entry's services, and its install settings (non-secret). */
+  service: z.string().min(1).optional(),
+  settings: z.record(z.string().regex(/^[a-z][a-zA-Z0-9]*$/), z.string().trim().min(1).max(2000)).optional(),
   displayName: z.string().trim().min(1).max(80).optional(),
   apiKey: ApiKey.optional(),
   baseUrl: z.url().optional(),
@@ -123,23 +133,22 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
     return { connectors: rows.map(present) };
   });
 
-  /** Installs a connector: the key goes to the vault, the dispatchable config to the row, then a health check runs. */
-  app.post("/v1/connectors", async (req, reply) => {
-    const s = await requireSession(ctx, req);
-    const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s.userId, ["owner", "admin"]);
-    const body = CreateConnector.parse(req.body);
-    const r = registry();
-    const entry = r.connector(body.registryKey);
-    if (!entry) throw new HttpError(404, "no such connector in the registry", "not_found");
-    if (!entry.supported)
-      throw new HttpError(422, `${entry.name} has no official route Brio can use`, "unsupported");
-    if (!r.isImplemented(entry.id, IMPLEMENTED_FAMILIES))
-      throw new HttpError(
-        422,
-        `${entry.name} arrives in ${entry.buildMilestone ?? "a later milestone"}`,
-        "not_implemented",
-      );
+  type InstallPlan = {
+    config: StoredConnectorConfig;
+    adapter: NonNullable<ReturnType<typeof adapterFor>>;
+    /** The preset or service key, for the ledger. */
+    label: string;
+    name: string;
+    baseUrl: string;
+    /** The entry offers several presets or services (the display name says which). */
+    multiple: boolean;
+  };
+
+  /** A model-API or CLI connector: one of the entry's presets, with its region, base URL and API style. */
+  const presetInstall = async (
+    entry: ConnectorEntry,
+    body: z.infer<typeof CreateConnector>,
+  ): Promise<InstallPlan> => {
     const presets = installablePresets(entry);
     const chosen = body.preset ? presets.find((p) => p.key === body.preset) : presets[0];
     if (!chosen)
@@ -181,6 +190,86 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
       ...(body.region ? { region: body.region } : {}),
       ...(body.apiStyle ? { apiStyle: body.apiStyle } : {}),
     };
+    return { config, adapter, label: presetKey, name: preset.name, baseUrl, multiple: presets.length > 1 };
+  };
+
+  /**
+   * A service connector (hosted agents, media, search, browsers): one of the entry's services, with its install
+   * settings checked against the registry's patterns and its base URL filled from them.
+   */
+  const serviceInstall = async (
+    entry: ConnectorEntry,
+    body: z.infer<typeof CreateConnector>,
+  ): Promise<InstallPlan> => {
+    const services = registry().servicesFor(entry.id);
+    const chosen = body.service ? services.find((x) => x.key === body.service) : services[0];
+    if (!chosen)
+      throw new HttpError(422, `${body.service} is not a service of ${entry.name}`, "unknown_service");
+    const sv = chosen.service;
+    const settings = body.settings ?? {};
+    for (const key of Object.keys(settings))
+      if (!sv.settings.some((x) => x.key === key))
+        throw new HttpError(422, `${sv.name} has no setting ${key}`, "unknown_setting");
+    for (const st of sv.settings) {
+      const v = settings[st.key];
+      if (!v && st.required) throw new HttpError(422, `${sv.name} needs ${st.label}`, "setting_required");
+      if (v && st.pattern && !new RegExp(st.pattern).test(v))
+        throw new HttpError(
+          422,
+          `${st.label} does not look right${st.placeholder ? ` (like ${st.placeholder})` : ""}`,
+          "bad_setting",
+        );
+    }
+    if (!body.apiKey) throw new HttpError(422, `${sv.name} needs an API key`, "api_key_required");
+    let baseUrl: string;
+    try {
+      baseUrl = serviceBase({
+        registryKey: entry.id,
+        serviceKey: chosen.key,
+        service: sv,
+        settings,
+        baseUrl: "",
+      });
+    } catch (e) {
+      throw new HttpError(422, (e as Error).message, "bad_setting");
+    }
+    await ctx.checkUrl(baseUrl).catch((e: Error) => {
+      throw new HttpError(422, e.message, "unsafe_url");
+    });
+    const adapter = adapterFor(sv.adapter);
+    if (!adapter) throw new HttpError(422, `no adapter for ${sv.name}`, "no_adapter");
+    return {
+      config: { service: chosen.key, settings, baseUrl },
+      adapter,
+      label: chosen.key,
+      name: sv.name,
+      baseUrl,
+      multiple: services.length > 1,
+    };
+  };
+
+  /** Installs a connector: the key goes to the vault, the dispatchable config to the row, then a health check runs. */
+  app.post("/v1/connectors", async (req, reply) => {
+    const s = await requireSession(ctx, req);
+    const workspaceId = workspaceFor(req, s);
+    await requireMember(ctx, workspaceId, s.userId, ["owner", "admin"]);
+    const body = CreateConnector.parse(req.body);
+    const r = registry();
+    const entry = r.connector(body.registryKey);
+    if (!entry) throw new HttpError(404, "no such connector in the registry", "not_found");
+    if (!entry.supported)
+      throw new HttpError(422, `${entry.name} has no official route Brio can use`, "unsupported");
+    if (!r.isImplemented(entry.id, IMPLEMENTED_FAMILIES))
+      throw new HttpError(
+        422,
+        `${entry.name} arrives in ${entry.buildMilestone ?? "a later milestone"}`,
+        "not_implemented",
+      );
+    const plan =
+      r.servicesFor(entry.id).length && (body.service || !installablePresets(entry).length)
+        ? await serviceInstall(entry, body)
+        : await presetInstall(entry, body);
+    const { config, adapter, label: presetKey, baseUrl, multiple } = plan;
     const row = await ctx.db.transaction(async (tx) => {
       const created = one(
         await tx
@@ -188,7 +277,7 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
           .values({
             workspaceId,
             registryKey: entry.id,
-            displayName: body.displayName ?? (presets.length > 1 ? preset.name : entry.name),
+            displayName: body.displayName ?? (multiple ? plan.name : entry.name),
             route: ConnectorRoute.parse(adapter.route),
             config: config as unknown as Record<string, unknown>,
           })
