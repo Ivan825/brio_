@@ -1,4 +1,4 @@
-// Service connectors (ADAPTER_SPEC §2.4–2.9): hosted agents now; media, research and browsers follow.
+// Service connectors (ADAPTER_SPEC §2.4–2.9): hosted agents and media models; research and browsers follow.
 import type { AgentAdapter } from "../types";
 import { agentcore } from "./hosted/agentcore";
 import { claudeManagedAgents } from "./hosted/claude-managed-agents";
@@ -24,4 +24,5 @@ export * from "./client";
 export { agentcoreText } from "./hosted/agentcore";
 export { githubRepo, hostedPrompt, PATCH_FILE } from "./hosted/common";
 export * from "./job";
+export { MEDIA_ADAPTERS, mediaShape, scriptOf, speechText } from "./media/index";
 export * from "./sigv4";
