@@ -166,6 +166,11 @@ describe.skipIf(!hasTestDatabase || !hasDocker)("M8 acceptance: approve the PR a
   it("asks before pushing: the pull request waits in the inbox, and nothing reaches the repository", async () => {
     const view = (await c.request("GET", `/v1/missions/${missionId}`)).json();
     expect(view.mission.status).toBe("done");
+    // The board's view of the work: the merge that passed, and the file lease the task held (released now).
+    expect(view.integration).toMatchObject({ status: "passed", round: 1 });
+    expect(view.leases).toContainEqual(
+      expect.objectContaining({ taskKey: "health", resource: "health.txt", releasedAt: expect.any(String) }),
+    );
     expect(view.deliveries).toHaveLength(1);
     expect(view.deliveries[0]).toMatchObject({
       kind: "pull_request",

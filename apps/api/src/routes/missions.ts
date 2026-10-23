@@ -109,6 +109,53 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
         ...routeView(t.modeParams),
         attempts: attemptRows.filter((a) => a.taskId === t.id).map(presentAttempt),
       })),
+      // Who holds which files or resources now, and who held them (the live board's leases view).
+      leases: taskRows.length
+        ? (
+            await ctx.db
+              .select()
+              .from(schema.leases)
+              .where(
+                inArray(
+                  schema.leases.taskId,
+                  taskRows.map((t) => t.id),
+                ),
+              )
+              .orderBy(desc(schema.leases.createdAt))
+              .limit(200)
+          ).map((l) => ({
+            id: l.id,
+            taskId: l.taskId,
+            taskKey: taskRows.find((t) => t.id === l.taskId)?.key ?? null,
+            resourceKind: l.resourceKind,
+            resource: l.resource,
+            mode: l.mode,
+            expiresAt: l.expiresAt,
+            releasedAt: l.releasedAt,
+            createdAt: l.createdAt,
+          }))
+        : [],
+      // The latest merge of the mission's work: its branch, checks and the merged diff.
+      integration: await ctx.db
+        .select()
+        .from(schema.integrations)
+        .where(eq(schema.integrations.missionId, m.id))
+        .orderBy(desc(schema.integrations.planVersion), desc(schema.integrations.round))
+        .limit(1)
+        .then(([i]) =>
+          i
+            ? {
+                id: i.id,
+                round: i.round,
+                status: i.status,
+                branch: i.branch,
+                commit: i.commit,
+                diffArtifactId: i.diffArtifactId,
+                conflicts: i.conflicts,
+                checks: i.checks.map(({ command, passed, exitCode }) => ({ command, passed, exitCode })),
+              }
+            : null,
+        ),
       deliveries: (
         await ctx.db
           .select()
