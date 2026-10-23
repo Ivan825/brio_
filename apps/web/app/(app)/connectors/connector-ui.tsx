@@ -262,6 +262,12 @@ function AddConnector({ connector, onDone }: { connector: CatalogueConnector; on
         </div>
       )}
       {preset.regionLimited && <p className="font-mono text-xs text-warning">{preset.regionLimited}</p>}
+      {connector.cli && (
+        <p className="text-xs text-fg-muted">
+          Runs the official <span className="font-mono">{connector.cli}</span> CLI headless in a sandbox, with
+          your {connector.cli === "cursor-agent" ? "Cursor" : preset.name} key.
+        </p>
+      )}
       {regions.length > 0 && (
         <div className="flex flex-col gap-1">
           <Label htmlFor={`${ids}-region`}>Region</Label>
@@ -326,7 +332,7 @@ function AddConnector({ connector, onDone }: { connector: CatalogueConnector; on
       <FormError>{error}</FormError>
       <div className="flex gap-2">
         <Button type="submit" variant="primary" disabled={busy}>
-          {busy ? "Adding…" : `Add ${preset.name}`}
+          {busy ? "Adding…" : `Add ${connector.cli ? connector.name : preset.name}`}
         </Button>
         <Button variant="ghost" onClick={onDone}>
           Cancel

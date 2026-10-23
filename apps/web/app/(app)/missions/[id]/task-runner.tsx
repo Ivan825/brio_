@@ -12,6 +12,62 @@ import type { MissionTask } from "./mission-board";
 
 const RUNNABLE = new Set(["pending", "ready", "failed", "verifying", "revise", "blocked"]);
 
+function Diff({ attempt }: { attempt: AttemptSummary }) {
+  const [text, setText] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  if (text !== null)
+    return (
+      <pre
+        className="mt-2 max-h-96 overflow-auto rounded-md border border-line bg-bg p-2 text-xs leading-relaxed"
+        data-testid="attempt-diff"
+      >
+        {text.split("\n").map((line, i) => (
+          <span
+            // biome-ignore lint/suspicious/noArrayIndexKey: diff lines are positional
+            key={i}
+            className={
+              line.startsWith("+") && !line.startsWith("+++")
+                ? "text-success"
+                : line.startsWith("-") && !line.startsWith("---")
+                  ? "text-danger"
+                  : line.startsWith("@@")
+                    ? "text-info"
+                    : "text-fg-muted"
+            }
+          >
+            {line}
+            {"\n"}
+          </span>
+        ))}
+      </pre>
+    );
+  return (
+    <div className="mt-1">
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={async () => {
+          try {
+            const { artifacts } = await api<{ artifacts: { id: string; kind: string }[] }>(
+              `/v1/attempts/${attempt.id}/artifacts`,
+            );
+            const diff = artifacts.find((a) => a.kind === "diff");
+            if (!diff) throw new Error("no changes");
+            const res = await fetch(`/v1/artifacts/${diff.id}/content`, { credentials: "same-origin" });
+            if (!res.ok) throw new Error(`failed (${res.status})`);
+            setText(await res.text());
+          } catch (e) {
+            setError((e as Error).message);
+          }
+        }}
+      >
+        Show diff
+      </Button>
+      <FormError>{error}</FormError>
+    </div>
+  );
+}
+
 function Answer({ attempt }: { attempt: AttemptSummary }) {
   const [text, setText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +117,7 @@ export function TaskRunner({
   const [agentId, setAgentId] = useState(task.pinnedAgentId ?? runnable[0]?.id ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const running = task.attempts.find((a) => a.status === "running");
+  const running = task.attempts.find((a) => a.status === "running" || a.status === "queued");
 
   async function run() {
     setBusy(true);
@@ -122,7 +178,7 @@ export function TaskRunner({
       {task.attempts.length > 0 && (
         <ol className="flex flex-col gap-1.5" aria-label="Attempts">
           {task.attempts.map((a) => {
-            const cost = a.status === "running" ? liveCost(a.id) : a.costUsd;
+            const cost = a.status === "running" || a.status === "queued" ? liveCost(a.id) : a.costUsd;
             return (
               <li key={a.id} className="font-mono text-2xs" data-testid="attempt" data-status={a.status}>
                 <div className="flex flex-wrap items-center gap-2 text-fg-muted">
@@ -142,7 +198,12 @@ export function TaskRunner({
                     {a.exitReason}
                   </p>
                 )}
-                {a.status === "succeeded" && <Answer attempt={a} />}
+                {a.status === "succeeded" && (
+                  <div className="flex flex-wrap gap-2">
+                    <Answer attempt={a} />
+                    <Diff attempt={a} />
+                  </div>
+                )}
               </li>
             );
           })}

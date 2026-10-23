@@ -31,6 +31,8 @@ export interface CatalogueConnector {
   implemented: boolean;
   regionLimited: string | null;
   taskTypes: string[];
+  /** Set for coding CLIs: they run in a sandbox with the key of their vendor's preset. */
+  cli: string | null;
   presets: PresetSummary[];
 }
 

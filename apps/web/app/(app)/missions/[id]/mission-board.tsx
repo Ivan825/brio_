@@ -61,10 +61,14 @@ function summarise(e: BoardEvent): string {
       return `v${p.version} · ${(p.tasks as unknown[] | undefined)?.length ?? 0} task(s) · ${p.planner ?? ""}`;
     case "mission.failed":
       return String(p.reason ?? "");
+    case "attempt.queued":
     case "attempt.started": {
       const agent = p.agent as { name?: string; model?: string } | undefined;
-      return `${agent?.name ?? "agent"} → ${p.taskKey ?? "task"} · ${agent?.model ?? ""}`;
+      const sandbox = p.sandbox as { profile?: string } | null | undefined;
+      return `${agent?.name ?? "agent"} → ${p.taskKey ?? "task"} · ${agent?.model ?? ""}${sandbox?.profile ? ` · sandbox ${sandbox.profile}` : ""}`;
     }
+    case "attempt.file_edit":
+      return `${p.op} ${p.path}`;
     case "attempt.message":
       return `${p.role}: ${String(p.text ?? "").replace(/\s+/g, " ")}`;
     case "attempt.tool_call":
@@ -108,7 +112,7 @@ export function MissionBoard({ initial, agents }: { initial: MissionDetail; agen
   const applyAttemptEvent = useCallback((e: BoardEvent) => {
     const attemptId = e.attemptId;
     if (!attemptId || !e.taskId) return;
-    const started = e.type === "attempt.started";
+    const started = e.type === "attempt.started" || e.type === "attempt.queued";
     setActiveAttempts((prev) => {
       const next = new Set(prev);
       if (started) next.add(attemptId);
@@ -127,7 +131,7 @@ export function MissionBoard({ initial, agents }: { initial: MissionDetail; agen
           taskId: t.id,
           agentId: (p.agent as { id?: string } | undefined)?.id ?? existing?.agentId ?? "",
           role: "maker",
-          status: started ? "running" : String(p.status),
+          status: e.type === "attempt.queued" ? "queued" : started ? "running" : String(p.status),
           startedAt: existing?.startedAt ?? e.ts,
           endedAt: started ? null : e.ts,
           costUsd: usage?.usd ?? existing?.costUsd ?? 0,
@@ -135,7 +139,13 @@ export function MissionBoard({ initial, agents }: { initial: MissionDetail; agen
           tokensOut: usage?.tokensOut ?? existing?.tokensOut ?? 0,
           exitReason: started ? null : String(p.exitReason ?? ""),
         };
-        const status = started ? "running" : p.status === "succeeded" ? "verifying" : "failed";
+        const status = started
+          ? "running"
+          : p.status === "succeeded"
+            ? "verifying"
+            : p.status === "cancelled"
+              ? "ready"
+              : "failed";
         return { ...t, status, attempts: [attempt, ...others] };
       }),
     );
@@ -151,7 +161,8 @@ export function MissionBoard({ initial, agents }: { initial: MissionDetail; agen
       setEvents((prev) => [...prev, e]);
       const next = STATUS_FROM_EVENT[e.type];
       if (next) setStatus(next);
-      if (e.type === "attempt.started" || e.type === "attempt.finished") applyAttemptEvent(e);
+      if (e.type === "attempt.queued" || e.type === "attempt.started" || e.type === "attempt.finished")
+        applyAttemptEvent(e);
     };
     source.onopen = () => {
       setConnection("live");
