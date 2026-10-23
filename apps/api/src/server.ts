@@ -33,6 +33,7 @@ import { planRoutes } from "./routes/plans";
 import { pricingRoutes } from "./routes/pricing";
 import { projectRoutes } from "./routes/projects";
 import { registryRoutes } from "./routes/registry";
+import { scoreboardRoutes } from "./routes/scoreboard";
 import { workspaceRoutes } from "./routes/workspaces";
 
 export interface BuildOptions {
@@ -162,6 +163,7 @@ export async function buildServer({
   await planRoutes(app, ctx);
   await projectRoutes(app, ctx);
   await messageRoutes(app, ctx);
+  await scoreboardRoutes(app, ctx);
   if (config.BRIO_DEV_OUTBOX && config.NODE_ENV !== "production") await devRoutes(app, ctx);
   ctx.orchestrator.start();
 
