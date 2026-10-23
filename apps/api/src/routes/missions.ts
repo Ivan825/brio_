@@ -6,35 +6,13 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { AppContext } from "../context";
 import { HttpError, one, requireMember, requireSession, workspaceFor } from "../http";
-import { storePlan } from "../orchestrator/plans";
+import { CreateMission, createMission } from "../missions";
 import { missionReport } from "../orchestrator/report";
 import { presentAttempt } from "./attempts";
 
 const { attempts, missions, plans, tasks } = schema;
 
-const CreateMission = z.object({
-  goal: z.string().trim().min(1).max(10_000),
-  title: z.string().trim().min(1).max(200).optional(),
-  projectId: z.uuid().optional(),
-  priority: MissionPriority.default("balanced"),
-  budget: z
-    .object({ usd: z.number().positive().optional(), minutes: z.number().positive().optional() })
-    .optional(),
-  /** The agent that plans; omitted, the static router picks a model-API agent. */
-  plannerAgentId: z.uuid().optional(),
-  /** Start without waiting for approval when the plan is clean and small (≤ $5, ≤ 10 tasks). */
-  autoApprove: z.boolean().default(false),
-  /** learned (default), static, or one agent alone (the eval baseline). */
-  routing: MissionRouting.default({ strategy: "learned" }),
-  /**
-   * A plan made elsewhere (another planner, a handoff, the eval harness): it becomes plan v1 for approval and no
-   * planner runs.
-   */
-  plan: PlanGraph.optional(),
-});
 const Params = z.object({ id: z.uuid() });
-
-const titleFrom = (goal: string) => (goal.length <= 80 ? goal : `${goal.slice(0, 77).trimEnd()}…`);
 
 const SSE_KEEPALIVE_MS = 15_000;
 
@@ -46,55 +24,8 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
   app.post("/v1/missions", async (req, reply) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s, ["owner", "admin", "member"]);
-    const body = CreateMission.parse(req.body);
-    const actor: Actor = `user:${s.userId}`;
-    if (body.projectId) {
-      const [p] = await ctx.db
-        .select({ id: schema.projects.id })
-        .from(schema.projects)
-        .where(and(eq(schema.projects.id, body.projectId), eq(schema.projects.workspaceId, workspaceId)));
-      if (!p) throw new HttpError(404, "project not found", "not_found");
-    }
-    if (body.routing.strategy === "single") {
-      const [agent] = await ctx.db
-        .select({ id: schema.agents.id })
-        .from(schema.agents)
-        .where(and(eq(schema.agents.id, body.routing.agentId), eq(schema.agents.workspaceId, workspaceId)));
-      if (!agent) throw new HttpError(422, "the single agent is not in this workspace", "unknown_agent");
-    }
-    const mission = await ctx.db.transaction(async (tx) => {
-      const m = one(
-        await tx
-          .insert(missions)
-          .values({
-            workspaceId,
-            projectId: body.projectId ?? null,
-            title: body.title ?? titleFrom(body.goal),
-            goal: body.goal,
-            priority: body.priority,
-            budget: body.budget ?? {},
-            plannerAgentId: body.plannerAgentId ?? null,
-            autoApprove: body.autoApprove,
-            routing: body.routing,
-            status: body.plan ? "awaiting_approval" : "planning",
-            createdBy: s.userId,
-          })
-          .returning(),
-        "mission",
-      );
-      await ctx.events.append(tx, {
-        workspaceId,
-        missionId: m.id,
-        type: "mission.created",
-        actor,
-        payload: { title: m.title, goal: m.goal, priority: m.priority, budget: m.budget, routing: m.routing },
-      });
-      if (body.plan) await storePlan(ctx, tx, m, body.plan, "supplied", actor);
-      return m;
-    });
-    if (!body.plan) await ctx.orchestrator.startMission(mission);
-    return reply.status(201).send({ mission: present(mission) });
+    const mission = await createMission(ctx, s, workspaceId, CreateMission.parse(req.body));
+    return reply.status(201).send({ mission: presentMission(mission) });
   });
 
   app.get("/v1/missions", async (req) => {
@@ -107,7 +38,7 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
       .where(eq(missions.workspaceId, workspaceId))
       .orderBy(desc(missions.createdAt))
       .limit(100);
-    return { missions: rows.map(present) };
+    return { missions: rows.map(presentMission) };
   });
 
   /** The mission report: live while it runs, the final snapshot once it ends. `?format=md` returns Markdown. */
@@ -151,7 +82,7 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
           .orderBy(desc(attempts.createdAt))
       : [];
     return {
-      mission: present(m),
+      mission: presentMission(m),
       plan: plan
         ? {
             version: plan.version,
@@ -237,7 +168,7 @@ async function loadMission(db: DbOrTx, id: string) {
   return m;
 }
 
-function present(m: typeof missions.$inferSelect) {
+export function presentMission(m: typeof missions.$inferSelect) {
   return {
     id: m.id,
     workspaceId: m.workspaceId,
