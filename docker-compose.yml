@@ -5,6 +5,8 @@ services:
   postgres:
     image: pgvector/pgvector:pg17
     restart: unless-stopped
+    # Tests, the eval harness and a dev server each open pools of their own; 100 connections run out.
+    command: ["postgres", "-c", "max_connections=300"]
     environment:
       POSTGRES_USER: brio
       POSTGRES_PASSWORD: brio

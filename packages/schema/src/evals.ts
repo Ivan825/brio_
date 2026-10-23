@@ -19,6 +19,8 @@ export const EvalMissionResult = z.object({
   minutes: z.number().nonnegative(),
   attempts: z.number().int().nonnegative(),
   reason: z.string().max(2000).optional(),
+  /** Which pass over the golden set (from 1), when a run repeats it so the learned router has history. */
+  epoch: z.number().int().positive().optional(),
 });
 export type EvalMissionResult = z.infer<typeof EvalMissionResult>;
 
@@ -57,6 +59,8 @@ export const EvalRun = z.object({
   startedAt: z.iso.datetime(),
   finishedAt: z.iso.datetime(),
   missions: z.array(z.string()).max(500),
+  /** Passes over the golden set; summaries and the verdict are for the last one. */
+  epochs: z.number().int().positive().default(1),
   summaries: z.array(EvalStrategySummary).max(50),
   results: z.array(EvalMissionResult).max(25_000),
   verdict: EvalVerdict,

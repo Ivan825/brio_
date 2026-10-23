@@ -38,6 +38,8 @@ export interface RunOptions {
   fetch?: FetchLike;
   /** Per mission. */
   timeoutMs: number;
+  /** Passes over the missions in the same workspace (the learned router keeps its history); the last one is scored. */
+  epochs?: number;
   /** Called before each mission (the simulation follows along). */
   onMission?: (strategy: string, mission: LoadedEvalMission) => void;
   log?: (line: string) => void;
@@ -76,6 +78,7 @@ export async function runEvals(o: RunOptions): Promise<EvalRun> {
   const log = o.log ?? (() => {});
   const startedAt = new Date().toISOString();
   const results: EvalMissionResult[] = [];
+  const epochs = Math.max(1, o.epochs ?? 1);
   const loaded = o.missions.map(loadEvalMission);
   const stack = await startStack({ offline: o.mode === "offline", ...(o.fetch ? { fetch: o.fetch } : {}) });
   const repos: string[] = [];
@@ -108,27 +111,39 @@ export async function runEvals(o: RunOptions): Promise<EvalRun> {
         });
         agentIds.set(a.name, (agent.agent as { id: string }).id);
       }
-      for (const m of loaded) {
-        o.onMission?.(strategy, m);
-        const repo = fixtureRepo(m);
-        if (repo) repos.push(repo);
-        const result = await runOne(stack, c, m, strategy, routingOf(strategy, agentIds), repo, o.timeoutMs);
-        results.push(result);
-        log(
-          `${strategy.padEnd(14)} ${m.key.padEnd(18)} ${result.passed ? "pass" : "FAIL"}  ${result.status.padEnd(7)} $${result.costUsd.toFixed(4)}  ${result.reason ?? ""}`,
-        );
-      }
+      for (let epoch = 1; epoch <= epochs; epoch++)
+        for (const m of loaded) {
+          o.onMission?.(strategy, m);
+          const repo = fixtureRepo(m);
+          if (repo) repos.push(repo);
+          const result = await runOne(
+            stack,
+            c,
+            m,
+            strategy,
+            routingOf(strategy, agentIds),
+            repo,
+            o.timeoutMs,
+          );
+          results.push(epochs > 1 ? { ...result, epoch } : result);
+          log(
+            `${strategy.padEnd(14)} ${epochs > 1 ? `e${epoch} ` : ""}${m.key.padEnd(18)} ${result.passed ? "pass" : "FAIL"}  ${result.status.padEnd(7)} $${result.costUsd.toFixed(4)}  ${result.reason ?? ""}`,
+          );
+        }
     }
   } finally {
     await stack.close();
     for (const r of repos) rmSync(r, { recursive: true, force: true });
   }
-  const summaries = summarise(results);
+  // With several passes, the last one is what the router has learned to do.
+  const scored = epochs > 1 ? results.filter((r) => r.epoch === epochs) : results;
+  const summaries = summarise(scored);
   return {
     mode: o.mode,
     startedAt,
     finishedAt: new Date().toISOString(),
     missions: o.missions,
+    epochs,
     summaries,
     results,
     verdict: evalVerdict(summaries),

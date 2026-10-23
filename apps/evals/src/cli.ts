@@ -1,7 +1,7 @@
 // pnpm evals — run the golden missions under each routing strategy and print the comparable metrics table.
 //   offline (default): simulated agents of known skill (src/sim.ts); no keys, reproducible; what CI runs nightly.
 //   --live: your own agents and keys, from --agents <file.json> (EvalAgent[]: name, connector, model, keyEnv…).
-// Options: --missions a,b  --strategies learned,static,single:mini  --out <dir>  --timeout-min <n>
+// Options: --missions a,b  --strategies learned,static,single:mini  --out <dir>  --timeout-min <n>  --epochs <n>
 //          --save-db <DATABASE_URL> --workspace <id>   (stores the run for the evals dashboard)
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -23,6 +23,7 @@ const { values } = parseArgs({
     "save-db": { type: "string" },
     workspace: { type: "string" },
     notes: { type: "string" },
+    epochs: { type: "string" },
   },
 });
 
@@ -63,6 +64,7 @@ const run = await runEvals({
   agents,
   ...(sim ? { fetch: sim.fetch } : {}),
   timeoutMs: Number(values["timeout-min"] ?? (values.live ? 45 : 6)) * 60_000,
+  epochs: Number(values.epochs ?? 1),
   onMission: (strategy, m) => {
     if (sim) {
       sim.strategy = strategy;
