@@ -1,3 +1,4 @@
+import { type MissionReport, renderMissionReport } from "@brio/core";
 import { type DbOrTx, schema, streamMissionEvents } from "@brio/db";
 import { type Actor, MissionPriority } from "@brio/schema";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
@@ -5,6 +6,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { AppContext } from "../context";
 import { HttpError, one, requireMember, requireSession, workspaceFor } from "../http";
+import { missionReport } from "../orchestrator/report";
 import { presentAttempt } from "./attempts";
 
 const { attempts, missions, plans, tasks } = schema;
@@ -89,6 +91,19 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
       .orderBy(desc(missions.createdAt))
       .limit(100);
     return { missions: rows.map(present) };
+  });
+
+  /** The mission report: live while it runs, the final snapshot once it ends. `?format=md` returns Markdown. */
+  app.get("/v1/missions/:id/report", async (req, reply) => {
+    const s = await requireSession(ctx, req);
+    const m = await loadMission(ctx.db, Params.parse(req.params).id);
+    await requireMember(ctx, m.workspaceId, s.userId);
+    const saved = (m.report as { final?: MissionReport } | null)?.final;
+    const report = saved ?? (await missionReport(ctx.db, m.id));
+    if (!report) throw new HttpError(404, "mission not found", "not_found");
+    if ((req.query as { format?: string }).format === "md")
+      return reply.type("text/markdown; charset=utf-8").send(renderMissionReport(report));
+    return { report, final: Boolean(saved) };
   });
 
   app.get("/v1/missions/:id", async (req) => {

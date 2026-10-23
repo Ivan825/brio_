@@ -32,6 +32,7 @@ import {
   verdict,
 } from "@brio/core";
 import { type DbOrTx, schema } from "@brio/db";
+import { enqueueIntegration } from "@brio/runner";
 import { type Actor, type EventType, type HandoffPacket, TaskContract } from "@brio/schema";
 import { and, asc, desc, eq, gt, gte, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { RUNNABLE_TASK, renderInstructions } from "../attempts";
@@ -39,16 +40,21 @@ import type { AppContext } from "../context";
 import { HttpError } from "../http";
 import { routeAgents, type WorkspaceAgent } from "./agents";
 import { approvePlan, latestPlan, storePlan } from "./plans";
+import { saveMissionReport } from "./report";
 import { attemptAgentKey, Scoreboard } from "./scoreboard";
 import { Verifier } from "./verifier";
 
-const { artifacts, attempts, blobs, contracts, handoffs, leases, missions, tasks } = schema;
+const { artifacts, attempts, blobs, contracts, handoffs, integrations, leases, missions, tasks } = schema;
 
 type Mission = typeof missions.$inferSelect;
 type Task = typeof tasks.$inferSelect;
 type Attempt = typeof attempts.$inferSelect;
 
 export const PLANNING_TASK_KEY = "brio.plan";
+/** Integration rounds (merge, check, fix) before a mission gives up. */
+export const MAX_INTEGRATION_ROUNDS = 3;
+/** A merge task's own check: no conflict markers left anywhere in the repository. */
+const NO_CONFLICT_MARKERS = "! git grep -nE '^(<<<<<<<|>>>>>>>)( |$)'";
 /** Revised plans the planner may propose after a task fails for good. */
 export const MAX_REPLANS = 1;
 /** Planner retries when its answer is not a valid plan. */
@@ -91,6 +97,12 @@ type ModeParams = {
   final?: boolean;
   /** The task was done in an earlier plan version and carried over unchanged (approvePlan). */
   carriedFrom?: string;
+  /** A merge or fix task: the tasks whose work its result already includes. */
+  covers?: string[];
+  /** A merge task: its bases are merged with the conflict markers left in for it to resolve. */
+  keepConflicts?: boolean;
+  /** The integration round that created this task. */
+  integration?: string;
 };
 const paramsOf = (t: Task) => t.modeParams as ModeParams;
 /** Attempts that made a result (single-mode makers and a mode's makers and mergers), not reviewers or judges. */
@@ -534,7 +546,7 @@ export class Orchestrator {
           break;
         }
         case "mission_done":
-          await this.finishMission(m);
+          await this.integrateOrFinish(m, fresh);
           break;
         case "mission_failed": {
           if (await this.proposeReplan(m, fresh, a.reason)) break;
@@ -546,6 +558,7 @@ export class Orchestrator {
           if (done) {
             await this.releaseMissionLeases(m);
             await this.emit(this.ctx.db, m, "mission.failed", { reason: a.reason });
+            await this.saveReport(m);
           }
           break;
         }
@@ -633,6 +646,8 @@ export class Orchestrator {
         bases: [...inputs.bases, ...(revising && previous?.worktreeRef ? [previous.worktreeRef] : [])],
         files: inputs.files,
         rationale: rerouting ? `${rationale} · rerouted after another agent failed` : rationale,
+        // A merge task starts from its bases merged with the conflict markers left in.
+        ...(paramsOf(fresh).keepConflicts ? { keepConflicts: true } : {}),
         ...(revising && previous ? { feedback: failedChecksFeedback(previous) } : {}),
         ...(rerouting
           ? {
@@ -1143,9 +1158,14 @@ export class Orchestrator {
   private async upstreamBranches(t: Task): Promise<string[]> {
     if (!t.dependsOn.length) return [];
     const ups = await this.ctx.db.select().from(tasks).where(inArray(tasks.id, t.dependsOn));
+    // A merge or fix task among them already holds the work of the tasks it covers.
+    const covered = new Set<string>();
+    for (const u of ups)
+      if (u.status === "done" && (await this.hasDiff(u)))
+        for (const c of paramsOf(u).covers ?? []) covered.add(c);
     const out: string[] = [];
-    for (const u of ups) {
-      if (u.status !== "done") continue;
+    for (const u of topoOrder(ups)) {
+      if (u.status !== "done" || covered.has(u.id)) continue;
       const a = await this.resultAttempt(u);
       if (a?.worktreeRef && (await this.hasDiff(u))) out.push(a.worktreeRef);
     }
@@ -1278,6 +1298,7 @@ export class Orchestrator {
     if (paramsOf(t).final) return;
     const a = await this.latestAttempt(t.id);
     if (!a || a.status === "running" || a.status === "queued") return;
+    if (await this.mergeBeforeTask(m, t, a).catch(() => false)) return;
     const v = verdict({
       items: [
         { kind: "attempt", hard: true, status: "failed", summary: a.exitReason ?? "the attempt failed" },
@@ -1615,7 +1636,275 @@ export class Orchestrator {
     });
   }
 
-  private async finishMission(m: Mission): Promise<void> {
+  // ---- Merge engine (BUILD_PLAN M5): one integration branch, verified, before a mission is done --------------------
+
+  /** The finished code branches to integrate, in plan order; a merge or fix task stands in for the tasks it covers. */
+  private async integrationRefs(
+    rows: Task[],
+  ): Promise<Array<{ taskId: string; taskKey: string; ref: string }>> {
+    const withDiff: Task[] = [];
+    for (const t of rows)
+      if (t.status === "done" && isCodeTask(t) && (await this.hasDiff(t))) withDiff.push(t);
+    const covered = new Set(withDiff.flatMap((t) => paramsOf(t).covers ?? []));
+    const out: Array<{ taskId: string; taskKey: string; ref: string }> = [];
+    for (const t of topoOrder(withDiff)) {
+      if (covered.has(t.id)) continue;
+      const a = await this.resultAttempt(t);
+      if (a?.worktreeRef) out.push({ taskId: t.id, taskKey: t.key, ref: a.worktreeRef });
+    }
+    return out;
+  }
+
+  /**
+   * Every task is done: merge the code branches onto an integration branch and run every hard command check on the
+   * result. A conflict becomes a merge.integrate task, a failing check a fix task; the mission is done once a round
+   * passes (or there is no code to integrate).
+   */
+  private async integrateOrFinish(m: Mission, rows: Task[]): Promise<void> {
+    const plan = await latestApproved(this.ctx.db, m.id);
+    if (!plan) return;
+    const refs = await this.integrationRefs(rows);
+    if (!refs.length) return this.finishMission(m, null);
+    const [latest] = await this.ctx.db
+      .select()
+      .from(integrations)
+      .where(and(eq(integrations.missionId, m.id), eq(integrations.planVersion, plan.version)))
+      .orderBy(desc(integrations.round))
+      .limit(1);
+    const sameRefs = latest && latest.refs.map((r) => r.ref).join("\n") === refs.map((r) => r.ref).join("\n");
+    if (latest && sameRefs) {
+      if (latest.status === "passed") return this.finishMission(m, latest);
+      if (latest.status === "conflict" || latest.status === "failed")
+        return this.integrationTask(m, plan.version, latest, rows);
+      // Queued or running: a round a dead runner left behind is queued again after half an hour.
+      if (Date.now() - latest.updatedAt.getTime() > 30 * 60_000) {
+        const [again] = await this.ctx.db
+          .update(integrations)
+          .set({ status: "queued" })
+          .where(and(eq(integrations.id, latest.id), eq(integrations.updatedAt, latest.updatedAt)))
+          .returning();
+        if (again)
+          await enqueueIntegration(this.ctx.queue, {
+            integrationId: again.id,
+            commands: this.integrationCommands(rows),
+          });
+      }
+      return;
+    }
+    const round = (latest?.round ?? 0) + 1;
+    if (round > MAX_INTEGRATION_ROUNDS) {
+      const reason = `the integrated work still fails after ${MAX_INTEGRATION_ROUNDS} rounds`;
+      const [failed] = await this.ctx.db
+        .update(missions)
+        .set({ status: "failed", blockedReason: reason })
+        .where(and(eq(missions.id, m.id), eq(missions.status, "running")))
+        .returning();
+      if (failed) {
+        await this.releaseMissionLeases(m);
+        await this.emit(this.ctx.db, m, "mission.failed", { reason });
+        await this.saveReport(m);
+      }
+      return;
+    }
+    let repo: { url: string; branch: string | null } | null = null;
+    if (m.projectId) {
+      const [p] = await this.ctx.db.select().from(schema.projects).where(eq(schema.projects.id, m.projectId));
+      if (p?.repoUrl) repo = { url: p.repoUrl, branch: p.defaultBranch ?? null };
+    }
+    // One branch is its own integration: its checks already ran on exactly this commit.
+    if (refs.length === 1) {
+      const only = refs[0] as (typeof refs)[number];
+      const t = rows.find((x) => x.id === only.taskId);
+      const [diff] = t?.resultArtifactId
+        ? await this.ctx.db.select().from(artifacts).where(eq(artifacts.id, t.resultArtifactId))
+        : [];
+      const [row] = await this.ctx.db
+        .insert(integrations)
+        .values({
+          workspaceId: m.workspaceId,
+          missionId: m.id,
+          planVersion: plan.version,
+          round,
+          status: "passed",
+          refs,
+          repo,
+          branch: only.ref,
+          commit: ((diff?.meta as { commit?: string } | undefined)?.commit ?? null) as string | null,
+          diffArtifactId: diff?.id ?? null,
+        })
+        .onConflictDoNothing()
+        .returning();
+      if (!row) return;
+      await this.emit(this.ctx.db, m, "merge.done", {
+        integrationId: row.id,
+        round,
+        passed: true,
+        branch: only.ref,
+        commit: row.commit,
+        checks: [],
+      });
+      return this.finishMission(m, row);
+    }
+    const [row] = await this.ctx.db
+      .insert(integrations)
+      .values({ workspaceId: m.workspaceId, missionId: m.id, planVersion: plan.version, round, refs, repo })
+      .onConflictDoNothing()
+      .returning();
+    if (!row) return;
+    await this.emit(this.ctx.db, m, "merge.started", {
+      integrationId: row.id,
+      round,
+      branches: refs.map((r) => r.taskKey),
+    });
+    await enqueueIntegration(this.ctx.queue, {
+      integrationId: row.id,
+      commands: this.integrationCommands(rows),
+    });
+  }
+
+  /** Every hard command check of the mission's code tasks, once each. */
+  private integrationCommands(rows: Task[]): string[] {
+    const out = new Set<string>();
+    for (const t of topoOrder(rows))
+      if (isCodeTask(t))
+        for (const c of TaskContract.parse(t.contract).acceptance)
+          if (c.hard && c.command && (COMMAND_CHECKS.has(c.kind) || c.kind === "contract_conformance"))
+            out.add(c.command);
+    return [...out];
+  }
+
+  /** A merge.integrate task for a conflict, or a fix task for failing checks, covering the integrated tasks (once). */
+  private async integrationTask(
+    m: Mission,
+    planVersion: number,
+    row: typeof integrations.$inferSelect,
+    rows: Task[],
+  ): Promise<void> {
+    const conflict = row.status === "conflict";
+    const key = `${conflict ? "merge.integrate" : "integration.fix"}-r${row.round}`;
+    if (rows.some((t) => t.key === key)) return;
+    const covers = row.refs.map((r) => r.taskId);
+    const keys = row.refs.map((r) => r.taskKey);
+    const commands = this.integrationCommands(rows);
+    const files = [...new Set(row.conflicts.flatMap((c) => c.files))];
+    const failing = row.checks.filter((c) => !c.passed);
+    const contract: TaskContract = conflict
+      ? {
+          objective: `Merge the finished work of ${keys.join(", ")} into one result. The files ${files.join(", ")} have conflict markers (between ${row.conflicts.map((c) => c.between.join(" and ")).join("; ")}): resolve them so every change keeps working.`,
+          inputs: [],
+          outputs: [{ kind: "diff", description: "the resolved merge" }],
+          acceptance: [
+            { kind: "tests", hard: true, command: NO_CONFLICT_MARKERS },
+            ...commands.map((command) => ({ kind: "tests" as const, hard: true, command })),
+          ],
+          constraints: [
+            "Keep the intent of every change",
+            "Remove every conflict marker",
+            "Change nothing else",
+          ],
+          expectedFootprint: { paths: files },
+          sensitivity: "internal",
+        }
+      : {
+          objective: `The finished work of ${keys.join(", ")} passes on its own but fails once merged. Make the merged work pass:\n${failing
+            .map(
+              (c) =>
+                `- \`${c.command}\` exited ${c.exitCode}${row.error ? "" : `:\n${c.output.slice(-1500)}`}`,
+            )
+            .join("\n")}${row.error ? `\n(${row.error})` : ""}`,
+          inputs: [],
+          outputs: [{ kind: "diff", description: "the fix" }],
+          acceptance: commands.map((command) => ({ kind: "tests" as const, hard: true, command })),
+          constraints: ["Keep the intent of every change"],
+          sensitivity: "internal",
+        };
+    if (!contract.acceptance.length) contract.acceptance = [{ kind: "human", hard: true }];
+    const [created] = await this.ctx.db
+      .insert(tasks)
+      .values({
+        workspaceId: m.workspaceId,
+        missionId: m.id,
+        planVersion,
+        key,
+        type: conflict ? "merge.integrate" : "code.bugfix",
+        title: conflict ? "Resolve the merge conflicts" : "Make the integrated work pass its checks",
+        contract,
+        dependsOn: covers,
+        modeParams: { covers, integration: row.id, ...(conflict ? { keepConflicts: true } : {}) },
+      })
+      .onConflictDoNothing()
+      .returning();
+    if (created) this.schedule(m.id);
+  }
+
+  /**
+   * A task whose upstream branches conflict cannot start: a merge task resolves them first, and the task then starts
+   * from its result (it covers the conflicting tasks). Not a failure of the task's agent.
+   */
+  private async mergeBeforeTask(m: Mission, t: Task, a: Attempt): Promise<boolean> {
+    if (!/a merge task is needed/.test(a.exitReason ?? "")) return false;
+    const ups = await this.ctx.db.select().from(tasks).where(inArray(tasks.id, t.dependsOn));
+    const code: Task[] = [];
+    for (const u of ups) if (u.status === "done" && (await this.hasDiff(u))) code.push(u);
+    if (code.length < 2) return false;
+    const key = `merge.integrate-${t.key}`;
+    const covers = topoOrder(code).map((u) => u.id);
+    const contract: TaskContract = {
+      objective: `Merge the finished work of ${code.map((u) => u.key).join(", ")} so ${t.key} can build on it. Their changes conflict (${(a.exitReason ?? "").replace(/^failed: /, "").slice(0, 400)}); resolve the conflict markers so every change keeps working.`,
+      inputs: [],
+      outputs: [{ kind: "diff", description: "the resolved merge" }],
+      acceptance: [{ kind: "tests", hard: true, command: NO_CONFLICT_MARKERS }],
+      constraints: ["Keep the intent of every change", "Remove every conflict marker", "Change nothing else"],
+      sensitivity: TaskContract.parse(t.contract).sensitivity,
+    };
+    const made = await this.ctx.db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(tasks)
+        .values({
+          workspaceId: m.workspaceId,
+          missionId: m.id,
+          planVersion: t.planVersion,
+          key,
+          type: "merge.integrate",
+          title: `Merge the work ${t.key} builds on`,
+          contract,
+          dependsOn: covers,
+          modeParams: { covers, keepConflicts: true },
+        })
+        .onConflictDoNothing()
+        .returning();
+      if (!created) return false;
+      const [moved] = await tx
+        .update(tasks)
+        .set({ status: "pending", blockedReason: null, dependsOn: [...t.dependsOn, created.id] })
+        .where(and(eq(tasks.id, t.id), eq(tasks.status, "failed")))
+        .returning();
+      if (!moved) throw new Error("the task moved on; retry");
+      await this.emit(
+        tx,
+        m,
+        "merge.conflict",
+        { taskKey: t.key, between: code.map((u) => u.key), mergeTask: key },
+        { taskId: t.id, attemptId: a.id },
+      );
+      return true;
+    });
+    // The waiting task gives its files back until the merge is done; it leases them again when it starts.
+    if (made) await this.releaseLeases(m, t, "waiting for a merge task");
+    return made;
+  }
+
+  /** The final mission report (best effort: a report failure never changes the mission's outcome). */
+  private async saveReport(m: Mission): Promise<void> {
+    await saveMissionReport(this.ctx, m.id).catch((err: Error) =>
+      this.ctx.log.error({ err: err.message, missionId: m.id }, "mission report failed"),
+    );
+  }
+
+  private async finishMission(
+    m: Mission,
+    integration: typeof integrations.$inferSelect | null,
+  ): Promise<void> {
     const [done] = await this.ctx.db
       .update(missions)
       .set({ status: "done", blockedReason: null })
@@ -1635,7 +1924,13 @@ export class Orchestrator {
       costUsd: totals[0]?.usd ?? 0,
       attempts: totals[0]?.attempts ?? 0,
       minutes: Math.round((Date.now() - m.createdAt.getTime()) / 6000) / 10,
+      ...(integration
+        ? {
+            integration: { branch: integration.branch, commit: integration.commit, round: integration.round },
+          }
+        : {}),
     });
+    await this.saveReport(m);
   }
 }
 
@@ -1659,4 +1954,22 @@ function failedChecksFeedback(a: Attempt): string {
         `- ${f.kind}${f.command ? ` (\`${f.command}\`)` : ""} failed: ${f.summary ?? ""}${f.output ? `\n\`\`\`\n${f.output.slice(-1500)}\n\`\`\`` : ""}`,
     )
     .join("\n");
+}
+
+/** Tasks in dependency order (Kahn), ties by creation; dependencies outside the list are ignored. */
+function topoOrder<T extends Pick<Task, "id" | "dependsOn" | "createdAt">>(list: T[]): T[] {
+  const ids = new Set(list.map((t) => t.id));
+  const placed = new Set<string>();
+  const left = [...list].sort(
+    (a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id),
+  );
+  const out: T[] = [];
+  while (left.length) {
+    const i = left.findIndex((t) => t.dependsOn.every((d) => !ids.has(d) || placed.has(d)));
+    const [next] = left.splice(i === -1 ? 0 : i, 1);
+    if (!next) break;
+    placed.add(next.id);
+    out.push(next);
+  }
+  return out;
 }

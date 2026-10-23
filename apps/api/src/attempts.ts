@@ -75,6 +75,8 @@ export class AttemptRunner {
     mode?: Dispatch["mode"];
     /** Reviewers and judges read results; they need no sandbox of the task's kind. */
     sandboxTaskType?: string;
+    /** A merge task: conflicting bases are merged with their conflict markers left in. */
+    keepConflicts?: boolean;
   }): Promise<AttemptRow> {
     const { ctx } = this;
     const { actor } = input;
@@ -240,6 +242,7 @@ export class AttemptRunner {
         ...(input.bases?.length ? { bases: input.bases } : {}),
         ...(input.files?.length ? { files: input.files } : {}),
         ...(input.repoMap ? { repoMap: true } : {}),
+        ...(input.keepConflicts ? { keepConflicts: true } : {}),
         ...(concurrent ? { manageTask: false, mode: input.mode } : {}),
       };
       await tx
