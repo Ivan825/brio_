@@ -186,6 +186,11 @@ export class AttemptRunner {
       agentSetting: agent.sandboxProfile as AgentSandboxSetting,
       vendorHosts: cli?.egressHosts ?? [],
       maxMinutes: limits.maxMinutes,
+      // Reviewers and judges only read; makers of a contract that changes files get a worktree.
+      writesFiles:
+        !input.sandboxTaskType &&
+        (Boolean(contract.expectedFootprint?.paths.length) ||
+          contract.outputs.some((o) => o.kind === "diff" || o.kind === "file")),
     });
     let repo: Dispatch["repo"] = null;
     if (mission.projectId) {

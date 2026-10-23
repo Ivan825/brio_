@@ -9,6 +9,10 @@ describe("sandbox choice", () => {
     expect(needsSandbox({ route: "api", taskType: "code.feature", agentSetting: "standard" })).toBe(true);
     expect(needsSandbox({ route: "api", taskType: "code.feature", agentSetting: "none" })).toBe(false);
     expect(needsSandbox({ route: "cli", taskType: "write.doc", agentSetting: "none" })).toBe(true);
+    // A writing task whose contract changes repository files (a README) gets a worktree too.
+    expect(
+      needsSandbox({ route: "api", taskType: "write.doc", agentSetting: "standard", writesFiles: true }),
+    ).toBe(true);
   });
 
   it("CLIs get code-standard with their vendor host plus registries and git, nothing else", () => {

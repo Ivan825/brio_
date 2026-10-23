@@ -49,16 +49,21 @@ export interface SandboxChoiceInput {
   vendorHosts: readonly string[];
   /** Task-level minutes limit; the profile's cap still applies. */
   maxMinutes: number;
+  /** The task's contract changes repository files (a footprint, or diff/file outputs), whatever its type. */
+  writesFiles?: boolean;
 }
 
 /**
  * Whether an API-model attempt needs a sandbox at all: only when it works on files (code, design artefacts such as
- * contracts and schemas, and data tasks).
+ * contracts and schemas, data tasks, and any task whose contract changes repository files, such as a README).
  */
-export function needsSandbox(i: Pick<SandboxChoiceInput, "route" | "taskType" | "agentSetting">): boolean {
+export function needsSandbox(
+  i: Pick<SandboxChoiceInput, "route" | "taskType" | "agentSetting" | "writesFiles">,
+): boolean {
   if (i.route === "cli") return true;
   if (i.agentSetting === "none") return false;
   return (
+    i.writesFiles === true ||
     i.taskType.startsWith("code.") ||
     i.taskType === "merge.integrate" ||
     i.taskType.startsWith("data.") ||
