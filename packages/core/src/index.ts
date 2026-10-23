@@ -2,6 +2,7 @@
 // M1 adds cost maths, M2 sandbox profiles, M3 the planner's rules, plan edits, static routing, scheduling and handoffs.
 export * from "./handoff/index";
 export * from "./leases/index";
+export * from "./modes/index";
 export * from "./plan/index";
 export * from "./pricing/index";
 export * from "./router/index";
