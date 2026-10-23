@@ -46,7 +46,10 @@ export class EventFeed {
 
   subscribe(missionId: string, listener: Listener): () => void {
     let set = this.listeners.get(missionId);
-    if (!set) this.listeners.set(missionId, (set = new Set()));
+    if (!set) {
+      set = new Set();
+      this.listeners.set(missionId, set);
+    }
     set.add(listener);
     return () => {
       set.delete(listener);
