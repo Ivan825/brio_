@@ -2,7 +2,7 @@
 // needs into a dispatch plan (attempts.dispatch), records it as an event and on the ledger, and queues it; a runner
 // (apps/runner) claims it, sandboxes it when it touches files or is a CLI, and records the result.
 import { type AgentConfig, type CliSpec, type Dispatch, EMPTY_BRIEF, type RunInput } from "@brio/adapters";
-import { type AgentSandboxSetting, chooseSandbox } from "@brio/core";
+import { type AgentSandboxSetting, browseHostsOf, chooseSandbox } from "@brio/core";
 import { schema } from "@brio/db";
 import { enqueueAttempt, requestCancel } from "@brio/runner";
 import { type Actor, type HandoffPacket, TaskContract, TaskType } from "@brio/schema";
@@ -184,6 +184,7 @@ export class AttemptRunner {
       taskType: input.sandboxTaskType ?? taskType,
       agentSetting: agent.sandboxProfile as AgentSandboxSetting,
       vendorHosts: cli?.egressHosts ?? [],
+      ...(adapter.route === "browser" ? { browseHosts: browseHostsOf(contract) } : {}),
       maxMinutes: limits.maxMinutes,
       // Reviewers and judges only read; makers of a contract that changes files get a worktree.
       writesFiles:
@@ -242,7 +243,7 @@ export class AttemptRunner {
         input: runInput,
         agent: agentConfig,
         sandbox,
-        image: adapter.route === "cli" ? "cli" : "base",
+        image: adapter.route === "cli" ? "cli" : adapter.route === "browser" ? "browser" : "base",
         repo,
         ...(input.bases?.length ? { bases: input.bases } : {}),
         ...(input.files?.length ? { files: input.files } : {}),
