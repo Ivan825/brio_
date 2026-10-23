@@ -14,7 +14,7 @@ test("the catalogue groups all 98 connectors and marks Meta region-limited", asy
   await expect(meta.getByText("Preview · region-limited")).toBeVisible();
   await expect(page.getByTestId("catalogue-midjourney").getByText(/not supported/)).toBeVisible();
   await page.getByLabel("available now").check();
-  await expect(page.getByTestId("catalogue-a2a-protocol")).toHaveCount(0);
+  await expect(page.getByTestId("catalogue-skyvern")).toHaveCount(0);
   await expect(page.getByTestId("catalogue-jules")).toBeVisible();
   await expect(page.getByTestId("catalogue-runway")).toBeVisible();
   await expect(page.getByTestId("catalogue-claude-code")).toBeVisible();

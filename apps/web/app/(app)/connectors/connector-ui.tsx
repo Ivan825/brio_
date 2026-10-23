@@ -114,6 +114,83 @@ function ModelList({ connectorId }: { connectorId: string }) {
   );
 }
 
+/** Every task type, grouped as the router knows them. */
+const TASK_TYPES = [
+  "code.feature",
+  "code.bugfix",
+  "code.refactor",
+  "code.tests",
+  "code.review",
+  "code.frontend_ui",
+  "research.web",
+  "research.deep_report",
+  "research.fact_check",
+  "write.doc",
+  "write.summary",
+  "write.marketing_copy",
+  "data.analysis",
+  "data.extraction",
+  "media.image",
+  "media.video",
+  "media.voice",
+  "browser.task",
+  "plan.decompose",
+];
+
+/** An A2A agent: what its card says, and which task types Brio routes to it (its skills' suggestion, editable). */
+function A2aMapping({ c }: { c: InstalledConnector }) {
+  const router = useRouter();
+  const [types, setTypes] = useState<string[]>(c.taskTypes ?? []);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const dirty = JSON.stringify([...types].sort()) !== JSON.stringify([...(c.taskTypes ?? [])].sort());
+  async function save() {
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/v1/connectors/${c.id}`, { method: "PATCH", body: { taskTypes: types } });
+      router.refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="flex flex-col gap-2" data-testid="a2a-mapping">
+      {c.agentCard && (
+        <p className="text-xs text-fg-muted">
+          {c.agentCard.description}
+          {c.agentCard.skills.length > 0 && <> Skills: {c.agentCard.skills.map((k) => k.name).join(", ")}.</>}
+        </p>
+      )}
+      <fieldset className="flex flex-wrap gap-x-3 gap-y-1">
+        <legend className="mb-1 font-mono text-2xs uppercase tracking-[0.08em] text-fg-muted">
+          Task types Brio sends it
+        </legend>
+        {TASK_TYPES.map((t) => (
+          <label key={t} className="flex items-center gap-1 font-mono text-2xs">
+            <input
+              type="checkbox"
+              checked={types.includes(t)}
+              onChange={(e) => setTypes((v) => (e.target.checked ? [...v, t] : v.filter((x) => x !== t)))}
+            />
+            {t}
+          </label>
+        ))}
+      </fieldset>
+      {dirty && (
+        <div>
+          <Button size="sm" disabled={busy || types.length === 0} onClick={() => void save()}>
+            Save task types
+          </Button>
+        </div>
+      )}
+      <FormError>{error}</FormError>
+    </div>
+  );
+}
+
 function InstalledCard({ c }: { c: InstalledConnector }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -157,6 +234,7 @@ function InstalledCard({ c }: { c: InstalledConnector }) {
           on confidential tasks).
         </p>
       )}
+      {c.serviceKind === "a2a" && <A2aMapping c={c} />}
       {c.serviceKind === "cloud-browser" && (
         <p className="text-xs text-fg-muted">
           Infrastructure, not an agent: computer-use agents with the option{" "}
@@ -365,6 +443,7 @@ const SERVICE_KIND: Record<ServiceSummary["kind"], string> = {
   fetch: "page reader for every agent",
   browser: "browser agent",
   "cloud-browser": "cloud browser for computer use",
+  a2a: "any A2A agent, by its URL",
 };
 
 /** What a run costs, in the service's own unit, as the install form says it. */
@@ -401,7 +480,7 @@ function AddService({ connector, onDone }: { connector: CatalogueConnector; onDo
         body: {
           registryKey: connector.id,
           service: serviceKey,
-          apiKey: secret.trim(),
+          ...(secret.trim() ? { apiKey: secret.trim() } : {}),
           ...(Object.keys(filled).length ? { settings: filled } : {}),
         },
       });
@@ -465,7 +544,11 @@ function AddService({ connector, onDone }: { connector: CatalogueConnector; onDo
       ))}
       <div className="flex flex-col gap-1">
         <Label htmlFor={`${ids}-secret`}>
-          {service.credential.kind === "json" ? "Credentials (JSON)" : "API key"}
+          {service.credential.kind === "json"
+            ? "Credentials (JSON)"
+            : service.credential.optional
+              ? "Token (optional)"
+              : "API key"}
         </Label>
         {service.credential.kind === "json" ? (
           <Textarea
@@ -483,7 +566,7 @@ function AddService({ connector, onDone }: { connector: CatalogueConnector; onDo
           <Input
             id={`${ids}-secret`}
             type="password"
-            required
+            required={!service.credential.optional}
             autoComplete="off"
             spellCheck={false}
             value={secret}

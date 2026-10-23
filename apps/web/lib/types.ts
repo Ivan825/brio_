@@ -20,8 +20,8 @@ export interface PresetSummary {
 export interface ServiceSummary {
   key: string;
   name: string;
-  kind: "hosted" | "media" | "research" | "search" | "fetch" | "browser" | "cloud-browser";
-  credential: { kind: "key" | "json"; hint: string };
+  kind: "hosted" | "media" | "research" | "search" | "fetch" | "browser" | "cloud-browser" | "a2a";
+  credential: { kind: "key" | "json"; hint: string; optional?: boolean };
   settings: Array<{
     key: string;
     label: string;
@@ -87,6 +87,14 @@ export interface InstalledConnector {
   service: string | null;
   serviceKind: ServiceSummary["kind"] | null;
   settings: Record<string, string>;
+  /** The task types its agents take, when set on the connector (A2A agents). */
+  taskTypes: string[] | null;
+  /** An A2A agent's card as read at install. */
+  agentCard: {
+    name: string;
+    description: string;
+    skills: Array<{ id: string; name: string; description: string }>;
+  } | null;
   baseUrl: string;
   region: string | null;
   apiStyle: string | null;
