@@ -232,3 +232,35 @@ export async function approvePlan(
     return plan;
   });
 }
+
+/**
+ * Whether a proposed plan starts without a person (a quick start): the mission asked for it, and the plan is clean
+ * (no lint errors, no questions) and small (at most $5 and 10 tasks).
+ */
+export function quickStarts(
+  m: { autoApprove: boolean },
+  plan: { graph: PlanGraph; lint: { errors?: unknown[] | number; estimate?: { usd: number } | null } },
+): boolean {
+  const errors = Array.isArray(plan.lint.errors) ? plan.lint.errors.length : (plan.lint.errors ?? 0);
+  return (
+    m.autoApprove &&
+    !errors &&
+    !plan.graph.questions.length &&
+    (plan.lint.estimate?.usd ?? 0) <= 5 &&
+    plan.graph.tasks.length <= 10
+  );
+}
+
+/**
+ * Whether a mission is really waiting for a person to approve its plan, not passing through on a quick start (its
+ * plan is stored, then approved a moment later).
+ */
+export async function awaitingPerson(db: DbOrTx, m: typeof missions.$inferSelect): Promise<boolean> {
+  if (m.status !== "awaiting_approval") return false;
+  const p = await latestPlan(db, m.id);
+  if (!p || p.status !== "proposed") return false;
+  return !quickStarts(m, {
+    graph: p.graph,
+    lint: p.lint as { errors?: unknown[]; estimate?: { usd: number } | null },
+  });
+}

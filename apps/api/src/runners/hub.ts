@@ -476,32 +476,39 @@ export class RunnerHub {
       }
       case "delivery_done": {
         if (!c.deliveries.delete(m.deliveryId)) return;
-        const [d] = await db
-          .update(deliveries)
-          .set(m.ok ? { status: "done" } : { status: "failed", error: m.error ?? "the push failed" })
-          .where(and(eq(deliveries.id, m.deliveryId), eq(deliveries.status, "running")))
-          .returning();
-        if (!d) return;
-        if (m.ok)
-          await this.ctx.ledger.append(db, {
+        await db.transaction(async (tx) => {
+          const [d] = await tx
+            .update(deliveries)
+            .set(m.ok ? { status: "done" } : { status: "failed", error: m.error ?? "the push failed" })
+            .where(and(eq(deliveries.id, m.deliveryId), eq(deliveries.status, "running")))
+            .returning();
+          if (!d) return;
+          if (m.ok)
+            await this.ctx.ledger.append(tx, {
+              workspaceId: d.workspaceId,
+              kind: "side_effect",
+              payload: {
+                action: "git.push",
+                deliveryId: d.id,
+                missionId: d.missionId,
+                repo: d.repo.url,
+                branch: d.branch,
+                commit: d.commit,
+                runner: c.runnerId,
+              },
+            });
+          await this.ctx.events.append(tx, {
             workspaceId: d.workspaceId,
-            kind: "side_effect",
+            missionId: d.missionId,
+            type: m.ok ? "delivery.done" : "delivery.failed",
+            actor: "system",
             payload: {
-              action: "git.push",
               deliveryId: d.id,
-              missionId: d.missionId,
-              repo: d.repo.url,
+              kind: d.kind,
               branch: d.branch,
-              commit: d.commit,
-              runner: c.runnerId,
+              ...(m.ok ? {} : { error: d.error }),
             },
           });
-        await this.ctx.events.append(db, {
-          workspaceId: d.workspaceId,
-          missionId: d.missionId,
-          type: m.ok ? "delivery.done" : "delivery.failed",
-          actor: "system",
-          payload: { deliveryId: d.id, kind: d.kind, branch: d.branch, ...(m.ok ? {} : { error: d.error }) },
         });
         return;
       }

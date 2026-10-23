@@ -50,6 +50,8 @@ export interface RunnerOptions {
   answerWaitMs?: number;
   /** Port for the mailbox MCP server (0: any free port). */
   mailboxPort?: number;
+  /** The GitHub REST API pull requests are opened through (GitHub Enterprise Server: its /api/v3). */
+  githubApiUrl?: string;
 }
 
 export class Runner {

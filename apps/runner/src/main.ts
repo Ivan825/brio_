@@ -44,6 +44,7 @@ const runner = new Runner({
   }),
   log,
   dir: config.BRIO_RUNNER_DIR,
+  githubApiUrl: config.BRIO_GITHUB_API_URL,
   images: {
     base: config.BRIO_IMAGE_BASE ?? DEFAULT_IMAGES.base,
     cli: config.BRIO_IMAGE_CLI ?? DEFAULT_IMAGES.cli,

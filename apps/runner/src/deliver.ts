@@ -5,7 +5,7 @@
 // owner's. Both are side effects, so both go to the audit ledger.
 import type { FetchLike, Logger } from "@brio/adapters";
 import { type MissionReport, renderMissionReport } from "@brio/core";
-import { type Db, type EventWriter, schema } from "@brio/db";
+import { type Db, type DbOrTx, type EventWriter, schema } from "@brio/db";
 import type { Ledger } from "@brio/governance";
 import type { Redactor, Vault } from "@brio/vault";
 import { and, eq } from "drizzle-orm";
@@ -26,6 +26,8 @@ export interface DeliveryDeps {
   fetch: FetchLike;
   log: Logger;
   dir: string;
+  /** The GitHub REST API: api.github.com, or a GitHub Enterprise Server's /api/v3. */
+  githubApiUrl?: string;
 }
 
 export interface DeliveryJob {
@@ -55,8 +57,12 @@ export class DeliveryExecutor {
       .where(and(eq(deliveries.id, job.deliveryId), eq(deliveries.status, "queued")))
       .returning();
     if (!row) return;
-    const event = (type: "delivery.started" | "delivery.done" | "delivery.failed", payload: object) =>
-      deps.events.append(deps.db, {
+    const event = (
+      type: "delivery.started" | "delivery.done" | "delivery.failed",
+      payload: object,
+      db: DbOrTx = deps.db,
+    ) =>
+      deps.events.append(db, {
         workspaceId: row.workspaceId,
         missionId: row.missionId,
         type,
@@ -122,19 +128,24 @@ export class DeliveryExecutor {
         });
       }
 
-      await deps.db
-        .update(deliveries)
-        .set({ status: "done", url: pr?.url ?? null, number: pr?.number ?? null })
-        .where(eq(deliveries.id, row.id));
-      await event("delivery.done", pr ? { url: pr.url, number: pr.number } : {});
+      // The status and its event together: whoever sees it done sees why.
+      await deps.db.transaction(async (tx) => {
+        await tx
+          .update(deliveries)
+          .set({ status: "done", url: pr?.url ?? null, number: pr?.number ?? null })
+          .where(eq(deliveries.id, row.id));
+        await event("delivery.done", pr ? { url: pr.url, number: pr.number } : {}, tx);
+      });
     } catch (err) {
       const message = deps.redactor.redact((err as Error).message).slice(0, 1000);
       deps.log.warn({ err: message, deliveryId: row.id }, "delivery failed");
-      await deps.db
-        .update(deliveries)
-        .set({ status: "failed", error: message })
-        .where(eq(deliveries.id, row.id));
-      await event("delivery.failed", { error: message });
+      await deps.db.transaction(async (tx) => {
+        await tx
+          .update(deliveries)
+          .set({ status: "failed", error: message })
+          .where(eq(deliveries.id, row.id));
+        await event("delivery.failed", { error: message }, tx);
+      });
     }
   }
 
@@ -145,17 +156,20 @@ export class DeliveryExecutor {
     pr: { title: string; head: string; base: string | null; body: string },
   ): Promise<{ url: string; number: number }> {
     const call = async (method: string, path: string, body?: unknown) => {
-      const res = await this.deps.fetch(`${GITHUB_API}${path}`, {
-        method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/vnd.github+json",
-          "X-GitHub-Api-Version": "2022-11-28",
-          "User-Agent": "brio",
-          ...(body ? { "Content-Type": "application/json" } : {}),
+      const res = await this.deps.fetch(
+        `${(this.deps.githubApiUrl ?? GITHUB_API).replace(/\/+$/, "")}${path}`,
+        {
+          method,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "User-Agent": "brio",
+            ...(body ? { "Content-Type": "application/json" } : {}),
+          },
+          ...(body ? { body: JSON.stringify(body) } : {}),
         },
-        ...(body ? { body: JSON.stringify(body) } : {}),
-      });
+      );
       const text = await res.text();
       let json: unknown = null;
       try {

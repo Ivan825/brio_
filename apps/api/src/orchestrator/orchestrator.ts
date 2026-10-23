@@ -43,7 +43,7 @@ import { proposeDelivery } from "../deliveries";
 import { HttpError } from "../http";
 import { pokeRunner } from "../runners/hub";
 import { crewPin, missionAgents, projectRunnerOf, type WorkspaceAgent, worksOnFiles } from "./agents";
-import { approvePlan, latestPlan, storePlan } from "./plans";
+import { approvePlan, latestPlan, quickStarts, storePlan } from "./plans";
 import { saveMissionReport } from "./report";
 import { attemptAgentKey, Scoreboard } from "./scoreboard";
 import { Verifier } from "./verifier";
@@ -322,17 +322,16 @@ export class Orchestrator {
             .where(eq(missions.id, m.id));
           return stored;
         });
-        if (done && m.autoApprove && !done.lint.errors.length && !done.plan.graph.questions.length) {
-          const small = (done.lint.estimate?.usd ?? 0) <= 5 && done.plan.graph.tasks.length <= 10;
-          if (small)
-            await approvePlan(
-              this.ctx,
-              { ...m, status: "awaiting_approval" },
-              done.plan.version,
-              "system",
-              null,
-            ).catch(() => {});
-        }
+        if (done && quickStarts(m, { graph: done.plan.graph, lint: done.lint }))
+          await approvePlan(
+            this.ctx,
+            { ...m, status: "awaiting_approval" },
+            done.plan.version,
+            "system",
+            null,
+          ).catch((err: Error) =>
+            this.ctx.log.warn({ err: err.message, missionId: m.id }, "quick start failed"),
+          );
         return;
       }
       return this.retryPlanning(m, task, parsed.errors);

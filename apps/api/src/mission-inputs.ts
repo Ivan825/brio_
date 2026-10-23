@@ -110,7 +110,7 @@ export async function readIssue(
       token = (await ctx.vault.reveal(ctx.db, workspaceId, p.credentialRef)).reveal();
   }
   const get = async (path: string) => {
-    const res = await ctx.fetch(`https://api.github.com${path}`, {
+    const res = await ctx.fetch(`${ctx.config.BRIO_GITHUB_API_URL.replace(/\/+$/, "")}${path}`, {
       headers: {
         Accept: "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",

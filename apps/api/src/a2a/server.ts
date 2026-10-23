@@ -36,7 +36,7 @@ import { uuidv7 } from "uuidv7";
 import type { AppContext } from "../context";
 import { HttpError, requireSession, type SessionInfo } from "../http";
 import { cancelMission, createMission } from "../missions";
-import { approvePlan } from "../orchestrator/plans";
+import { approvePlan, awaitingPerson } from "../orchestrator/plans";
 import { missionReport } from "../orchestrator/report";
 
 const { a2aTasks, artifacts, messages, missions, plans, tasks } = schema;
@@ -221,7 +221,7 @@ async function snapshot(ctx: AppContext, missionId: string): Promise<Snapshot> {
       state: TaskState.TASK_STATE_INPUT_REQUIRED,
       message: `A question from the mission's agents: ${question.body}`,
     };
-  if (m.status === "awaiting_approval")
+  if (await awaitingPerson(ctx.db, m))
     return {
       state: TaskState.TASK_STATE_INPUT_REQUIRED,
       message: `The plan needs approval (it is larger than a quick start allows, or has questions). Reply "approve" to start it, or review it at ${link}.`,

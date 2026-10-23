@@ -22,6 +22,8 @@ const Env = z.object({
   BRIO_IMAGE_PROXY: z.string().optional(),
   BRIO_IMAGE_WEB: z.string().optional(),
   BRIO_IMAGE_BROWSER: z.string().optional(),
+  /** GitHub's REST API for pull requests: api.github.com, or a GitHub Enterprise Server's https://host/api/v3. */
+  BRIO_GITHUB_API_URL: z.url().default("https://api.github.com"),
 });
 
 export type RunnerConfig = z.infer<typeof Env> & { allowPrivateUrls: boolean };

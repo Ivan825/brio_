@@ -31,6 +31,8 @@ const Env = z.object({
   BRIO_FX_USD_PER: z.string().optional(),
   /** Lets projects point at local repository paths (the runner clones them from its disk). Defaults to on outside production. */
   BRIO_ALLOW_LOCAL_REPOS: z.enum(["true", "false"]).optional(),
+  /** GitHub's REST API for issue links: api.github.com, or a GitHub Enterprise Server's https://host/api/v3. */
+  BRIO_GITHUB_API_URL: z.url().default("https://api.github.com"),
   /** Hours between live price refreshes from public sources; 0 turns the timer off. */
   BRIO_PRICING_REFRESH_HOURS: z.coerce.number().min(0).default(24),
   /** Exposes GET /v1/dev/outbox with locally "sent" emails. Never in production. */
