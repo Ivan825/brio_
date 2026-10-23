@@ -62,7 +62,8 @@ export const TaskKey = z.string().regex(/^[a-z0-9][a-z0-9._-]{0,79}$/, "lowercas
 
 export const Task = WorkspaceScoped.extend({
   missionId: Id,
-  planVersion: z.number().int().positive(),
+  /** 0 for the mission's planning task; the approved plan's version for the rest. */
+  planVersion: z.number().int().nonnegative(),
   key: TaskKey,
   type: TaskType,
   title: z.string().trim().min(1).max(200),
@@ -86,6 +87,8 @@ export const PlannedTask = z.object({
   dependsOn: z.array(TaskKey),
   suggestedMode: ExecutionMode,
   estimate: z.object({ usd: Usd, minutes: z.number().nonnegative() }).optional(),
+  /** The agent the user assigned in the plan editor; the router honours it. */
+  pinnedAgentId: Id.optional(),
 });
 export type PlannedTask = z.infer<typeof PlannedTask>;
 

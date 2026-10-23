@@ -18,6 +18,8 @@ export const contracts = pgTable(
     id: id(),
     workspaceId: ws(),
     projectId: uuid().references(() => projects.id),
+    /** Contracts agreed inside a mission (a design.api_contract task's output) before they belong to a project. */
+    missionId: uuid().references(() => missions.id),
     name: text().notNull(),
     version: text().notNull(),
     spec: jsonb().$type<string | Record<string, unknown>>().notNull(),
@@ -63,6 +65,8 @@ export const messages = pgTable(
     toAttemptId: uuid().references(() => attempts.id),
     toUser: boolean().notNull().default(false),
     kind: messageKind().notNull(),
+    /** The question an answer replies to. */
+    replyToId: uuid(),
     body: text().notNull(),
     status: messageStatus().notNull().default("open"),
     ...timestamps(),

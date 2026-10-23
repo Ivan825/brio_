@@ -12,6 +12,7 @@ type Listener = (seq: number) => void;
 export class EventFeed {
   private client: pg.PoolClient | null = null;
   private readonly listeners = new Map<string, Set<Listener>>();
+  private readonly everything = new Set<(missionId: string, seq: number) => void>();
   private stopped = false;
 
   constructor(private readonly pool: pg.Pool) {}
@@ -24,6 +25,7 @@ export class EventFeed {
       try {
         const { missionId, seq } = JSON.parse(msg.payload) as { missionId: string; seq: number };
         for (const l of this.listeners.get(missionId) ?? []) l(seq);
+        for (const l of this.everything) l(missionId, seq);
       } catch {
         // ignore malformed payloads
       }
@@ -42,6 +44,12 @@ export class EventFeed {
       // listeners re-read from the table on their poll interval, so nothing is lost while disconnected
       for (const set of this.listeners.values()) for (const l of set) l(Number.MAX_SAFE_INTEGER);
     }, 1000).unref();
+  }
+
+  /** Every mission's new events (the orchestrator reacts to them). Returns the unsubscribe function. */
+  subscribeAll(listener: (missionId: string, seq: number) => void): () => void {
+    this.everything.add(listener);
+    return () => this.everything.delete(listener);
   }
 
   subscribe(missionId: string, listener: Listener): () => void {

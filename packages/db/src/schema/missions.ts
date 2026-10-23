@@ -2,6 +2,7 @@ import type { PlanGraph, TaskContract } from "@brio/schema";
 import { sql } from "drizzle-orm";
 import {
   bigint,
+  boolean,
   check,
   index,
   integer,
@@ -52,6 +53,12 @@ export const missions = pgTable(
     assumptions: jsonb().$type<string[]>().notNull().default(sql`'[]'::jsonb`),
     report: jsonb().$type<Record<string, unknown>>(),
     createdBy: uuid().references(() => users.id),
+    /** The agent that plans this mission; null lets the static router choose (M3) or the scoreboard (M4). */
+    plannerAgentId: uuid(),
+    /** Start as soon as a plan passes lint, without waiting for approval (policy permitting). */
+    autoApprove: boolean().notNull().default(false),
+    /** Why the mission cannot move (no agents, open questions...); null when it can. */
+    blockedReason: text(),
     /** Last assigned event seq; incremented under a row lock by the events writer, so seq is gapless. */
     lastEventSeq: bigint({ mode: "number" }).notNull().default(0),
     ...timestamps(),
@@ -71,6 +78,10 @@ export const plans = pgTable(
     graph: jsonb().$type<PlanGraph>().notNull(),
     status: planStatus().notNull().default("proposed"),
     approvedBy: uuid().references(() => users.id),
+    /** planner (proposed by the planning task), user (an edit) or replan. */
+    origin: text().notNull().default("planner"),
+    /** Plan lint result: errors block approval, warnings and automatic fixes are shown. */
+    lint: jsonb().$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
     ...timestamps(),
   },
   (t) => [unique().on(t.missionId, t.version)],
@@ -96,6 +107,9 @@ export const tasks = pgTable(
     status: taskStatus().notNull().default("pending"),
     budget: jsonb().$type<{ usd?: number; minutes?: number }>().notNull().default(sql`'{}'::jsonb`),
     resultArtifactId: uuid(),
+    /** Revise loops used (ARCHITECTURE §4.2: at most 2). */
+    revisions: integer().notNull().default(0),
+    blockedReason: text(),
     ...timestamps(),
   },
   (t) => [unique().on(t.missionId, t.planVersion, t.key), index().on(t.missionId, t.status)],
@@ -132,6 +146,8 @@ export const attempts = pgTable(
     runnerId: text(),
     heartbeatAt: timestamp({ withTimezone: true }),
     cancelRequestedAt: timestamp({ withTimezone: true }),
+    /** The acceptance checks run on this attempt's result and their outcomes (the verifier's working state). */
+    checks: jsonb().$type<Record<string, unknown>>(),
     ...timestamps(),
   },
   (t) => [index().on(t.taskId), index().on(t.agentId), index().on(t.status, t.heartbeatAt)],
