@@ -1,4 +1,4 @@
-// Service connectors (ADAPTER_SPEC §2.4–2.9): hosted agents, media models, research agents and tools; browsers follow.
+// Service connectors (ADAPTER_SPEC §2.4–2.9): hosted agents, browser agents, media models, research agents and tools.
 import type { AgentAdapter } from "../types";
 import { agentcore } from "./hosted/agentcore";
 import { claudeManagedAgents } from "./hosted/claude-managed-agents";
@@ -20,6 +20,7 @@ export const HOSTED_ADAPTERS: readonly AgentAdapter[] = [
   foundryAgents,
 ];
 
+export * from "./browser/index";
 export * from "./client";
 export { agentcoreText } from "./hosted/agentcore";
 export { githubRepo, hostedPrompt, PATCH_FILE } from "./hosted/common";

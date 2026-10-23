@@ -3702,6 +3702,82 @@
       "docsUrl": "https://jina.ai/reader/",
       "notes": "A tool every agent uses for fetch_url.",
       "verifiedOn": "2026-10-23"
+    },
+    "anthropic-computer-use": {
+      "connector": "claude-computer-use",
+      "name": "Claude computer use",
+      "vendor": "anthropic",
+      "kind": "browser",
+      "adapter": "anthropic-computer-use",
+      "taskTypes": [
+        "browser.task",
+        "browser.form_fill",
+        "browser.scrape_public"
+      ],
+      "baseUrl": "https://api.anthropic.com",
+      "auth": {
+        "scheme": "header",
+        "header": "x-api-key"
+      },
+      "extraHeaders": {
+        "anthropic-version": "2023-06-01"
+      },
+      "health": {
+        "method": "GET",
+        "path": "/v1/models?limit=1"
+      },
+      "pricing": {
+        "unit": "token",
+        "pricePreset": "anthropic",
+        "note": "Tokens at the model's price: the toolset adds about 4,500 input tokens a request and each screenshot about 1,000–1,800."
+      },
+      "models": {
+        "path": null,
+        "static": [
+          "claude-sonnet-5-5",
+          "claude-opus-5-5",
+          "claude-haiku-5-5"
+        ]
+      },
+      "docsUrl": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/computer-use-tool",
+      "verifiedOn": "2026-10-23",
+      "notes": "computer_toolset_20260801 (GA, no beta header) on Claude 5.5 models. Runs on a browser in Brio's browser sandbox, which reaches only the sites the task names."
+    },
+    "browser-use": {
+      "connector": "browser-use",
+      "name": "Browser Use Cloud",
+      "vendor": "browser-use",
+      "kind": "browser",
+      "adapter": "browser-use",
+      "taskTypes": [
+        "browser.task",
+        "browser.form_fill",
+        "browser.scrape_public"
+      ],
+      "baseUrl": "https://api.browser-use.com/api",
+      "auth": {
+        "scheme": "header",
+        "header": "X-Browser-Use-API-Key"
+      },
+      "health": {
+        "method": "GET",
+        "path": "/v2/billing/account"
+      },
+      "pricing": {
+        "unit": "usd",
+        "note": "Each run reports its cost (totalCostUsd) and is capped at the attempt's remaining limit (maxCostUsd)."
+      },
+      "models": {
+        "path": null,
+        "static": [
+          "default",
+          "bu-fast",
+          "claude-sonnet-5-5"
+        ]
+      },
+      "docsUrl": "https://docs.browser-use.com/cloud/api-reference",
+      "verifiedOn": "2026-10-23",
+      "notes": "API v4 runs in Browser Use's own cloud browser: Brio cannot restrict which sites it visits, so it is told to stay on the task's sites."
     }
   }
 }
