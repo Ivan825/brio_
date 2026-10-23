@@ -9,6 +9,12 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@brio/db": "workspace:*",
+    "@brio/schema": "workspace:*",
+    "@brio/vault": "workspace:*",
+    "drizzle-orm": "0.45.4"
   }
 }

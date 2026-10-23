@@ -119,7 +119,20 @@ importers:
         specifier: 4.23.15
         version: 4.23.15
 
-  packages/governance: {}
+  packages/governance:
+    dependencies:
+      '@brio/db':
+        specifier: workspace:*
+        version: link:../db
+      '@brio/schema':
+        specifier: workspace:*
+        version: link:../schema
+      '@brio/vault':
+        specifier: workspace:*
+        version: link:../vault
+      drizzle-orm:
+        specifier: 0.45.4
+        version: 0.45.4(@types/pg@8.23.1)(pg@8.23.1)
 
   packages/memory: {}
 
