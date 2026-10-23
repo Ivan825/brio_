@@ -2,13 +2,14 @@
 // toolset plans actions; Brio runs them on a browser in the attempt's browser sandbox and returns what happened, every
 // tool_use answered in order (after a failure the rest are answered "not executed"). Old screenshots leave the context
 // as it grows. A person is asked (ask_person) before anything irreversible; no answer is no.
-import { costOf, roundUsd } from "@brio/core";
+import { browseHostsOf, costOf, roundUsd } from "@brio/core";
 import { AdapterError, isLimitAbort } from "../../errors";
 import type { AgentAdapter, ProducedFile, RunInput, RunResult } from "../../types";
 import { ServiceClient } from "../client";
 import { QUESTION_WAIT_MS } from "../job";
 import { type Actuator, type Screen, sandboxActuator } from "./actuator";
 import { BROWSER_RULES, browserCapabilities } from "./browser-use";
+import { cdpActuator } from "./cdp";
 
 export const TOOLSET = "computer_toolset_20260801";
 const KEEP_SCREENSHOTS = 3;
@@ -85,7 +86,11 @@ const png = (bytes: Uint8Array): Content => ({
 });
 
 export function createComputerUse(
-  makeActuator: (ctx: Parameters<AgentAdapter["run"]>[2]) => Actuator,
+  makeActuator: (
+    ctx: Parameters<AgentAdapter["run"]>[2],
+    input: RunInput,
+    config: Parameters<AgentAdapter["run"]>[1],
+  ) => Actuator,
 ): AgentAdapter {
   return {
     key: "anthropic-computer-use",
@@ -133,9 +138,10 @@ export function createComputerUse(
         width: Number(config.options?.screenWidth ?? 1280),
         height: Number(config.options?.screenHeight ?? 800),
       };
-      const actuator = makeActuator(ctx);
       const url = startUrl(input);
+      let actuator: Actuator;
       try {
+        actuator = makeActuator(ctx, input, config);
         await actuator.open(url, screen);
       } catch (e) {
         return result("failed", { error: `the browser did not start: ${(e as Error).message}` });
@@ -284,4 +290,38 @@ export function createComputerUse(
   };
 }
 
-export const computerUse = createComputerUse((ctx) => sandboxActuator(ctx.sandbox));
+/**
+ * The browser a run drives: Brio's sandboxed one, or — when the agent asks for options.browser = "cloud" — a session on
+ * the workspace's cloud browser, held to the same site allowlist inside the browser.
+ */
+export function actuatorFor(
+  ctx: Parameters<AgentAdapter["run"]>[2],
+  input: RunInput,
+  config: Parameters<AgentAdapter["run"]>[1],
+): Actuator {
+  if (config.options?.browser !== "cloud") return sandboxActuator(ctx.sandbox);
+  const provider = ctx.tools?.browser;
+  if (!provider)
+    throw new AdapterError("misconfigured", "this agent uses a cloud browser, and the workspace has none");
+  let inner: Actuator | null = null;
+  const ready = () => {
+    if (!inner) throw new Error("the browser is not open");
+    return inner;
+  };
+  return {
+    async open(url, screen) {
+      const s = await provider.session({
+        ...screen,
+        timeoutS: input.limits.maxMinutes * 60 + 60,
+        signal: ctx.signal,
+      });
+      inner = cdpActuator({ url: s.url, allow: browseHostsOf(input.contract), release: () => s.release() });
+      await inner.open(url, screen);
+    },
+    screenshot: (r) => ready().screenshot(r),
+    act: (n, i) => ready().act(n, i),
+    close: async () => inner?.close(),
+  };
+}
+
+export const computerUse = createComputerUse(actuatorFor);

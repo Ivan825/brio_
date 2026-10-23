@@ -1165,7 +1165,7 @@
       "statusKey": "e",
       "tier": "P2",
       "notes": "Infrastructure under any browser agent; Steel documents an OpenAI computer-use integration.",
-      "plannedAdapter": null,
+      "plannedAdapter": "browserbase",
       "buildMilestone": "M6",
       "subscriptionUse": null,
       "supported": true
@@ -3818,6 +3818,56 @@
       "docsUrl": "https://docs.browser-use.com/cloud/api-reference",
       "verifiedOn": "2026-10-23",
       "notes": "API v4 runs in Browser Use's own cloud browser: Brio cannot restrict which sites it visits, so it is told to stay on the task's sites."
+    },
+    "browserbase": {
+      "connector": "browserbase-steel-hyperbrowser",
+      "name": "Browserbase",
+      "vendor": "browserbase",
+      "kind": "cloud-browser",
+      "adapter": "browserbase",
+      "taskTypes": [],
+      "baseUrl": "https://api.browserbase.com",
+      "auth": {
+        "scheme": "header",
+        "header": "X-BB-API-Key"
+      },
+      "health": {
+        "method": "GET",
+        "path": "/v1/projects"
+      },
+      "pricing": {
+        "unit": "second",
+        "usdPerUnit": 3.34e-05,
+        "note": "Browser hours come with the plan; metered at the $0.12 an hour overage rate."
+      },
+      "docsUrl": "https://docs.browserbase.com/reference/api/create-a-session",
+      "verifiedOn": "2026-10-23",
+      "notes": "A cloud browser for computer-use agents that ask for one (options.browser = cloud). Brio connects within the 5-minute window and releases the session when the run ends; the task's site allowlist is enforced inside the browser."
+    },
+    "steel": {
+      "connector": "browserbase-steel-hyperbrowser",
+      "name": "Steel",
+      "vendor": "steel",
+      "kind": "cloud-browser",
+      "adapter": "steel",
+      "taskTypes": [],
+      "baseUrl": "https://api.steel.dev",
+      "auth": {
+        "scheme": "header",
+        "header": "steel-api-key"
+      },
+      "health": {
+        "method": "GET",
+        "path": "/v1/sessions"
+      },
+      "pricing": {
+        "unit": "second",
+        "usdPerUnit": 2.78e-05,
+        "note": "Billed per minute of browser time: $0.10 an hour (Launch plan)."
+      },
+      "docsUrl": "https://docs.steel.dev/overview/sessions-api/quickstart",
+      "verifiedOn": "2026-10-23",
+      "notes": "A cloud browser for computer-use agents that ask for one (options.browser = cloud). Steel's connection URL carries the key; Brio keeps it in memory only."
     }
   }
 }

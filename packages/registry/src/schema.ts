@@ -171,8 +171,19 @@ export const Preset = z
 export type Preset = z.infer<typeof Preset>;
 
 /** What a service connector is for (non-model APIs: hosted agents, media, search, page fetching, browsers). */
-/** hosted agents, media models, research agents, search and fetch tools (every agent's), browser agents. */
-export const ServiceKind = z.enum(["hosted", "media", "research", "search", "fetch", "browser"]);
+/**
+ * hosted agents, media models, research agents, search and fetch tools (every agent's), browser agents, and cloud
+ * browsers (infrastructure computer use can run on).
+ */
+export const ServiceKind = z.enum([
+  "hosted",
+  "media",
+  "research",
+  "search",
+  "fetch",
+  "browser",
+  "cloud-browser",
+]);
 export type ServiceKind = z.infer<typeof ServiceKind>;
 
 /** How a service's credential is sent. */

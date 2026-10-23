@@ -319,8 +319,26 @@ export interface Mailbox {
   getBrief(): Promise<string>;
 }
 
+export interface CloudBrowserSession {
+  /** The CDP WebSocket URL; may carry the vendor key, so it is never logged. */
+  url: string;
+  release(): Promise<void>;
+}
+
+/** Sessions on the workspace's cloud browser (Browserbase, Steel) for computer use. */
+export interface CloudBrowserProvider {
+  vendor: string;
+  session(o: {
+    width: number;
+    height: number;
+    timeoutS: number;
+    signal: AbortSignal;
+  }): Promise<CloudBrowserSession>;
+}
+
 export interface ToolProviders {
   search?: SearchProvider;
   fetch?: FetchProvider;
+  browser?: CloudBrowserProvider;
   mailbox?: Mailbox;
 }

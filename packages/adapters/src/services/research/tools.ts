@@ -262,7 +262,7 @@ export function fetchProvider(b: ToolBinding, ctx: ToolContext): FetchProvider {
  * The connector side of a tool service: its key check works like any connector's; running it as an agent fails
  * closed (the API does not let agents be built on it).
  */
-export function toolAdapter(v: ResearchVendor): AgentAdapter {
+export function toolAdapter(v: { key: string; kind: string }): AgentAdapter {
   return {
     key: v.key,
     route: "api",
@@ -293,7 +293,7 @@ export function toolAdapter(v: ResearchVendor): AgentAdapter {
           cacheWriteTokens: 0,
           reasoningTokens: 0,
         },
-        error: `${v.key} is a ${v.kind} tool every agent uses, not an agent`,
+        error: `${v.key} is a ${v.kind} tool agents use, not an agent`,
       };
     },
   };
