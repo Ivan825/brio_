@@ -1,13 +1,14 @@
 import { PlannerNotAvailableError, STUB_PLANNER_ID, stubPlan } from "@brio/core";
 import { type DbOrTx, schema, streamMissionEvents } from "@brio/db";
 import { type Actor, type EventType, MissionPriority, type MissionStatus } from "@brio/schema";
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, desc, eq, inArray } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { AppContext } from "../context";
 import { HttpError, one, requireMember, requireSession, workspaceFor } from "../http";
+import { presentAttempt } from "./attempts";
 
-const { missions, plans, tasks } = schema;
+const { attempts, missions, plans, tasks } = schema;
 
 const CreateMission = z.object({
   goal: z.string().trim().min(1).max(10_000),
@@ -122,6 +123,18 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
       .from(tasks)
       .where(eq(tasks.missionId, m.id))
       .orderBy(asc(tasks.createdAt));
+    const attemptRows = taskRows.length
+      ? await ctx.db
+          .select()
+          .from(attempts)
+          .where(
+            inArray(
+              attempts.taskId,
+              taskRows.map((t) => t.id),
+            ),
+          )
+          .orderBy(desc(attempts.createdAt))
+      : [];
     return {
       mission: present(m),
       plan: plan ? { version: plan.version, status: plan.status, graph: plan.graph } : null,
@@ -132,6 +145,9 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
         title: t.title,
         status: t.status,
         mode: t.mode,
+        pinnedAgentId: t.pinnedAgentId,
+        sensitivity: t.contract.sensitivity,
+        attempts: attemptRows.filter((a) => a.taskId === t.id).map(presentAttempt),
       })),
     };
   });

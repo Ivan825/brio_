@@ -1,7 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { Writable } from "node:stream";
+import type { FetchLike } from "@brio/adapters";
 import { createTestDb, type TestDb } from "@brio/db/testing";
-import { Redactor } from "@brio/vault";
+import { LocalKeyProvider, Redactor } from "@brio/vault";
 import { expect } from "vitest";
 import { loadConfig } from "../src/config";
 import { type BrioServer, buildServer } from "../src/server";
@@ -16,7 +17,15 @@ export interface Harness {
   close: () => Promise<void>;
 }
 
-export async function startHarness(): Promise<Harness> {
+export interface HarnessOptions {
+  fetch?: FetchLike;
+  env?: Record<string, string>;
+}
+
+/** Every hostname resolves to a public documentation address, so the URL guard passes without real DNS. */
+const publicResolver = async (host: string) => (host === "localhost" ? ["127.0.0.1"] : ["203.0.113.10"]);
+
+export async function startHarness(opts: HarnessOptions = {}): Promise<Harness> {
   const db = await createTestDb();
   const logs: string[] = [];
   const sink = new Writable({
@@ -33,8 +42,18 @@ export async function startHarness(): Promise<Harness> {
     BETTER_AUTH_SECRET: randomBytes(32).toString("base64"),
     BRIO_DEV_OUTBOX: "true",
     LOG_LEVEL: "info",
+    BRIO_PRICING_REFRESH_HOURS: "0",
+    ...opts.env,
   });
-  const server = await buildServer({ config, database: db, logDestination: sink, redactor });
+  const server = await buildServer({
+    config,
+    database: db,
+    logDestination: sink,
+    redactor,
+    keyProvider: LocalKeyProvider.fromBase64(randomBytes(32).toString("base64")),
+    resolve: publicResolver,
+    ...(opts.fetch ? { fetch: opts.fetch } : {}),
+  });
   return {
     server,
     db,

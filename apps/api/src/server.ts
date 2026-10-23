@@ -1,18 +1,33 @@
+import { assertSafeUrl, type FetchLike, guardedFetch, type Resolver } from "@brio/adapters";
 import { createDb, type DbHandle, EventFeed, EventWriter } from "@brio/db";
 import { Ledger } from "@brio/governance";
-import { redactor as defaultRedactor, type Redactor, redactingStream } from "@brio/vault";
+import {
+  redactor as defaultRedactor,
+  type KeyProvider,
+  keyProviderFromEnv,
+  type Redactor,
+  redactingStream,
+  Vault,
+} from "@brio/vault";
 import cors from "@fastify/cors";
 import Fastify, { type FastifyInstance } from "fastify";
 import { ZodError } from "zod";
+import { AttemptRunner } from "./attempts";
 import { createAuth } from "./auth";
 import type { Config } from "./config";
 import type { AppContext } from "./context";
 import { HttpError } from "./http";
 import { LogMailer } from "./mailer";
+import { PricingService, parseFx } from "./pricing";
+import { agentRoutes } from "./routes/agents";
+import { attemptRoutes } from "./routes/attempts";
 import { authRoutes } from "./routes/auth";
+import { connectorRoutes } from "./routes/connectors";
 import { devRoutes } from "./routes/dev";
 import { healthRoutes } from "./routes/health";
 import { missionRoutes } from "./routes/missions";
+import { pricingRoutes } from "./routes/pricing";
+import { registryRoutes } from "./routes/registry";
 import { workspaceRoutes } from "./routes/workspaces";
 
 export interface BuildOptions {
@@ -22,6 +37,12 @@ export interface BuildOptions {
   /** Where logs go (always through the redactor). Defaults to stdout. */
   logDestination?: NodeJS.WritableStream;
   redactor?: Redactor;
+  /** Vault key provider. Defaults to BRIO_KMS_PROVIDER from the config. */
+  keyProvider?: KeyProvider;
+  /** Outbound HTTP for connectors (tests inject a fake vendor). Always wrapped by the URL guard. */
+  fetch?: FetchLike;
+  /** DNS resolver for the URL guard (tests use a fixed one). */
+  resolve?: Resolver;
 }
 
 export interface BrioServer {
@@ -35,6 +56,9 @@ export async function buildServer({
   database,
   logDestination = process.stdout,
   redactor = defaultRedactor,
+  keyProvider,
+  fetch: outbound = globalThis.fetch,
+  resolve,
 }: BuildOptions): Promise<BrioServer> {
   const handle = database ?? createDb(config.DATABASE_URL);
   const ownsDb = !database;
@@ -57,7 +81,18 @@ export async function buildServer({
   const feed = new EventFeed(handle.pool);
   await feed.start();
 
-  const ctx: AppContext = {
+  const vault = new Vault(
+    keyProvider ??
+      keyProviderFromEnv({
+        BRIO_KMS_PROVIDER: config.BRIO_KMS_PROVIDER,
+        BRIO_VAULT_LOCAL_KEK: config.BRIO_VAULT_LOCAL_KEK,
+        BRIO_AWS_KMS_KEY_ID: config.BRIO_AWS_KMS_KEY_ID,
+      }),
+    redactor,
+  );
+  const urlPolicy = { allowPrivate: config.allowPrivateUrls, allowHttp: config.allowPrivateUrls };
+  const fetch = guardedFetch(outbound, urlPolicy, resolve);
+  const ctx = {
     config,
     db: handle.db,
     auth: createAuth({ db: handle.db, config, mailer, ledger }),
@@ -65,7 +100,29 @@ export async function buildServer({
     feed,
     ledger,
     mailer,
-  };
+    vault,
+    redactor,
+    fetch,
+    checkUrl: (url: string) => assertSafeUrl(url, urlPolicy, resolve),
+    pricing: new PricingService(handle.db, fetch, parseFx(config.BRIO_FX_USD_PER)),
+    log: app.log,
+  } as AppContext;
+  ctx.attempts = new AttemptRunner(ctx);
+
+  await ctx.pricing.seed();
+  const interrupted = await ctx.attempts.recoverInterrupted();
+  if (interrupted) app.log.warn({ interrupted }, "marked attempts interrupted by a restart as failed");
+  let pricingTimer: NodeJS.Timeout | undefined;
+  if (config.BRIO_PRICING_REFRESH_HOURS > 0) {
+    const refresh = () =>
+      ctx.pricing
+        .refreshFromOpenRouter(AbortSignal.timeout(30_000))
+        .then((updated) => app.log.info({ updated }, "refreshed live prices"))
+        .catch((err) => app.log.warn({ err: (err as Error).message }, "live price refresh failed"));
+    void refresh();
+    pricingTimer = setInterval(refresh, config.BRIO_PRICING_REFRESH_HOURS * 3_600_000);
+    pricingTimer.unref();
+  }
 
   await app.register(cors, { origin: [config.APP_URL], credentials: true });
 
@@ -89,12 +146,19 @@ export async function buildServer({
   await authRoutes(app, ctx);
   await workspaceRoutes(app, ctx);
   await missionRoutes(app, ctx);
+  await registryRoutes(app, ctx);
+  await connectorRoutes(app, ctx);
+  await agentRoutes(app, ctx);
+  await attemptRoutes(app, ctx);
+  await pricingRoutes(app, ctx);
   if (config.BRIO_DEV_OUTBOX && config.NODE_ENV !== "production") await devRoutes(app, ctx);
 
   return {
     app,
     ctx,
     close: async () => {
+      if (pricingTimer) clearInterval(pricingTimer);
+      await ctx.attempts.drain();
       await app.close();
       await feed.stop();
       if (ownsDb) await handle.close();

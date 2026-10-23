@@ -6,6 +6,7 @@ export const E2E_DATABASE_URL =
   process.env.E2E_DATABASE_URL ?? "postgres://brio:brio@localhost:5433/brio_e2e";
 const APP_URL = `http://localhost:${WEB_PORT}`;
 const API_URL = `http://localhost:${API_PORT}`;
+const FAKE_VENDOR_PORT = process.env.FAKE_VENDOR_PORT ?? "4300";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -16,6 +17,13 @@ export default defineConfig({
   use: { baseURL: APP_URL, trace: "retain-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [
+    {
+      // a scripted OpenAI-compatible vendor, so connector flows run without real keys
+      command: "node e2e/fake-vendor.mjs",
+      url: `http://127.0.0.1:${FAKE_VENDOR_PORT}/health`,
+      reuseExistingServer: false,
+      env: { FAKE_VENDOR_PORT },
+    },
     {
       // fresh, migrated database, then the API with the local outbox enabled
       command: "pnpm --filter @brio/db db:reset && pnpm --filter @brio/api start",
@@ -32,6 +40,9 @@ export default defineConfig({
         BRIO_DEV_OUTBOX: "true",
         // rotate SSE connections quickly so the reconnect/resume path is exercised
         BRIO_SSE_MAX_CONNECTION_MS: "2000",
+        // a throwaway key for the vault (base64 of 32 bytes); never use outside tests
+        BRIO_VAULT_LOCAL_KEK: Buffer.alloc(32, 7).toString("base64"),
+        BRIO_PRICING_REFRESH_HOURS: "0",
         LOG_LEVEL: "warn",
       },
     },
