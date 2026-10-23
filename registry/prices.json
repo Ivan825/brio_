@@ -1,0 +1,575 @@
+{
+  "version": "1",
+  "note": "List prices per million tokens, copied from each vendor's pricing page on verifiedOn. Seed data only: live sources (vendor model lists, OpenRouter) replace these once fetched (apps/api/src/pricing.ts). Non-USD prices are converted with BRIO_FX_USD_PER at lookup. Long-context tiers apply to the whole request above thresholdTokens; DeepSeek off-peak is 50% outside the UTC peak windows.",
+  "prices": [
+    {
+      "preset": "openai",
+      "model": "gpt-6-astra",
+      "inputPerM": 10,
+      "outputPerM": 50,
+      "cachedInputPerM": 1,
+      "cacheWritePerM": 12.5,
+      "currency": "USD",
+      "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-6-astra",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "openai",
+      "model": "gpt-6.1-sol",
+      "inputPerM": 2,
+      "outputPerM": 10,
+      "cachedInputPerM": 0.1,
+      "cacheWritePerM": 2.5,
+      "longContext": {
+        "thresholdTokens": 272000,
+        "inputPerM": 4,
+        "outputPerM": 15,
+        "cachedInputPerM": 0.2
+      },
+      "currency": "USD",
+      "sourceUrl": "https://developers.openai.com/api/docs/pricing",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "openai",
+      "model": "gpt-6-luna",
+      "inputPerM": 0.1,
+      "outputPerM": 0.5,
+      "cachedInputPerM": 0.01,
+      "cacheWritePerM": 0.125,
+      "currency": "USD",
+      "sourceUrl": "https://developers.openai.com/api/docs/pricing",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "openai",
+      "model": "gpt-5.5",
+      "inputPerM": 5,
+      "outputPerM": 30,
+      "cachedInputPerM": 0.5,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://developers.openai.com/api/docs/pricing",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "anthropic",
+      "model": "claude-opus-5-5",
+      "inputPerM": 4,
+      "outputPerM": 20,
+      "cachedInputPerM": 0.2,
+      "cacheWritePerM": 5,
+      "currency": "USD",
+      "sourceUrl": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "anthropic",
+      "model": "claude-sonnet-5-5",
+      "inputPerM": 2,
+      "outputPerM": 10,
+      "cachedInputPerM": 0.1,
+      "cacheWritePerM": 2.5,
+      "currency": "USD",
+      "sourceUrl": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "anthropic",
+      "model": "claude-haiku-5-5",
+      "inputPerM": 0.1,
+      "outputPerM": 0.5,
+      "cachedInputPerM": 0.01,
+      "cacheWritePerM": 0.125,
+      "longContext": {
+        "thresholdTokens": 100000,
+        "inputPerM": 0.5,
+        "outputPerM": 2.5,
+        "cachedInputPerM": 0.05
+      },
+      "currency": "USD",
+      "sourceUrl": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "anthropic",
+      "model": "claude-fable-5-1",
+      "inputPerM": 10,
+      "outputPerM": 50,
+      "cachedInputPerM": 0.25,
+      "cacheWritePerM": 12.5,
+      "currency": "USD",
+      "sourceUrl": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "gemini",
+      "model": "gemini-4-argon",
+      "inputPerM": 2,
+      "outputPerM": 10,
+      "cachedInputPerM": 0.1,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://ai.google.dev/gemini-api/docs/pricing",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "gemini",
+      "model": "gemini-3.8-flash",
+      "inputPerM": 0.75,
+      "outputPerM": 3.75,
+      "cachedInputPerM": 0.075,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://ai.google.dev/gemini-api/docs/pricing",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "gemini",
+      "model": "gemini-3.5-flash-lite",
+      "inputPerM": 0.3,
+      "outputPerM": 2.5,
+      "cachedInputPerM": 0.03,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://ai.google.dev/gemini-api/docs/pricing",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "gemini",
+      "model": "gemini-3.1-pro-preview",
+      "inputPerM": 2,
+      "outputPerM": 12,
+      "cachedInputPerM": 0.2,
+      "cacheWritePerM": null,
+      "longContext": {
+        "thresholdTokens": 200000,
+        "inputPerM": 4,
+        "outputPerM": 18,
+        "cachedInputPerM": 0.4
+      },
+      "currency": "USD",
+      "sourceUrl": "https://ai.google.dev/gemini-api/docs/pricing",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "xai",
+      "model": "grok-4.7",
+      "inputPerM": 2,
+      "outputPerM": 6,
+      "cachedInputPerM": 0.5,
+      "cacheWritePerM": null,
+      "longContext": {
+        "thresholdTokens": 199999,
+        "inputPerM": 4,
+        "outputPerM": 12,
+        "cachedInputPerM": 1
+      },
+      "currency": "USD",
+      "sourceUrl": "https://docs.x.ai/docs/models",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "xai",
+      "model": "grok-4.3",
+      "inputPerM": 1.25,
+      "outputPerM": 2.5,
+      "cachedInputPerM": 0.2,
+      "cacheWritePerM": null,
+      "longContext": {
+        "thresholdTokens": 199999,
+        "inputPerM": 2.5,
+        "outputPerM": 5,
+        "cachedInputPerM": 0.4
+      },
+      "currency": "USD",
+      "sourceUrl": "https://docs.x.ai/docs/models",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "xai",
+      "model": "grok-build-0.1",
+      "inputPerM": 1,
+      "outputPerM": 2,
+      "cachedInputPerM": 0.2,
+      "cacheWritePerM": null,
+      "longContext": {
+        "thresholdTokens": 199999,
+        "inputPerM": 2,
+        "outputPerM": 4,
+        "cachedInputPerM": 0.4
+      },
+      "currency": "USD",
+      "sourceUrl": "https://docs.x.ai/docs/models",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "meta",
+      "model": "muse-spark-1.3",
+      "inputPerM": 1.25,
+      "outputPerM": 4.25,
+      "cachedInputPerM": 0.15,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://dev.meta.ai/docs/pricing-rate-limits.md",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "meta",
+      "model": "muse-spark-1.3-contributor",
+      "inputPerM": 0.1,
+      "outputPerM": 0.2,
+      "cachedInputPerM": 0.002,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://dev.meta.ai/docs/pricing-rate-limits.md",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "meta",
+      "model": "muse-wonder-1.0",
+      "inputPerM": 4,
+      "outputPerM": 20,
+      "cachedInputPerM": 0.2,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://dev.meta.ai/docs/pricing-rate-limits.md",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "mistral",
+      "model": "mistral-medium-3-5",
+      "inputPerM": 1.5,
+      "outputPerM": 7.5,
+      "cachedInputPerM": 0.15,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://docs.mistral.ai/inference/pricing.md",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "mistral",
+      "model": "mistral-large-4",
+      "inputPerM": 1.36,
+      "outputPerM": 4.18,
+      "cachedInputPerM": 0.14,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://docs.mistral.ai/inference/pricing.md",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "mistral",
+      "model": "mistral-small-2603",
+      "inputPerM": 0.15,
+      "outputPerM": 0.6,
+      "cachedInputPerM": 0.015,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://docs.mistral.ai/inference/pricing.md",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "mistral",
+      "model": "codestral-2508",
+      "inputPerM": 0.3,
+      "outputPerM": 0.9,
+      "cachedInputPerM": null,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://docs.mistral.ai/inference/pricing.md",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "deepseek",
+      "model": "deepseek-flash",
+      "inputPerM": 0.3,
+      "outputPerM": 1.2,
+      "cachedInputPerM": 0.006,
+      "cacheWritePerM": null,
+      "offPeak": {
+        "multiplier": 0.5,
+        "peakUtcHours": [[1, 4], [6, 10]],
+        "weekdaysOnly": true
+      },
+      "currency": "USD",
+      "sourceUrl": "https://api-docs.deepseek.com/quick_start/pricing",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "deepseek",
+      "model": "deepseek-v4-pro",
+      "inputPerM": 1.32,
+      "outputPerM": 3.96,
+      "cachedInputPerM": 0.044,
+      "cacheWritePerM": null,
+      "offPeak": {
+        "multiplier": 0.5,
+        "peakUtcHours": [[1, 4], [6, 10]],
+        "weekdaysOnly": true
+      },
+      "currency": "USD",
+      "sourceUrl": "https://api-docs.deepseek.com/quick_start/pricing",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "kimi",
+      "model": "kimi-k3",
+      "inputPerM": 3,
+      "outputPerM": 15,
+      "cachedInputPerM": 0.3,
+      "cacheWritePerM": 3,
+      "currency": "USD",
+      "sourceUrl": "https://platform.kimi.ai/docs/pricing/chat",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "kimi",
+      "model": "kimi-k2.7-code",
+      "inputPerM": 0.95,
+      "outputPerM": 4,
+      "cachedInputPerM": 0.19,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://platform.kimi.ai/docs/pricing/chat",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "kimi",
+      "model": "kimi-k2.6",
+      "inputPerM": 0.95,
+      "outputPerM": 4,
+      "cachedInputPerM": 0.16,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://platform.kimi.ai/docs/pricing/chat",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "kimi",
+      "model": "kimi-k2.7-code-highspeed",
+      "inputPerM": 1.9,
+      "outputPerM": 8,
+      "cachedInputPerM": 0.38,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://platform.kimi.ai/docs/pricing/chat",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "glm",
+      "model": "glm-5.3",
+      "inputPerM": 1.4,
+      "outputPerM": 4.4,
+      "cachedInputPerM": 0.26,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://docs.z.ai/guides/overview/pricing.md",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "glm",
+      "model": "glm-5.3-flash",
+      "inputPerM": 0.15,
+      "outputPerM": 0.5,
+      "cachedInputPerM": 0.03,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://docs.z.ai/guides/overview/pricing.md",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "glm",
+      "model": "glm-5.3-flashx",
+      "inputPerM": 0.37,
+      "outputPerM": 1.25,
+      "cachedInputPerM": 0.075,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://docs.z.ai/guides/overview/pricing.md",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "qwen",
+      "model": "qwen3.8-max",
+      "inputPerM": 2,
+      "outputPerM": 6,
+      "cachedInputPerM": null,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://www.alibabacloud.com/help/en/model-studio/model-pricing",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "qwen",
+      "model": "qwen3.7-plus",
+      "inputPerM": 0.4,
+      "outputPerM": 1.6,
+      "cachedInputPerM": null,
+      "cacheWritePerM": null,
+      "longContext": {
+        "thresholdTokens": 256000,
+        "inputPerM": 1.2,
+        "outputPerM": 4.8,
+        "cachedInputPerM": null
+      },
+      "currency": "USD",
+      "sourceUrl": "https://www.alibabacloud.com/help/en/model-studio/model-pricing",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "qwen",
+      "model": "qwen3.8-flash",
+      "inputPerM": 0.15,
+      "outputPerM": 0.47,
+      "cachedInputPerM": null,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://www.alibabacloud.com/help/en/model-studio/model-pricing",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "sarvam",
+      "model": "sarvam-105b",
+      "inputPerM": 15,
+      "outputPerM": 60,
+      "cachedInputPerM": 5,
+      "cacheWritePerM": null,
+      "currency": "INR",
+      "sourceUrl": "https://docs.sarvam.ai/api/getting-started/pricing.md",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "sarvam",
+      "model": "sarvam-105b-conversations",
+      "inputPerM": 15,
+      "outputPerM": 60,
+      "cachedInputPerM": 5,
+      "cacheWritePerM": null,
+      "currency": "INR",
+      "sourceUrl": "https://docs.sarvam.ai/api/getting-started/pricing.md",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "groq",
+      "model": "openai/gpt-oss-120b",
+      "inputPerM": 0.15,
+      "outputPerM": 0.6,
+      "cachedInputPerM": 0.075,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://console.groq.com/docs/models",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "groq",
+      "model": "openai/gpt-oss-20b",
+      "inputPerM": 0.075,
+      "outputPerM": 0.3,
+      "cachedInputPerM": 0.0375,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://console.groq.com/docs/models",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "groq",
+      "model": "qwen/qwen3.8-27b",
+      "inputPerM": 0.8,
+      "outputPerM": 4,
+      "cachedInputPerM": null,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://console.groq.com/docs/models",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "together",
+      "model": "deepseek-ai/DeepSeek-V4.1-Flash",
+      "inputPerM": 0.3,
+      "outputPerM": 1.2,
+      "cachedInputPerM": 0.006,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://docs.together.ai/docs/serverless/models.md",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "together",
+      "model": "moonshotai/Kimi-K3",
+      "inputPerM": 3,
+      "outputPerM": 15,
+      "cachedInputPerM": 0.3,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://docs.together.ai/docs/serverless/models.md",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "together",
+      "model": "zai-org/GLM-5.3",
+      "inputPerM": 1.4,
+      "outputPerM": 4.4,
+      "cachedInputPerM": 0.26,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://docs.together.ai/docs/serverless/models.md",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "together",
+      "model": "openai/gpt-oss-120b",
+      "inputPerM": 0.15,
+      "outputPerM": 0.6,
+      "cachedInputPerM": null,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://docs.together.ai/docs/serverless/models.md",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "fireworks",
+      "model": "accounts/fireworks/models/kimi-k3",
+      "inputPerM": 3,
+      "outputPerM": 15,
+      "cachedInputPerM": 0.3,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://docs.fireworks.ai/serverless/pricing.md",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "fireworks",
+      "model": "accounts/fireworks/models/glm-5p3",
+      "inputPerM": 1.4,
+      "outputPerM": 4.4,
+      "cachedInputPerM": 0.26,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://docs.fireworks.ai/serverless/pricing.md",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "fireworks",
+      "model": "accounts/fireworks/models/deepseek-v4p1-flash",
+      "inputPerM": 0.3,
+      "outputPerM": 1.2,
+      "cachedInputPerM": 0.006,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://docs.fireworks.ai/serverless/pricing.md",
+      "verifiedOn": "2026-10-23"
+    },
+    {
+      "preset": "fireworks",
+      "model": "accounts/fireworks/models/gpt-oss-120b",
+      "inputPerM": 0.15,
+      "outputPerM": 0.6,
+      "cachedInputPerM": 0.015,
+      "cacheWritePerM": null,
+      "currency": "USD",
+      "sourceUrl": "https://docs.fireworks.ai/serverless/pricing.md",
+      "verifiedOn": "2026-10-23"
+    }
+  ]
+}

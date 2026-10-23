@@ -15,9 +15,11 @@
   },
   "dependencies": {
     "@better-auth/passkey": "1.7.12",
+    "@brio/adapters": "workspace:*",
     "@brio/core": "workspace:*",
     "@brio/db": "workspace:*",
     "@brio/governance": "workspace:*",
+    "@brio/registry": "workspace:*",
     "@brio/schema": "workspace:*",
     "@brio/vault": "workspace:*",
     "@fastify/cors": "11.3.1",
