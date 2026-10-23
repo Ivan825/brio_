@@ -382,7 +382,8 @@ describe.skipIf(!hasTestDatabase || !hasDocker)("M4 acceptance: execution modes 
     const id = await start("ensemble");
     const until = Date.now() + 120_000;
     let e = await evidence(id);
-    while (e.task.status !== "verifying") {
+    // Waiting for the person: verifying, and the approval asked for (the checklist lands just after the status).
+    while (e.task.status !== "verifying" || !e.events.some((x) => x.type === "approval.requested")) {
       if (Date.now() > until) throw new Error(await diagnose(id));
       await new Promise((r) => setTimeout(r, 250));
       e = await evidence(id);

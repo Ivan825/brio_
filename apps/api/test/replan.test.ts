@@ -111,12 +111,23 @@ describe.skipIf(!hasTestDatabase)(
       await waitFor("plan v1", async () => (await mission()).status === "awaiting_approval");
       expect((await c.request("POST", `/v1/missions/${missionId}/plans/1/approve`)).statusCode).toBe(200);
       let outro: typeof schema.tasks.$inferSelect | undefined;
+      // Waiting for review means verifying with a check only a person can decide (the checklist lands just after
+      // the status does).
       await waitFor("the outro to wait for review", async () => {
         [outro] = await h.db.db
           .select()
           .from(schema.tasks)
           .where(and(eq(schema.tasks.missionId, missionId), eq(schema.tasks.key, "outro")));
-        return outro?.status === "verifying";
+        if (outro?.status !== "verifying") return false;
+        const tried = await h.db.db
+          .select()
+          .from(schema.attempts)
+          .where(eq(schema.attempts.taskId, outro.id));
+        return tried.some((a) =>
+          ((a.checks as { items?: { status: string }[] } | null)?.items ?? []).some(
+            (i) => i.status === "needs_human",
+          ),
+        );
       });
       const r = await c.request("POST", `/v1/tasks/${outro!.id}/review`, {
         verdict: "fail",
