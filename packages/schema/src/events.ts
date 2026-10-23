@@ -41,6 +41,9 @@ export const EVENT_TYPES = [
   "merge.started",
   "merge.conflict",
   "merge.done",
+  "delivery.started",
+  "delivery.done",
+  "delivery.failed",
   "mission.done",
   "mission.failed",
 ] as const;

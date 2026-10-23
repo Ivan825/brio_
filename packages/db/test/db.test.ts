@@ -21,6 +21,7 @@ const EXPECTED_TABLES = [
   "connectors",
   "contracts",
   "crews",
+  "deliveries",
   "eval_runs",
   "events",
   "handoffs",

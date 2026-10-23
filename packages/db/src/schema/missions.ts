@@ -256,3 +256,35 @@ export const integrations = pgTable(
   },
   (t) => [uniqueIndex().on(t.missionId, t.planVersion, t.round)],
 );
+
+/**
+ * What a finished mission hands back (BUILD_PLAN M8): its integration branch pushed to the project repository, and a
+ * pull request opened when the host has an API for one. Pushing is irreversible, so each delivery waits on an approval.
+ */
+export const deliveries = pgTable(
+  "deliveries",
+  {
+    id: id(),
+    workspaceId: ws(),
+    missionId: uuid()
+      .notNull()
+      .references(() => missions.id),
+    integrationId: uuid().references(() => integrations.id),
+    approvalId: uuid().notNull(),
+    /** pull_request (push, then open one) or branch (push only). */
+    kind: text().notNull(),
+    /** awaiting_approval, queued, running, done, failed, denied. */
+    status: text().notNull().default("awaiting_approval"),
+    /** The repository, and the branch the pull request asks to merge into. */
+    repo: jsonb().$type<{ url: string; base: string | null }>().notNull(),
+    /** The branch pushed. */
+    branch: text().notNull(),
+    commit: text().notNull(),
+    title: text().notNull(),
+    url: text(),
+    number: integer(),
+    error: text(),
+    ...timestamps(),
+  },
+  (t) => [index().on(t.missionId), uniqueIndex().on(t.approvalId)],
+);
