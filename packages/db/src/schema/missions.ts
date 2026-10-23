@@ -148,6 +148,8 @@ export const attempts = pgTable(
     cancelRequestedAt: timestamp({ withTimezone: true }),
     /** The acceptance checks run on this attempt's result and their outcomes (the verifier's working state). */
     checks: jsonb().$type<Record<string, unknown>>(),
+    /** The outcome this attempt contributed to the scoreboard (pass, revise, fail), so it is counted once. */
+    scored: text(),
     ...timestamps(),
   },
   (t) => [index().on(t.taskId), index().on(t.agentId), index().on(t.status, t.heartbeatAt)],

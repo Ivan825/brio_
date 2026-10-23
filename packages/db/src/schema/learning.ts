@@ -46,6 +46,22 @@ export const scores = pgTable(
   ],
 );
 
+/** One point per score update, for the scoreboard's trend lines. */
+export const scoreHistory = pgTable(
+  "score_history",
+  {
+    id: id(),
+    workspaceId: uuid().references(() => workspaces.id),
+    agentKey: text().notNull(),
+    taskType: text().notNull(),
+    passRate: doublePrecision().notNull(),
+    elo: doublePrecision().notNull(),
+    n: integer().notNull(),
+    at: createdAt(),
+  },
+  (t) => [index().on(t.workspaceId, t.agentKey, t.taskType, t.at)],
+);
+
 export const ratings = pgTable(
   "ratings",
   {

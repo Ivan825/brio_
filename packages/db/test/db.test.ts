@@ -36,6 +36,7 @@ const EXPECTED_TABLES = [
   "projects",
   "ratings",
   "reviews",
+  "score_history",
   "scores",
   "sessions",
   "tasks",
