@@ -26,18 +26,43 @@ export type Script = (call: CallInfo) => Reply | Promise<Reply>;
 const json = (body: unknown) =>
   new Response(JSON.stringify(body), { headers: { "content-type": "application/json" } });
 
+/** A web page the scripted internet serves (for link checks and fact checks). */
+export interface Page {
+  status?: number;
+  body?: string;
+  type?: string;
+  /** A redirect target (status defaults to 301). */
+  location?: string;
+}
+
 export class ScriptedVendors {
   readonly calls: CallInfo[] = [];
-  constructor(private readonly script: Script) {}
+  /** Every web request that was not a vendor call: method and URL. */
+  readonly visits: string[] = [];
+  constructor(
+    private readonly script: Script,
+    private readonly pages: Record<string, Page> = {},
+  ) {}
 
   readonly fetch = async (input: string | URL, init: RequestInit = {}): Promise<Response> => {
     const url = String(input);
     const method = init.method ?? "GET";
-    if (method === "GET") {
+    const page = this.pages[url];
+    if (page) {
+      this.visits.push(`${method} ${url}`);
+      if (page.location)
+        return new Response(null, { status: page.status ?? 301, headers: { location: page.location } });
+      return new Response(method === "HEAD" ? null : (page.body ?? ""), {
+        status: page.status ?? 200,
+        headers: { "content-type": page.type ?? "text/html; charset=utf-8" },
+      });
+    }
+    if (method === "GET" || method === "HEAD") {
       if (url.startsWith("https://api.openai.com/v1/models"))
         return json({ data: [{ id: "gpt-coder" }, { id: "planner" }] });
       if (url.startsWith("https://api.anthropic.com/v1/models"))
         return json({ data: [{ id: "claude-writer" }], has_more: false });
+      if (!url.startsWith("https://api.")) this.visits.push(`${method} ${url}`);
       return new Response("{}", { status: 404 });
     }
     const body = typeof init.body === "string" ? init.body : "";
