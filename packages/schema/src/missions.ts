@@ -78,6 +78,20 @@ export const Task = WorkspaceScoped.extend({
 });
 export type Task = z.infer<typeof Task>;
 
+/** Parameters of a task's execution mode, set by a person in the plan editor (ROUTING §3.2). */
+export const ModeParams = z.object({
+  /** Candidates for best-of-n and ensemble (2–5). */
+  n: z.number().int().min(2).max(5).optional(),
+  /** The agents of a pipeline, in order. */
+  steps: z
+    .array(z.object({ agentId: Id }))
+    .max(6)
+    .optional(),
+  /** The mode was chosen on purpose (even "single"); the default rules do not override it. */
+  explicit: z.boolean().optional(),
+});
+export type ModeParams = z.infer<typeof ModeParams>;
+
 /** A task as proposed by the planner, before it has ids (dependsOn uses task keys). */
 export const PlannedTask = z.object({
   key: TaskKey,
@@ -89,6 +103,7 @@ export const PlannedTask = z.object({
   estimate: z.object({ usd: Usd, minutes: z.number().nonnegative() }).optional(),
   /** The agent the user assigned in the plan editor; the router honours it. */
   pinnedAgentId: Id.optional(),
+  modeParams: ModeParams.optional(),
 });
 export type PlannedTask = z.infer<typeof PlannedTask>;
 

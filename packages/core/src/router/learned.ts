@@ -222,7 +222,18 @@ export function routeLearned(task: LearnedTask, candidates: Candidate[], o: Rout
       if (picked.length < 2) return single(`${label} needs 2+ agents; running single`);
       const merger =
         wanted === "ensemble" ? (independent(everyone, new Set(), new Set()) ?? best) : undefined;
-      const usd = picked.reduce((s, c) => s + c.estUsd, 0) + (merger?.estUsd ?? 0);
+      // Tests decide best-of-n; a judge from outside the candidates breaks ties between passing results (two
+      // judgements, both orders). Without one, the cheaper passing result wins.
+      const judge =
+        wanted === "best_of_n"
+          ? independent(
+              everyone,
+              new Set(picked.map((c) => c.agent.id)),
+              new Set(picked.map((c) => c.agent.vendor)),
+            )
+          : undefined;
+      const usd =
+        picked.reduce((s, c) => s + c.estUsd, 0) + (merger?.estUsd ?? 0) + (judge ? judge.estUsd * 2 : 0);
       if (!fits(usd))
         return single(`${label} would cost ${money(usd)}, over the remaining budget; running single`);
       return {
@@ -231,6 +242,7 @@ export function routeLearned(task: LearnedTask, candidates: Candidate[], o: Rout
         agents: [
           ...picked.map((c) => ({ agentId: c.agent.id, role: "candidate" as const })),
           ...(merger ? [{ agentId: merger.agent.id, role: "merger" as const }] : []),
+          ...(judge ? [{ agentId: judge.agent.id, role: "judge" as const }] : []),
         ],
         rationale: `${wanted === "ensemble" ? "ensemble" : `best of ${picked.length}`}: ${picked.map((c) => c.agent.name).join(", ")} · ${why}`,
         estUsd: usd,

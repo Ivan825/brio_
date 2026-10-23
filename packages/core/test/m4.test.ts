@@ -179,8 +179,11 @@ describe("router", () => {
     const bon = routeLearned(task(), team, opts());
     expect(bon.ok && bon.mode).toBe("best_of_n");
     if (bon.ok) {
-      const vendors = bon.agents.map((a) => team.find((c) => c.agent.id === a.agentId)?.agent.vendor);
-      expect(new Set(vendors).size).toBe(bon.agents.length);
+      const candidates = bon.agents.filter((a) => a.role === "candidate");
+      const vendors = candidates.map((a) => team.find((c) => c.agent.id === a.agentId)?.agent.vendor);
+      expect(new Set(vendors).size).toBe(candidates.length);
+      const judge = bon.agents.find((a) => a.role === "judge");
+      if (judge) expect(candidates.map((a) => a.agentId)).not.toContain(judge.agentId);
       expect(bon.rationale).toMatch(/^best of 2: /);
     }
     const debate = routeLearned(task({ type: "design.api_contract" }), team, opts());

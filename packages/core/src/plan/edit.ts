@@ -1,6 +1,6 @@
 // Plan editor operations (BUILD_PLAN M3): every edit is a pure function from one plan graph to the next, so each saved
 // edit is a new plan version and lint runs on the result.
-import { PlanGraph, PlannedTask, TaskKey } from "@brio/schema";
+import { ExecutionMode, PlanGraph, PlannedTask, TaskKey } from "@brio/schema";
 import { z } from "zod";
 
 export const PlanEdit = z.discriminatedUnion("op", [
@@ -21,6 +21,14 @@ export const PlanEdit = z.discriminatedUnion("op", [
   }),
   /** Assign a task to an agent (the router honours the pin), or clear it with null. */
   z.object({ op: z.literal("pin"), key: TaskKey, agentId: z.uuid().nullable() }),
+  /** Choose a task's execution mode on purpose: best-of-n's n, or a pipeline's agents in order. */
+  z.object({
+    op: z.literal("mode"),
+    key: TaskKey,
+    mode: ExecutionMode,
+    n: z.number().int().min(2).max(5).optional(),
+    steps: z.array(z.uuid()).min(1).max(6).optional(),
+  }),
   /** Require a person to accept this task's result (an approval gate). */
   z.object({ op: z.literal("gate"), key: TaskKey, on: z.boolean() }),
 ]);
@@ -108,6 +116,18 @@ export function applyPlanEdit(input: PlanGraph, edit: PlanEdit): PlanGraph {
       const t = find(g, edit.key);
       if (edit.agentId) t.pinnedAgentId = edit.agentId;
       else delete t.pinnedAgentId;
+      break;
+    }
+    case "mode": {
+      const t = find(g, edit.key);
+      if (edit.mode === "pipeline" && !edit.steps?.length)
+        throw new PlanEditError(`a pipeline needs its agents in order (steps) for ${edit.key}`);
+      t.suggestedMode = edit.mode;
+      t.modeParams = {
+        explicit: true,
+        ...(edit.n ? { n: edit.n } : {}),
+        ...(edit.steps ? { steps: edit.steps.map((agentId) => ({ agentId })) } : {}),
+      };
       break;
     }
     case "gate": {

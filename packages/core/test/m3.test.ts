@@ -169,6 +169,17 @@ describe("plan edits", () => {
     expect(() => applyPlanEdit(plan(task("a")), { op: "remove", key: "a" })).toThrow(/at least one/);
     expect(() => applyPlanEdit(g, { op: "add", task: task("a") })).toThrow(/already exists/);
   });
+
+  it("chooses a task's mode on purpose, with its parameters", () => {
+    const steps = ["0192f000-0000-7000-8000-000000000001", "0192f000-0000-7000-8000-000000000002"];
+    const piped = applyPlanEdit(g, { op: "mode", key: "a", mode: "pipeline", steps }).tasks[0];
+    expect(piped?.suggestedMode).toBe("pipeline");
+    expect(piped?.modeParams).toEqual({ explicit: true, steps: steps.map((agentId) => ({ agentId })) });
+    expect(applyPlanEdit(g, { op: "mode", key: "a", mode: "single" }).tasks[0]?.modeParams).toEqual({
+      explicit: true,
+    });
+    expect(() => applyPlanEdit(g, { op: "mode", key: "a", mode: "pipeline" })).toThrow(/steps/);
+  });
 });
 
 describe("static router adapts to the agents you have", () => {
