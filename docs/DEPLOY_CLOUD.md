@@ -150,13 +150,39 @@ Open it once: each link works only once, for 15 minutes. Create your workspace, 
 
 ---
 
+## Automatic updates
+
+To have the server follow GitHub, so every new commit on `main` goes live by itself within about 5 minutes, run this once on the server:
+
+```sh
+cd ~/brio/deploy/compose/autoupdate
+sudo ./install.sh
+```
+
+Every 5 minutes, a systemd timer runs `brio-update.sh`. When the branch has moved, it:
+1. pulls the new commits;
+2. adds any new settings to `.env` (it never changes your values);
+3. rebuilds and restarts Brio;
+4. clears old build layers, so updates don't fill the disk.
+
+Your data stays in the database volume.
+
+| To | Run |
+|---|---|
+| See what it did | `journalctl -u brio-update --since today` |
+| Update right now | `~/brio/deploy/compose/autoupdate/brio-update.sh` |
+| Only check whether an update is waiting | `~/brio/deploy/compose/autoupdate/brio-update.sh --check` |
+| Turn it off | `sudo ./install.sh --remove` |
+
+While a rebuild runs, Brio keeps serving: the new containers replace the old ones once they are built. Pages may blank for a few seconds during the swap.
+
 ## Running it
 
 | To | Run (in `~/brio/deploy/compose`) |
 |---|---|
 | See what is running | `docker compose ps` |
 | Read errors | `docker compose logs api --tail 100` (or `runner`, `web`, `caddy`) |
-| Update Brio | `git pull && ./setup.sh && docker compose up -d --build` |
+| Update Brio by hand | `git pull && ./setup.sh && docker compose up -d --build` (or turn on [automatic updates](#automatic-updates)) |
 | Back up the database | `docker compose exec -T postgres pg_dump -U brio -d brio -Fc > ~/brio-$(date +%F).dump` |
 | Stop / start | `docker compose stop` / `docker compose up -d` |
 
