@@ -22,7 +22,7 @@ import { BudgetGuard } from "./budgets";
 import type { Config } from "./config";
 import type { AppContext } from "./context";
 import { HttpError } from "./http";
-import { LogMailer, type Mailer, ResendMailer } from "./mailer";
+import { LogMailer, type Mailer, ResendMailer, SmtpMailer } from "./mailer";
 import { MandateSettler } from "./mandate";
 import { mcpRoutes } from "./mcp/server";
 import { MemoryIngest } from "./memory";
@@ -113,20 +113,25 @@ export async function buildServer({
     trustProxy: (_address: string, hop: number) => hop < config.BRIO_TRUST_PROXY_HOPS,
   });
 
-  // Emails go through Resend when it is configured (M9); the local outbox keeps a copy in development and tests.
+  // Emails go through Resend or an SMTP server when one is configured (M9, D-106); the local outbox keeps a copy in
+  // development and tests.
   const outbox = new LogMailer();
   outbox.attachLogger(app.log);
-  const mailer: Mailer = config.RESEND_API_KEY
-    ? new ResendMailer({
-        apiKey: config.RESEND_API_KEY,
-        from: config.BRIO_EMAIL_FROM,
-        fetch: (url, init) => outbound(url, init),
-        ...(config.BRIO_DEV_OUTBOX ? { outbox } : {}),
-      })
-    : outbox;
-  if (!config.RESEND_API_KEY && config.NODE_ENV === "production")
+  const copy = config.BRIO_DEV_OUTBOX ? { outbox } : {};
+  const mailer: Mailer =
+    config.email === "resend" && config.RESEND_API_KEY
+      ? new ResendMailer({
+          apiKey: config.RESEND_API_KEY,
+          from: config.BRIO_EMAIL_FROM,
+          fetch: (url, init) => outbound(url, init),
+          ...copy,
+        })
+      : config.email === "smtp" && config.smtp
+        ? new SmtpMailer(config.smtp, { from: config.BRIO_EMAIL_FROM, ...copy })
+        : outbox;
+  if (config.email === "log" && config.NODE_ENV === "production")
     app.log.warn(
-      "RESEND_API_KEY is not set: emails (sign-in links, invitations, notifications) are only logged",
+      "no email provider (RESEND_API_KEY or BRIO_SMTP_HOST): emails (sign-in links, invitations, notifications) are only logged",
     );
   const ledger = new Ledger(redactor);
   const feed = new EventFeed(handle.pool);

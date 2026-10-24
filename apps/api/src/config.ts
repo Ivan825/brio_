@@ -54,10 +54,23 @@ const Env = z.object({
   BRIO_ALLOW_LOCAL_REPOS: z.enum(["true", "false"]).optional(),
   /** GitHub's REST API for issue links: api.github.com, or a GitHub Enterprise Server's https://host/api/v3. */
   BRIO_GITHUB_API_URL: z.url().default("https://api.github.com"),
-  /** Email through Resend (sign-in links, invitations, notifications); without a key emails are only logged. */
+  /** Email through Resend (sign-in links, invitations, notifications); without a key or SMTP emails are only logged. */
   RESEND_API_KEY: z.string().min(1).optional(),
-  /** The sender, a verified Resend domain address, e.g. "Brio <brio@mail.example.com>". */
-  BRIO_EMAIL_FROM: z.string().min(3).default("Brio <onboarding@resend.dev>"),
+  /**
+   * Email through any SMTP server instead (D-106): a mailbox you already have (Gmail with an app password, Outlook,
+   * Zoho) needs no domain of your own. Resend wins when both are set.
+   */
+  BRIO_SMTP_HOST: z.string().min(1).optional(),
+  BRIO_SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(465),
+  /** "implicit" (TLS from the first byte, port 465), "starttls" (upgrade, required; 587) or "none" (a local relay). */
+  BRIO_SMTP_TLS: z.enum(["implicit", "starttls", "none"]).optional(),
+  BRIO_SMTP_USER: z.string().min(1).optional(),
+  BRIO_SMTP_PASSWORD: z.string().min(1).optional(),
+  /**
+   * The sender. With Resend, an address on a domain verified there; with SMTP, an address the mailbox may send as.
+   * Defaults to the SMTP user, else Resend's test sender (which only reaches the Resend account's own address).
+   */
+  BRIO_EMAIL_FROM: z.string().min(3).optional(),
   /** Web push (VAPID): generate with `npx web-push generate-vapid-keys`; without them browser push is off. */
   BRIO_VAPID_PUBLIC_KEY: z.string().min(20).optional(),
   BRIO_VAPID_PRIVATE_KEY: z.string().min(20).optional(),
@@ -73,8 +86,22 @@ const Env = z.object({
     .transform((v) => v === "true"),
 });
 
-export type Config = Omit<z.infer<typeof Env>, "BRIO_ALLOW_PRIVATE_URLS" | "BRIO_ALLOW_LOCAL_REPOS"> & {
+export interface SmtpConfig {
+  host: string;
+  port: number;
+  tls: "implicit" | "starttls" | "none";
+  auth: { user: string; pass: string } | null;
+}
+
+export type Config = Omit<
+  z.infer<typeof Env>,
+  "BRIO_ALLOW_PRIVATE_URLS" | "BRIO_ALLOW_LOCAL_REPOS" | "BRIO_EMAIL_FROM"
+> & {
   google: { clientId: string; clientSecret: string } | null;
+  /** Who sends Brio's emails: Resend, an SMTP server, or nobody (they are only logged). */
+  email: "resend" | "smtp" | "log";
+  smtp: SmtpConfig | null;
+  BRIO_EMAIL_FROM: string;
   allowPrivateUrls: boolean;
   allowLocalRepos: boolean;
 };
@@ -96,10 +123,33 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     c.GOOGLE_CLIENT_ID && c.GOOGLE_CLIENT_SECRET
       ? { clientId: c.GOOGLE_CLIENT_ID, clientSecret: c.GOOGLE_CLIENT_SECRET }
       : null;
-  const { BRIO_ALLOW_PRIVATE_URLS, BRIO_ALLOW_LOCAL_REPOS, ...rest } = c;
+  if (Boolean(c.BRIO_SMTP_USER) !== Boolean(c.BRIO_SMTP_PASSWORD))
+    throw new Error("invalid environment: BRIO_SMTP_USER and BRIO_SMTP_PASSWORD go together");
+  if ((c.BRIO_SMTP_USER || c.BRIO_SMTP_TLS) && !c.BRIO_SMTP_HOST)
+    throw new Error("invalid environment: BRIO_SMTP_HOST is required for SMTP");
+  if (c.NODE_ENV === "production" && c.BRIO_SMTP_TLS === "none" && c.BRIO_SMTP_PASSWORD)
+    throw new Error("invalid environment: an SMTP password is never sent without TLS in production");
+  const smtp: SmtpConfig | null = c.BRIO_SMTP_HOST
+    ? {
+        host: c.BRIO_SMTP_HOST,
+        port: c.BRIO_SMTP_PORT,
+        tls: c.BRIO_SMTP_TLS ?? (c.BRIO_SMTP_PORT === 465 ? "implicit" : "starttls"),
+        auth:
+          c.BRIO_SMTP_USER && c.BRIO_SMTP_PASSWORD
+            ? { user: c.BRIO_SMTP_USER, pass: c.BRIO_SMTP_PASSWORD }
+            : null,
+      }
+    : null;
+  const email = c.RESEND_API_KEY ? "resend" : smtp ? "smtp" : "log";
+  const from =
+    c.BRIO_EMAIL_FROM ??
+    (email === "smtp" && smtp?.auth?.user.includes("@")
+      ? `Brio <${smtp.auth.user}>`
+      : "Brio <onboarding@resend.dev>");
+  const { BRIO_ALLOW_PRIVATE_URLS, BRIO_ALLOW_LOCAL_REPOS, BRIO_EMAIL_FROM: _from, ...rest } = c;
   const allowPrivateUrls =
     BRIO_ALLOW_PRIVATE_URLS === undefined ? c.NODE_ENV !== "production" : BRIO_ALLOW_PRIVATE_URLS === "true";
   const allowLocalRepos =
     BRIO_ALLOW_LOCAL_REPOS === undefined ? c.NODE_ENV !== "production" : BRIO_ALLOW_LOCAL_REPOS === "true";
-  return { ...rest, google, allowPrivateUrls, allowLocalRepos };
+  return { ...rest, BRIO_EMAIL_FROM: from, google, email, smtp, allowPrivateUrls, allowLocalRepos };
 }

@@ -13,7 +13,7 @@ export interface NotificationSettingsView {
     kinds: { approvals: boolean; questions: boolean; missions: boolean; budgets: boolean };
   };
   push: { enabled: boolean; publicKey: string | null; subscriptions: number };
-  email: { provider: "resend" | "log" };
+  email: { provider: "resend" | "smtp" | "log" };
   slack: { connected: boolean; channelId?: string; teamId?: string | null };
 }
 
@@ -133,7 +133,11 @@ export function NotificationSettings({
       )}
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <Chip>
-          {view.email.provider === "resend" ? "email via Resend" : "email is only logged (no RESEND_API_KEY)"}
+          {view.email.provider === "resend"
+            ? "email via Resend"
+            : view.email.provider === "smtp"
+              ? "email via your SMTP server"
+              : "email is only logged (no RESEND_API_KEY or BRIO_SMTP_HOST)"}
         </Chip>
         {view.push.enabled ? (
           <>

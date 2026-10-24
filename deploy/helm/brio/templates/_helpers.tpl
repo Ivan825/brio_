@@ -33,7 +33,7 @@ app.kubernetes.io/component: {{ .component }}
 - name: {{ $k }}
   value: {{ $v | quote }}
 {{- end }}
-{{- range $k := list "DATABASE_URL" "BETTER_AUTH_SECRET" "BRIO_VAULT_LOCAL_KEK" "RESEND_API_KEY" "GOOGLE_CLIENT_ID" "GOOGLE_CLIENT_SECRET" "BRIO_VAPID_PUBLIC_KEY" "BRIO_VAPID_PRIVATE_KEY" }}
+{{- range $k := list "DATABASE_URL" "BETTER_AUTH_SECRET" "BRIO_VAULT_LOCAL_KEK" "RESEND_API_KEY" "BRIO_SMTP_PASSWORD" "GOOGLE_CLIENT_ID" "GOOGLE_CLIENT_SECRET" "BRIO_VAPID_PUBLIC_KEY" "BRIO_VAPID_PRIVATE_KEY" }}
 - name: {{ $k }}
   valueFrom:
     secretKeyRef:

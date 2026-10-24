@@ -59,7 +59,7 @@ export async function notificationRoutes(app: FastifyInstance, ctx: AppContext) 
         publicKey: ctx.config.BRIO_VAPID_PUBLIC_KEY ?? null,
         subscriptions: subs.length,
       },
-      email: { provider: ctx.config.RESEND_API_KEY ? "resend" : "log" },
+      email: { provider: ctx.config.email },
       slack: slack
         ? { connected: true, channelId: slack.channelId, teamId: slack.teamId, enabled: slack.enabled }
         : { connected: false },

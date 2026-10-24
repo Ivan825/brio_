@@ -16,8 +16,8 @@ imagePullSecrets: []
 appUrl: https://brio.example.com
 
 # Secrets: either name an existing Secret holding these keys, or let the chart create one from `secrets`.
-#   DATABASE_URL, BETTER_AUTH_SECRET, BRIO_VAULT_LOCAL_KEK, and optionally RESEND_API_KEY, GOOGLE_CLIENT_ID,
-#   GOOGLE_CLIENT_SECRET, BRIO_VAPID_PUBLIC_KEY, BRIO_VAPID_PRIVATE_KEY
+#   DATABASE_URL, BETTER_AUTH_SECRET, BRIO_VAULT_LOCAL_KEK, and optionally RESEND_API_KEY, BRIO_SMTP_PASSWORD,
+#   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, BRIO_VAPID_PUBLIC_KEY, BRIO_VAPID_PRIVATE_KEY
 existingSecret: ""
 secrets:
   # Postgres 15+ with the pgvector extension, e.g. postgres://brio:pw@db:5432/brio?sslmode=require
@@ -26,6 +26,8 @@ secrets:
   BETTER_AUTH_SECRET: ""
   BRIO_VAULT_LOCAL_KEK: ""
   RESEND_API_KEY: ""
+  # With env.BRIO_SMTP_HOST and env.BRIO_SMTP_USER: email through any mailbox (Gmail app password, no domain needed).
+  BRIO_SMTP_PASSWORD: ""
   GOOGLE_CLIENT_ID: ""
   GOOGLE_CLIENT_SECRET: ""
   BRIO_VAPID_PUBLIC_KEY: ""
@@ -35,7 +37,12 @@ secrets:
 env:
   LOG_LEVEL: info
   BRIO_KMS_PROVIDER: local # or aws, with BRIO_AWS_KMS_KEY_ID
-  BRIO_EMAIL_FROM: "Brio <onboarding@resend.dev>"
+  # Email through SMTP (or set secrets.RESEND_API_KEY): e.g. smtp.gmail.com, 465, you@gmail.com.
+  BRIO_SMTP_HOST: ""
+  BRIO_SMTP_PORT: "465"
+  BRIO_SMTP_USER: ""
+  # The sender; empty: the SMTP user (or Resend's test sender).
+  BRIO_EMAIL_FROM: ""
   BRIO_VAPID_SUBJECT: "mailto:admin@example.com"
   BRIO_GITHUB_API_URL: https://api.github.com
   BRIO_PRICING_REFRESH_HOURS: "24"

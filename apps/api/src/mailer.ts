@@ -1,4 +1,6 @@
 import type { FastifyBaseLogger } from "fastify";
+import { createTransport, type Transporter } from "nodemailer";
+import type { SmtpConfig } from "./config";
 
 export interface Mail {
   to: string;
@@ -72,6 +74,50 @@ export class ResendMailer implements Mailer {
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       throw new Error(`Resend refused the email (HTTP ${res.status}): ${body.slice(0, 200)}`);
+    }
+  }
+}
+
+/**
+ * Email through an SMTP server (D-106): any mailbox you already have — Gmail or Google Workspace with an app password,
+ * Outlook, Zoho, your own relay — so sending needs no domain of your own. Every email is also kept in the local outbox
+ * when that is on.
+ */
+export class SmtpMailer implements Mailer {
+  private readonly transport: Transporter;
+
+  constructor(
+    smtp: SmtpConfig,
+    private readonly o: { from: string; outbox?: LogMailer },
+  ) {
+    this.transport = createTransport({
+      host: smtp.host,
+      port: smtp.port,
+      secure: smtp.tls === "implicit",
+      requireTLS: smtp.tls === "starttls",
+      ignoreTLS: smtp.tls === "none",
+      ...(smtp.auth ? { auth: smtp.auth } : {}),
+      connectionTimeout: 15_000,
+      greetingTimeout: 15_000,
+      socketTimeout: 30_000,
+    });
+  }
+
+  async send(mail: Omit<Mail, "sentAt">): Promise<void> {
+    await this.o.outbox?.send(mail);
+    try {
+      await this.transport.sendMail({
+        from: this.o.from,
+        to: mail.to,
+        subject: mail.subject,
+        text: mail.link && !mail.text.includes(mail.link) ? `${mail.text}\n\n${mail.link}` : mail.text,
+      });
+    } catch (err) {
+      // The server's reply, never the credentials it was given.
+      const e = err as { responseCode?: number; message?: string };
+      throw new Error(
+        `the SMTP server refused the email${e.responseCode ? ` (${e.responseCode})` : ""}: ${String(e.message ?? err).slice(0, 200)}`,
+      );
     }
   }
 }
