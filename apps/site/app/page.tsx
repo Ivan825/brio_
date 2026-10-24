@@ -15,6 +15,7 @@ import {
   textLink,
 } from "@/components/blocks";
 import { Board } from "@/components/board";
+import { CopyButton } from "@/components/copy";
 import { ChatModes, Pipeline, RouterBars, WhereItRuns } from "@/components/diagrams";
 import { Gallery } from "@/components/gallery";
 import { Section } from "@/components/section";
@@ -25,10 +26,12 @@ import {
   BY_HAND_VS_BRIO,
   CHECKS,
   CLI,
+  CLI_START,
   CONNECTOR_COUNT,
   HOSTING,
   LINKS,
   MEASURED,
+  NPM,
   SAFETY,
   SERVER_START,
   SHOTS,
@@ -50,6 +53,19 @@ export default function Home() {
           <span className="h-1.5 w-1.5 rounded-xs bg-accent" aria-hidden />
           the conductor for AI agents · open source · self-hosted
         </p>
+        <div className="mt-4 flex max-w-full flex-wrap items-center gap-2 font-mono text-xs">
+          <a
+            href={NPM.page}
+            className="rounded-sm border border-line px-2 py-1 text-accent transition-colors duration-fast hover:border-line-strong"
+          >
+            npm
+          </a>
+          <code className="min-w-0 break-all rounded-sm bg-surface px-2.5 py-1 text-fg">
+            <span className="select-none text-accent">$ </span>
+            {NPM.install}
+          </code>
+          <CopyButton text={NPM.install} />
+        </div>
         <div className="mt-8 grid items-start gap-12 lg:grid-cols-[1.05fr_1fr]">
           <div>
             <h1 className="font-mono text-3xl font-bold tracking-tight text-fg sm:text-4xl">
@@ -515,6 +531,7 @@ export default function Home() {
           tabs={[
             { label: "a fresh Ubuntu server", commands: SERVER_START },
             { label: "your computer", commands: START },
+            { label: "the CLI", commands: CLI_START },
           ]}
         />
         <div className="mt-8 flex flex-wrap gap-3">

@@ -7,10 +7,12 @@ import { describe, expect, it } from "vitest";
 import {
   AGENTS,
   CLI,
+  CLI_START,
   CONNECTOR_COUNT,
   HOSTING,
   LINKS,
   MEASURED,
+  NPM,
   REPO,
   SERVER_START,
   SHOTS,
@@ -65,6 +67,16 @@ describe("the site's claims", () => {
   it("describes only CLI commands the CLI has", () => {
     const usage = read("apps/cli/src/commands.ts");
     for (const [cmd] of CLI) expect(usage, cmd).toContain(cmd.replace(' "<goal>"', ""));
+  });
+
+  it("installs the CLI by the name it is published under, and shows only commands it has", () => {
+    expect(read("apps/cli/scripts/pack.mjs")).toContain(`NPM_NAME = "${NPM.name}"`);
+    expect(NPM.install).toBe(`npm install -g ${NPM.name}`);
+    expect(NPM.page).toBe(`https://www.npmjs.com/package/${NPM.name}`);
+    const usage = read("apps/cli/src/commands.ts");
+    expect(CLI_START[0]).toContain(NPM.install);
+    for (const line of CLI_START.slice(1))
+      expect(usage, line).toContain(line.split(" ").slice(0, 2).join(" "));
   });
 
   it("shows only screenshots that exist", () => {

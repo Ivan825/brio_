@@ -314,6 +314,20 @@ export const HOSTING = [
 ] as const;
 
 /** A fresh Ubuntu server, start to finish (docs/DEPLOY_CLOUD.md). */
+/** The CLI on npm (D-111; the name is apps/cli/scripts/pack.mjs's, checked by test). */
+export const NPM = {
+  name: "brio-orchestrator",
+  page: "https://www.npmjs.com/package/brio-orchestrator",
+  install: "npm install -g brio-orchestrator",
+  npx: "npx brio-orchestrator",
+} as const;
+
+export const CLI_START = [
+  `${NPM.install}   # the brio command, Node 22+ (or: ${NPM.npx})`,
+  "brio login --url https://your-brio   # approve the code in your browser",
+  'brio run "Add a health endpoint, with tests" --watch',
+] as const;
+
 export const SERVER_START = [
   "curl -fsSL https://get.docker.com | sudo sh && sudo usermod -aG docker $USER",
   "git clone https://github.com/Ivan825/brio_.git brio && cd brio/deploy/compose",
