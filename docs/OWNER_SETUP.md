@@ -379,16 +379,9 @@ The website (`apps/site`) is a static page. Vercel hosts it for free at `https:/
 3. **Deploy:**
    ```sh
    cd ~/projects/brio_/apps/site
-   pnpm run deploy
+   BRIO_SITE_PROJECT=brio-orchestrator pnpm run deploy
    ```
-   The first time, Vercel asks a few questions:
-   - **Set up and deploy?** → yes.
-   - **Which scope?** → your account.
-   - **Link to existing project?** → no.
-   - **Project name?** → for example `brio-orchestrator`.
-   - **In which directory is your code located?** → `./` (press Enter).
-
-   It prints the address, for example `https://brio-orchestrator.vercel.app`.
+   It asks no questions. The project is named `brio-orchestrator` (choose any free name), and it prints the address, for example `https://brio-orchestrator.vercel.app`. Later runs need only `pnpm run deploy`. (Type `pnpm run deploy`, not `pnpm deploy`, which is a different pnpm command.)
 4. **Fix the social-card links:** deploy once more with the address you got, so link previews on X, Slack and LinkedIn show the Brio card:
    ```sh
    NEXT_PUBLIC_SITE_URL=https://brio-orchestrator.vercel.app pnpm run deploy
