@@ -104,7 +104,7 @@ brio runner start
 
 ## Self-host it
 
-`deploy/compose` runs everything on one machine with Docker (`./setup.sh && docker compose up -d`); `deploy/helm/brio` runs it on Kubernetes. See [`docs/SELF_HOST.md`](docs/SELF_HOST.md): every setting, backups, upgrades, and a smoke test that proves an install works.
+`deploy/compose` runs everything on one machine with Docker (`./setup.sh && docker compose up -d`); `deploy/helm/brio` runs it on Kubernetes. See [`docs/SELF_HOST.md`](docs/SELF_HOST.md): every setting, backups, upgrades, and a smoke test that proves an install works. No domain? [`docs/OWNER_SETUP.md`](docs/OWNER_SETUP.md) goes step by step through everything with free accounts only: email from your Gmail, a public HTTPS address from Tailscale, Slack, push, the local runner and the website.
 
 ## Run it locally
 
@@ -145,6 +145,7 @@ Every vendor call goes through one `AgentAdapter` interface ([`docs/ADAPTER_SPEC
 |---|---|
 | [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md) | From nothing to a finished mission (also served at `/docs`) |
 | [`docs/SELF_HOST.md`](docs/SELF_HOST.md) | Docker Compose or Helm, every setting, backups, upgrades |
+| [`docs/OWNER_SETUP.md`](docs/OWNER_SETUP.md) | Step by step with no domain and free accounts: Gmail email, a Tailscale address, Slack, push, local runner, live tests, the website |
 | [`docs/API.md`](docs/API.md) | Every REST route, generated from the code |
 | [`docs/ADAPTERS.md`](docs/ADAPTERS.md) | Writing an adapter for a new agent or model |
 | [`docs/PRD.md`](docs/PRD.md) | The problem, users, requirements and metrics |

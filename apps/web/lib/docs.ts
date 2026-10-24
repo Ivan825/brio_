@@ -31,6 +31,14 @@ export const DOCS: readonly DocPage[] = [
     summary: "Docker Compose or Helm, every setting, backups and upgrades.",
   },
   {
+    slug: "owner-setup",
+    file: "OWNER_SETUP.md",
+    title: "Owner setup, no domain",
+    section: "Start",
+    summary:
+      "Step by step with free accounts: Gmail email, a Tailscale address, Slack, push, the local runner.",
+  },
+  {
     slug: "connectors",
     file: "CONNECTORS.md",
     title: "Connectors",

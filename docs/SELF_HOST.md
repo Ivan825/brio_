@@ -34,7 +34,7 @@ Open **http://localhost:8080**.
 docker compose logs api | grep "Sign in to Brio"
 ```
 
-Open the `link` from the newest line. The first person to create a workspace owns it. To send real emails, set `RESEND_API_KEY` and `BRIO_EMAIL_FROM` in `.env` (a Resend-verified domain) and run `docker compose up -d` again. Google sign-in needs `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, with `<BRIO_APP_URL>/api/auth/callback/google` as the redirect URI.
+Open the `link` from the newest line. The first person to create a workspace owns it. To send real emails, either set `BRIO_SMTP_HOST`, `BRIO_SMTP_USER` and `BRIO_SMTP_PASSWORD` in `.env` (any mailbox: Gmail with an app password needs no domain of your own, see [Owner setup](OWNER_SETUP.md)), or set `RESEND_API_KEY` and `BRIO_EMAIL_FROM` (a Resend-verified domain). Then run `docker compose up -d` again. Google sign-in needs `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, with `<BRIO_APP_URL>/api/auth/callback/google` as the redirect URI.
 
 **A real domain with TLS.** Point a DNS record at the machine, then in `.env` set:
 - `BRIO_APP_URL=https://brio.example.com`
@@ -118,8 +118,11 @@ All settings are environment variables. A variable left blank counts as unset. C
 | `BRIO_KMS_PROVIDER` | `local` | `local` (key from `BRIO_VAULT_LOCAL_KEK`) or `aws` (AWS KMS key `BRIO_AWS_KMS_KEY_ID`, with standard AWS credentials). |
 | `BRIO_VAULT_LOCAL_KEK` | — | 32 bytes, base64. Wraps every stored vendor key. Rotate by putting the new key first and keeping the old ones, comma-separated. |
 | `BRIO_AWS_KMS_KEY_ID` | — | KMS key id or ARN when `BRIO_KMS_PROVIDER=aws`. |
+| `BRIO_SIGNUP_ALLOW` | — (anyone) | Who may create an account (D-107): addresses and `@domain`s, comma-separated. Invited people may always join, and existing accounts always sign in; nobody else is even sent a sign-in link. Set it whenever Brio is reachable from the internet. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | — | Google sign-in. |
-| `RESEND_API_KEY`, `BRIO_EMAIL_FROM` | — / `Brio <onboarding@resend.dev>` | Email: sign-in links, invitations, notifications. Without a key, emails are only logged. |
+| `RESEND_API_KEY` | — | Email through Resend: sign-in links, invitations, notifications. |
+| `BRIO_SMTP_HOST`, `BRIO_SMTP_PORT`, `BRIO_SMTP_TLS`, `BRIO_SMTP_USER`, `BRIO_SMTP_PASSWORD` | —, `465`, by port, —, — | Email through any SMTP server instead (D-106), for example Gmail (`smtp.gmail.com`, an app password). TLS is `implicit` on 465 and required `starttls` otherwise; `none` only for a local relay, never with a password in production. Resend wins when both are set. Without either, emails are only logged. |
+| `BRIO_EMAIL_FROM` | the SMTP user, else `Brio <onboarding@resend.dev>` | The sender: an address the mailbox may send as, or one on a Resend-verified domain. |
 | `BRIO_VAPID_PUBLIC_KEY`, `BRIO_VAPID_PRIVATE_KEY`, `BRIO_VAPID_SUBJECT` | — / `mailto:admin@example.com` | Browser push. Generate with `npx web-push generate-vapid-keys`. |
 | `BRIO_ALLOW_PRIVATE_URLS` | `false` in production | Lets connectors call private-network URLs (local models, your own proxy). Cloud metadata addresses are always refused. |
 | `BRIO_ALLOW_LOCAL_REPOS` | `false` in production | Lets projects point at paths on the runner's disk. |
