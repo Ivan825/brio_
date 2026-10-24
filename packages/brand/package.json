@@ -1,6 +1,6 @@
 {
   "name": "@brio/brand",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Brio brand: tokens, Tailwind presets, logo files and brand strings. The only place colours are defined.",
   "type": "module",

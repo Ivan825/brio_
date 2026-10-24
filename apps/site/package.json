@@ -1,6 +1,6 @@
 {
   "name": "@brio/site",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Brio's product website: a static page, deployed anywhere static files go (vercel.app works without a domain)",
   "type": "module",

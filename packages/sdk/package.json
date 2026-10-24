@@ -1,6 +1,6 @@
 {
   "name": "@brio/sdk",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Public TypeScript client for the Brio API",
   "type": "module",

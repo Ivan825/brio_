@@ -1,6 +1,6 @@
 {
   "name": "@brio/runner",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Sandbox worker: pulls attempts from the queue and runs adapters in Docker",
   "type": "module",

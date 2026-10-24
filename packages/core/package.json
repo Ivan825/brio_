@@ -1,6 +1,6 @@
 {
   "name": "@brio/core",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Planner, router, scheduler, lease manager, verifier, scoreboard (pure logic)",
   "type": "module",
