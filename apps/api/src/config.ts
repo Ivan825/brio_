@@ -17,6 +17,8 @@ const Env = z.object({
    * address — what sign-in rate limits key on — is the one the last trusted proxy saw. 0 when nothing is in front.
    */
   BRIO_TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(1),
+  /** Requests a client address may make each minute (live event streams and runners' sockets aside); 0: no limit. */
+  BRIO_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(0).default(1200),
   /** Connections the API keeps to Postgres: the orchestrator, live event streams and requests share them. */
   DATABASE_POOL_MAX: z.coerce.number().int().min(2).max(500).default(20),
   /** The browser-facing origin. The web app proxies /api and /v1 here, so auth cookies are first-party. */

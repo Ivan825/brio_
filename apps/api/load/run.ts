@@ -114,6 +114,8 @@ const apiEnv = {
   BETTER_AUTH_SECRET: randomBytes(32).toString("base64"),
   BRIO_DEV_OUTBOX: "true",
   BRIO_PRICING_REFRESH_HOURS: "0",
+  // Every simulated person shares one address here.
+  BRIO_RATE_LIMIT_PER_MINUTE: "0",
 };
 const healthPorts = [...webPorts];
 if (WEB === 0)

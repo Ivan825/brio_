@@ -55,6 +55,7 @@ export async function startHarness(opts: HarnessOptions = {}): Promise<Harness> 
     BRIO_DEV_OUTBOX: "true",
     LOG_LEVEL: "info",
     BRIO_PRICING_REFRESH_HOURS: "0",
+    BRIO_RATE_LIMIT_PER_MINUTE: "0",
     ...opts.env,
   });
   const keyProvider = LocalKeyProvider.fromBase64(randomBytes(32).toString("base64"));

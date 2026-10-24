@@ -11,6 +11,7 @@ import {
   Vault,
 } from "@brio/vault";
 import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
 import Fastify, { type FastifyInstance } from "fastify";
 import { ZodError } from "zod";
 import { a2aRoutes } from "./a2a/server";
@@ -188,6 +189,15 @@ export async function buildServer({
   }
 
   await app.register(cors, { origin: [config.APP_URL], credentials: true });
+  // A ceiling per client address (security review L1); sign-in has Better Auth's own, tighter limits too.
+  if (config.BRIO_RATE_LIMIT_PER_MINUTE > 0)
+    await app.register(rateLimit, {
+      max: config.BRIO_RATE_LIMIT_PER_MINUTE,
+      timeWindow: "1 minute",
+      keyGenerator: (req) => req.ip,
+      allowList: (req) =>
+        req.url === "/health" || req.url.endsWith("/events") || req.url.startsWith("/v1/runners/"),
+    });
 
   app.setErrorHandler((err, req, reply) => {
     if (err instanceof ZodError) {
