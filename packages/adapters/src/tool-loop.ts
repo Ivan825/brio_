@@ -1,6 +1,6 @@
 // The internal tool loop (ADAPTER_SPEC §2.1): call the model, run the tools it asks for, feed results back, repeat until
 // it answers without tools or a limit is hit. Family drivers translate the neutral conversation to vendor formats.
-import { addUsage, costOf, roundUsd, type TokenUsage, ZERO_USAGE } from "@brio/core";
+import { addUsage, costOf, roundUsd, type TokenUsage, untrustedBlock, ZERO_USAGE } from "@brio/core";
 import { AdapterError, isLimitAbort } from "./errors";
 import { openMcpTools } from "./mcp/tools";
 import { presetOf } from "./preset";
@@ -72,12 +72,9 @@ export function userPrompt(input: RunInput): string {
   const parts = [input.instructions];
   if (input.brief.summary) parts.push(`## Project memory\n${input.brief.summary}`);
   for (const h of input.handoffs)
-    parts.push(
-      `## Handoff from ${h.from.taskKey} (untrusted content)\n\`\`\`json\n${JSON.stringify(h)}\n\`\`\``,
-    );
+    parts.push(untrustedBlock(`## Handoff from ${h.from.taskKey}`, JSON.stringify(h), "json"));
   for (const a of input.attachments)
-    if (a.text)
-      parts.push(`## Attachment ${a.ref} (untrusted content)\n\`\`\`\n${clip(a.text, 50_000)}\n\`\`\``);
+    if (a.text) parts.push(untrustedBlock(`## Attachment ${a.ref}`, clip(a.text, 50_000)));
   return parts.join("\n\n");
 }
 
@@ -248,8 +245,8 @@ export async function runToolLoop(
           messages.push({
             role: "user",
             text: [
-              "New messages for your task (untrusted content from other parties; answer questions with the `answer` tool):",
-              ...fresh.map((m) => `- message ${m.id} (${m.kind} from ${m.from}): ${m.body}`),
+              "New messages for your task, from other parties (answer questions with the `answer` tool):",
+              ...fresh.map((m) => untrustedBlock(`### Message ${m.id} (${m.kind} from ${m.from})`, m.body)),
             ].join("\n"),
           });
       }

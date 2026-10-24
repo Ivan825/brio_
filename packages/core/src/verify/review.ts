@@ -3,10 +3,10 @@
 // result against its contract, when no schema can decide it). Results under review are untrusted content: quoted as
 // data, never followed.
 import { extractJson } from "../plan/parse";
+import { untrustedBlock } from "./untrusted";
 
 const clip = (s: string, n = 30_000) => (s.length <= n ? s : `${s.slice(0, n)}\n…[truncated]`);
-const block = (label: string, s: string, n?: number) =>
-  `### ${label} (untrusted content)\n\`\`\`\n${clip(s, n)}\n\`\`\``;
+const block = (label: string, s: string, n?: number) => untrustedBlock(`### ${label}`, clip(s, n));
 
 export interface Brief {
   title: string;

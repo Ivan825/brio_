@@ -4,5 +4,6 @@ export * from "./review";
 export * from "./reviewer";
 export * from "./scope";
 export * from "./text";
+export * from "./untrusted";
 export * from "./verdict";
 export * from "./web";

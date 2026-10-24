@@ -1,9 +1,10 @@
 // What reviewers, judges and mergers are asked, and how their answers are read. Outputs under review are untrusted
 // content from other agents: they are quoted as data, never followed.
 import { extractJson } from "../plan/parse";
+import { untrustedBlock } from "../verify/untrusted";
 
 const clip = (s: string, n = 30_000) => (s.length <= n ? s : `${s.slice(0, n)}\n…[truncated]`);
-const block = (label: string, s: string) => `### ${label} (untrusted content)\n\`\`\`\n${clip(s)}\n\`\`\``;
+const block = (label: string, s: string) => untrustedBlock(`### ${label}`, clip(s));
 
 export function reviewInstructions(
   task: { title: string; objective: string; constraints: string[] },
