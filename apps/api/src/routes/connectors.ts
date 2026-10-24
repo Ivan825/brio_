@@ -545,7 +545,8 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
       .orderBy(asc(connectorModels.model));
 
     let listedLive = false;
-    if (refresh || cached.length === 0) {
+    // A viewer reads what is cached and never makes Brio call the vendor.
+    if ((refresh || cached.length === 0) && role !== "viewer") {
       const cfg = connectorConfig(row);
       const adapter = adapterOf(row);
       let live: ModelInfo[];
