@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { HairlineGrid } from "@/components/blocks";
 import { DOC_GROUPS, DOCS, docHref } from "@/lib/docs-index";
 
 /** The docs index: every doc by group, narrowed as you type. */
@@ -37,20 +38,22 @@ export function DocsSearch() {
           return (
             <section key={g} aria-label={g}>
               <h2 className="font-mono text-xs uppercase tracking-[0.08em] text-fg-subtle">{g}</h2>
-              <ul className="mt-3 grid gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-2 lg:grid-cols-3">
-                {docs.map((d) => (
-                  <li key={d.slug} className="bg-bg">
-                    <Link
-                      href={docHref(d.slug)}
-                      className="flex h-full flex-col p-5 transition-colors duration-fast hover:bg-surface"
-                    >
-                      <span className="font-mono text-sm font-bold text-fg">{d.title}</span>
-                      <span className="mt-2 flex-1 text-sm text-fg-muted">{d.summary}</span>
-                      <span className="mt-3 font-mono text-2xs text-fg-subtle">docs/{d.file}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              <div className="mt-3">
+                <HairlineGrid>
+                  {docs.map((d) => (
+                    <div key={d.slug} className="bg-bg">
+                      <Link
+                        href={docHref(d.slug)}
+                        className="flex h-full flex-col p-5 transition-colors duration-fast hover:bg-surface"
+                      >
+                        <span className="font-mono text-sm font-bold text-fg">{d.title}</span>
+                        <span className="mt-2 flex-1 text-sm text-fg-muted">{d.summary}</span>
+                        <span className="mt-3 font-mono text-2xs text-fg-subtle">docs/{d.file}</span>
+                      </Link>
+                    </div>
+                  ))}
+                </HairlineGrid>
+              </div>
             </section>
           );
         })}

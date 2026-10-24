@@ -4,6 +4,15 @@ import { Fragment, type ReactElement } from "react";
 import { FLOW, STEPS } from "@/lib/content";
 import { CHAT_MODES, TASK_STATES } from "@/lib/product";
 
+const GIST: Record<(typeof STEPS)[number]["key"], string> = {
+  plan: "tasks + contracts",
+  route: "best agent per task",
+  coordinate: "leases · handoffs",
+  verify: "checks · review",
+  learn: "the scoreboard",
+  govern: "budgets · approvals",
+};
+
 /** The six steps of a mission, left to right (top to bottom on a phone), with learning feeding routing. */
 export function Pipeline() {
   return (
@@ -14,7 +23,7 @@ export function Pipeline() {
             <li className="flex-1 rounded-lg border border-line bg-surface p-4">
               <span className="font-mono text-2xs text-fg-subtle">0{i + 1}</span>
               <p className="mt-1 font-mono text-sm font-bold text-fg">{s.title}</p>
-              <p className="mt-1 font-mono text-2xs text-fg-muted">{s.line.split(" · ")[0]}</p>
+              <p className="mt-1 font-mono text-2xs text-fg-muted">{GIST[s.key]}</p>
             </li>
             {i < STEPS.length - 1 ? (
               <li aria-hidden className="text-center font-mono text-accent lg:px-0.5">
@@ -39,22 +48,21 @@ type Node = { key: string; type: string; title: string; agent: number; x: number
 
 const NODES: Node[] = [
   { key: "t1", type: "design.api_contract", title: "health API contract", agent: 0, x: 20, y: 120 },
-  { key: "t2", type: "code.feature", title: "GET /health route", agent: 1, x: 210, y: 40 },
-  { key: "t3", type: "code.frontend_ui", title: "status badge", agent: 2, x: 210, y: 200 },
-  { key: "t4", type: "code.tests", title: "route tests", agent: 1, x: 400, y: 40 },
-  { key: "t5", type: "write.doc", title: "API docs", agent: 3, x: 400, y: 200 },
-  { key: "t6", type: "merge.integrate", title: "integrate + report", agent: 0, x: 590, y: 120 },
+  { key: "t2", type: "code.feature", title: "GET /health route", agent: 1, x: 205, y: 40 },
+  { key: "t3", type: "code.frontend_ui", title: "status badge", agent: 2, x: 205, y: 200 },
+  { key: "t4", type: "code.tests", title: "route tests", agent: 1, x: 392, y: 40 },
+  { key: "t5", type: "write.doc", title: "API + badge docs", agent: 3, x: 392, y: 200 },
+  { key: "t6", type: "merge.integrate", title: "integrate + report", agent: 0, x: 580, y: 120 },
 ];
 const EDGES: Array<[string, string]> = [
   ["t1", "t2"],
   ["t1", "t3"],
   ["t2", "t4"],
-  ["t1", "t5"],
+  ["t3", "t5"],
   ["t4", "t6"],
-  ["t3", "t6"],
   ["t5", "t6"],
 ];
-const W = 150;
+const W = 160;
 const H = 64;
 
 /** A planned mission: tasks with types, the contract task first, dependencies as arrows. */
@@ -64,7 +72,7 @@ export function PlanGraph() {
     <figure className="overflow-x-auto rounded-lg border border-line bg-surface p-4">
       <svg
         viewBox="0 0 760 290"
-        className="block w-full min-w-[640px]"
+        className="mx-auto block w-full min-w-[640px] max-w-[900px]"
         role="img"
         aria-label="A plan: a contract task first, two tasks that depend on it, tests and docs, then an integration task"
       >
@@ -103,10 +111,10 @@ export function PlanGraph() {
           <g key={n.key} transform={`translate(${n.x} ${n.y})`}>
             <rect width={W} height={H} rx="8" className="fill-bg stroke-line" strokeWidth="1" />
             <rect x="0" y="0" width="3" height={H} rx="1.5" style={{ fill: agentColorVar(n.agent) }} />
-            <text x="12" y="20" className="fill-fg-subtle font-mono" fontSize="10">
+            <text x="12" y="20" className="fill-fg-subtle font-mono" fontSize="9">
               {n.key} · {n.type}
             </text>
-            <text x="12" y="40" className="fill-fg font-mono" fontSize="12" fontWeight="700">
+            <text x="12" y="40" className="fill-fg font-mono" fontSize="11" fontWeight="700">
               {n.title}
             </text>
             <text x="12" y="56" className="fill-fg-muted font-mono" fontSize="9">
@@ -129,7 +137,7 @@ export function StateMachine() {
     <figure className="overflow-x-auto rounded-lg border border-line bg-surface p-4">
       <svg
         viewBox="0 0 740 230"
-        className="block w-full min-w-[640px]"
+        className="mx-auto block w-full min-w-[640px] max-w-[900px]"
         role="img"
         aria-label="pending, ready, leased, running, verifying, done; verifying can send work back to running (revise) or fail it; any state can block or be cancelled"
       >
@@ -233,17 +241,17 @@ export function StateMachine() {
         <rect
           x="10"
           y="170"
-          width="300"
+          width="430"
           height="36"
           rx="6"
           className="fill-bg stroke-warning"
           strokeWidth="1.2"
           strokeDasharray="4 3"
         />
-        <text x="160" y="186" textAnchor="middle" className="fill-fg font-mono" fontSize="12">
+        <text x="225" y="186" textAnchor="middle" className="fill-fg font-mono" fontSize="12">
           blocked
         </text>
-        <text x="160" y="200" textAnchor="middle" className="fill-fg-subtle font-mono" fontSize="9">
+        <text x="225" y="200" textAnchor="middle" className="fill-fg-subtle font-mono" fontSize="9">
           lease denied · approval pending · budget stop → ready when cleared
         </text>
       </svg>
@@ -410,7 +418,7 @@ export function RouterBars() {
       <ul className="mt-4 space-y-3">
         {rows.map((r, i) => (
           <li key={r.agent}>
-            <div className="flex items-center justify-between gap-3 font-mono text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 font-mono text-xs">
               <span className="flex items-center gap-2 text-fg">
                 <span className="h-2 w-2 rounded-xs" style={{ background: agentColorVar(i) }} aria-hidden />
                 {r.agent}

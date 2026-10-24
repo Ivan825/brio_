@@ -95,6 +95,11 @@
   font-size: var(--text-lg);
   line-height: 1.35;
 }
+/* A Markdown rule before a heading already draws the line. */
+.doc hr + h2 {
+  margin-top: 0;
+  border-top: 0;
+}
 .doc h3 {
   margin-top: 2em;
   font-size: var(--text-md);

@@ -1,7 +1,19 @@
 import { agentColorVar } from "@brio/brand";
 import Image from "next/image";
 import Link from "next/link";
-import { A, Callout, Cards, Cta, Faq, primary, secondary, Table, Ticks, textLink } from "@/components/blocks";
+import {
+  A,
+  Callout,
+  Cards,
+  Cta,
+  Faq,
+  HairlineGrid,
+  primary,
+  secondary,
+  Table,
+  Ticks,
+  textLink,
+} from "@/components/blocks";
 import { Board } from "@/components/board";
 import { ChatModes, Pipeline, RouterBars, WhereItRuns } from "@/components/diagrams";
 import { Gallery } from "@/components/gallery";
@@ -177,7 +189,7 @@ export default function Home() {
         <Pipeline />
         <ol className="mt-10 grid gap-px overflow-hidden rounded-lg border border-line bg-line md:grid-cols-2 lg:grid-cols-3">
           {STEPS.map((s, i) => (
-            <li key={s.key} className="flex flex-col bg-bg p-6">
+            <li key={s.key} className="flex min-w-0 flex-col bg-bg p-6">
               <span className="font-mono text-xs text-fg-subtle">0{i + 1}</span>
               <h3 className="mt-2 font-mono text-lg font-bold text-fg">{s.title}</h3>
               <p className="mt-2 flex-1 text-sm text-fg-muted">{s.body}</p>
@@ -277,7 +289,7 @@ export default function Home() {
         title={`${CONNECTOR_COUNT} connectors across ${categories.length} categories.`}
         lead="Model APIs, coding CLIs, hosted agents, browser agents, media models, research tools, local models and any A2A agent. Model names are data: lists come live from each vendor, never hard-coded."
       >
-        <div className="grid gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-2 lg:grid-cols-3">
+        <HairlineGrid>
           {categories.map((c) => (
             <Link
               key={c.key}
@@ -291,7 +303,17 @@ export default function Home() {
               <p className="mt-2 line-clamp-2 text-sm text-fg-muted">{c.names.slice(0, 6).join(" · ")}</p>
             </Link>
           ))}
-        </div>
+          <Link
+            href={LINKS.adapters}
+            className="bg-bg p-5 transition-colors duration-fast hover:bg-surface sm:col-span-2 lg:col-span-2"
+          >
+            <h3 className="font-mono text-sm font-bold text-fg">Anything else</h3>
+            <p className="mt-2 text-sm text-fg-muted">
+              Any A2A agent or MCP server you add, local models through Ollama or vLLM, and your own adapter
+              for whatever comes next.
+            </p>
+          </Link>
+        </HairlineGrid>
         <div className="mt-10 grid gap-6 lg:grid-cols-[1fr_1.2fr]">
           <div>
             <h3 className="font-mono text-md font-bold text-fg">Works with what you have</h3>
@@ -444,7 +466,7 @@ export default function Home() {
         title="Use it from wherever you already work."
         lead="The web app is one door. Your terminal, your editor's agent, other A2A agents and your own code are the others."
       >
-        <div className="grid gap-8 lg:grid-cols-2">
+        <div className="grid items-start gap-8 lg:grid-cols-2">
           <Table
             caption="Ways in"
             rows={WAYS_IN.map((w) => [

@@ -67,6 +67,23 @@ export function OnThisPage({ items }: { items: ReadonlyArray<{ id: string; label
   );
 }
 
+const GRID = {
+  2: "sm:grid-cols-2",
+  3: "sm:grid-cols-2 lg:grid-cols-3",
+  4: "sm:grid-cols-2 lg:grid-cols-4",
+} as const;
+
+/** Cells separated by hairlines. A short last row stays empty rather than filled with the line colour. */
+export function HairlineGrid({ cols = 3, children }: { cols?: keyof typeof GRID; children: ReactNode }) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-line">
+      <div className={`-mb-px -mr-px grid ${GRID[cols]} [&>*]:border-b [&>*]:border-r [&>*]:border-line`}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 /** A grid of cards separated by hairlines. */
 export function Cards({
   items,
@@ -74,16 +91,11 @@ export function Cards({
   numbered = false,
 }: {
   items: ReadonlyArray<{ title: ReactNode; body: ReactNode; meta?: ReactNode }>;
-  cols?: 2 | 3 | 4;
+  cols?: keyof typeof GRID;
   numbered?: boolean;
 }) {
-  const grid = {
-    2: "sm:grid-cols-2",
-    3: "sm:grid-cols-2 lg:grid-cols-3",
-    4: "sm:grid-cols-2 lg:grid-cols-4",
-  }[cols];
   return (
-    <div className={`grid gap-px overflow-hidden rounded-lg border border-line bg-line ${grid}`}>
+    <HairlineGrid cols={cols}>
       {items.map((c, i) => (
         <div key={typeof c.title === "string" ? c.title : i} className="flex flex-col bg-bg p-6">
           {numbered ? (
@@ -94,7 +106,7 @@ export function Cards({
           {c.meta ? <div className="mt-4 font-mono text-2xs text-fg-subtle">{c.meta}</div> : null}
         </div>
       ))}
-    </div>
+    </HairlineGrid>
   );
 }
 
