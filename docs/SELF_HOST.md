@@ -63,9 +63,9 @@ Then `docker compose up -d`. Caddy gets the certificate on its own. `BRIO_APP_UR
 
 ## 2. Kubernetes with Helm (about 25 minutes)
 
-**You need:** Kubernetes 1.27+, an ingress controller, Postgres 15+ with `CREATE EXTENSION vector` allowed (for example RDS, Cloud SQL, Neon or CloudNativePG), a registry for the three images, and nodes that allow privileged pods for the runners.
+**You need:** Kubernetes 1.27+, an ingress controller, Postgres 15+ with `CREATE EXTENSION vector` allowed (for example RDS, Cloud SQL, Neon or CloudNativePG), and nodes that allow privileged pods for the runners.
 
-**1. Build and push the images** from the repository root:
+**1. Images.** The chart uses the published ones by default: `ghcr.io/ivan825/brio-{api,runner,web}`, tagged with each release (`0.1.0`), and `sha-<commit>` for every commit on `main` that passed its checks. To run your own build instead, push the images to your registry and pass `--set image.registry=$REG --set image.tag=$TAG` in step 2:
 
 ```sh
 REG=ghcr.io/acme TAG=0.1.0
@@ -83,7 +83,6 @@ kubectl create secret generic brio-secrets \
   --from-literal=BETTER_AUTH_SECRET="$(openssl rand -base64 32)" \
   --from-literal=BRIO_VAULT_LOCAL_KEK="$(openssl rand -base64 32)"
 helm install brio deploy/helm/brio \
-  --set image.registry=$REG --set image.tag=$TAG \
   --set existingSecret=brio-secrets \
   --set appUrl=https://brio.example.com --set ingress.host=brio.example.com \
   --set ingress.className=nginx

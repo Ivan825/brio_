@@ -1,7 +1,7 @@
 # Publishes Brio's service images to GitHub Packages after CI passes on main (D-110), so a server can download them
 # instead of building: ghcr.io/<owner>/brio-{api,runner,web}, tagged sha-<12 chars of the commit> and latest, for
-# linux/amd64 and linux/arm64 (each built natively). It reads the code and writes packages; it never writes to the
-# repository.
+# linux/amd64 and linux/arm64 (each built natively). A version tag (v0.1.0) adds that version's tags (0.1.0, 0.1) to
+# the images already built for its commit. It reads the code and writes packages; it never writes to the repository.
 name: images
 
 on:
@@ -9,6 +9,8 @@ on:
     workflows: [ci]
     types: [completed]
     branches: [main]
+  push:
+    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
@@ -93,4 +95,34 @@ jobs:
               -t "$image:sha-${SHA:0:12}" -t "$image:latest" \
               "$image@$(cat digests/$target-amd64)" "$image@$(cat digests/$target-arm64)"
             docker buildx imagetools inspect "$image:sha-${SHA:0:12}"
+          done
+
+  # A release: the tagged commit's images (built when it passed CI on main) get the version's tags.
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Tag the commit's images with the version
+        env:
+          SHA: ${{ github.sha }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          version="${TAG#v}"
+          minor="${version%.*}"
+          for target in api runner web; do
+            image="ghcr.io/$owner/brio-$target"
+            # A tag pushed with its commit waits for that commit's images (CI, then the build above: up to an hour).
+            for _ in $(seq 1 120); do
+              docker buildx imagetools inspect "$image:sha-${SHA:0:12}" >/dev/null 2>&1 && break
+              sleep 30
+            done
+            docker buildx imagetools create -t "$image:$version" -t "$image:$minor" "$image:sha-${SHA:0:12}"
           done

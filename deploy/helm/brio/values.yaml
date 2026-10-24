@@ -1,10 +1,10 @@
-# Brio on Kubernetes (docs/SELF_HOST.md §Kubernetes). Images come from the repository's Dockerfile:
-#   docker build --target api -t <registry>/brio-api:<tag> .   (likewise runner, and web with --build-arg API_URL)
+# Brio on Kubernetes (docs/SELF_HOST.md §Kubernetes). Images are the published ones (below), or your own build of the
+# repository's Dockerfile: docker build --target api -t <registry>/brio-api:<tag> .   (likewise runner, and web)
 # The web image proxies to the API at the API_URL it was built with; behind this chart's ingress that proxy is not
 # used (API paths go straight to the API), so any API_URL works.
 
 image:
-  registry: "" # e.g. ghcr.io/ivan825: CI publishes brio-api/web/runner there, tagged latest and sha-<commit>
+  registry: ghcr.io/ivan825 # CI publishes brio-api/web/runner here: each release (0.1.0), latest and sha-<commit>
   tag: "0.1.0"
   pullPolicy: IfNotPresent
   api: brio-api
