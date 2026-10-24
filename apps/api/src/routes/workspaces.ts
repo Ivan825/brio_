@@ -15,7 +15,9 @@ const Slug = z
   .regex(/^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/, "lowercase letters, digits and dashes");
 const CreateWorkspace = z.object({ name: Name, slug: Slug.optional() });
 const UpdateWorkspace = z.object({ name: Name });
-const Invite = z.object({ email: z.email(), role: z.enum(["admin", "member"]).default("member") });
+const Invite = z.object({ email: z.email(), role: z.enum(["admin", "member", "viewer"]).default("member") });
+const ChangeRole = z.object({ role: z.enum(["owner", "admin", "member", "viewer"]) });
+const MemberParams = z.object({ id: z.uuid(), userId: z.uuid() });
 const Params = z.object({ id: z.uuid() });
 
 function slugify(name: string): string {
@@ -158,4 +160,71 @@ export async function workspaceRoutes(app: FastifyInstance, ctx: AppContext) {
       .status(201)
       .send({ invitation: { id: inv.id, email: inv.email, role: inv.role, expiresAt: inv.expiresAt } });
   });
+
+  /**
+   * Changes a member's role (M9). Owners and admins change members and viewers; only an owner makes or unmakes owners
+   * and admins; a workspace always keeps an owner. Recorded in the ledger.
+   */
+  app.patch("/v1/workspaces/:id/members/:userId", async (req) => {
+    const s = await requireSession(ctx, req);
+    requireSignedIn(s, "change roles");
+    const { id, userId } = MemberParams.parse(req.params);
+    const { role: mine } = await requireMember(ctx, id, s, ["owner", "admin"]);
+    const { role } = ChangeRole.parse(req.body);
+    const target = await memberOf(id, userId);
+    const powerful = (r: string) => r === "owner" || r === "admin";
+    if (mine !== "owner" && (powerful(target.role) || powerful(role)))
+      throw new HttpError(403, "only an owner can make or unmake owners and admins", "owner_only");
+    if (target.role === "owner" && role !== "owner") await keepAnOwner(id);
+    await ctx.auth.api.updateMemberRole({
+      body: { memberId: target.id, role, organizationId: id },
+      headers: fromNodeHeaders(req.headers),
+    });
+    await ctx.ledger.append(ctx.db, {
+      workspaceId: id,
+      kind: "member.changed",
+      payload: { userId, from: target.role, to: role, by: s.userId },
+    });
+    return { member: { userId, role } };
+  });
+
+  /** Removes a member (owners and admins; an admin cannot remove an owner or another admin; an owner always stays). */
+  app.delete("/v1/workspaces/:id/members/:userId", async (req, reply) => {
+    const s = await requireSession(ctx, req);
+    requireSignedIn(s, "remove members");
+    const { id, userId } = MemberParams.parse(req.params);
+    const { role: mine } = await requireMember(ctx, id, s, ["owner", "admin"]);
+    const target = await memberOf(id, userId);
+    if (mine !== "owner" && (target.role === "owner" || target.role === "admin"))
+      throw new HttpError(403, "only an owner can remove owners and admins", "owner_only");
+    if (target.role === "owner") await keepAnOwner(id);
+    await ctx.auth.api.removeMember({
+      body: { memberIdOrEmail: target.id, organizationId: id },
+      headers: fromNodeHeaders(req.headers),
+    });
+    await ctx.ledger.append(ctx.db, {
+      workspaceId: id,
+      kind: "member.changed",
+      payload: { userId, from: target.role, removed: true, by: s.userId },
+    });
+    return reply.status(204).send();
+  });
+
+  async function memberOf(workspaceId: string, userId: string) {
+    const [row] = await ctx.db
+      .select({ id: members.id, role: members.role })
+      .from(members)
+      .where(and(eq(members.workspaceId, workspaceId), eq(members.userId, userId)));
+    if (!row) throw new HttpError(404, "member not found", "not_found");
+    return row;
+  }
+
+  async function keepAnOwner(workspaceId: string) {
+    const owners = await ctx.db
+      .select({ id: members.id })
+      .from(members)
+      .where(and(eq(members.workspaceId, workspaceId), eq(members.role, "owner")));
+    if (owners.length < 2)
+      throw new HttpError(409, "a workspace needs an owner: make someone else owner first", "last_owner");
+  }
 }

@@ -7,6 +7,8 @@ import type { Ledger } from "@brio/governance";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { bearer, deviceAuthorization, jwt, magicLink, organization } from "better-auth/plugins";
+import { createAccessControl } from "better-auth/plugins/access";
+import { adminAc, defaultStatements, memberAc, ownerAc } from "better-auth/plugins/organization/access";
 import { uuidv7 } from "uuidv7";
 import type { Config } from "./config";
 import type { Mailer } from "./mailer";
@@ -17,6 +19,15 @@ export interface AuthDeps {
   mailer: Mailer;
   ledger: Ledger;
 }
+
+/** Workspace roles for Better Auth's organisation plugin: its defaults, plus viewers, who administer nothing. */
+const ACCESS = createAccessControl(defaultStatements);
+const ROLES = {
+  owner: ACCESS.newRole({ ...ownerAc.statements }),
+  admin: ACCESS.newRole({ ...adminAc.statements }),
+  member: ACCESS.newRole({ ...memberAc.statements }),
+  viewer: ACCESS.newRole({ organization: [] }),
+};
 
 /** The device-flow client id of the `brio` CLI. */
 export const CLI_CLIENT_ID = "brio-cli";
@@ -105,6 +116,10 @@ export function createAuth({ db, config, mailer, ledger }: AuthDeps) {
       bearer(),
       organization({
         creatorRole: "owner",
+        // Brio's roles (M9): owners and admins administer; members act (missions, agents, approvals); viewers only
+        // read. What each may do in Brio itself is enforced by every route (requireMember).
+        ac: ACCESS,
+        roles: ROLES,
         invitationExpiresIn: 7 * 24 * 60 * 60,
         schema: {
           session: { fields: { activeOrganizationId: "activeWorkspaceId" } },
