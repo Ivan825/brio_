@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { Button } from "@/components/button";
@@ -156,6 +157,12 @@ function ProjectRow({ project: p, canEdit }: { project: ProjectSummary; canEdit:
         <Chip tone={p.hasToken ? "success" : "muted"}>{p.hasToken ? "token set" : "no token"}</Chip>
         {p.githubRepo && <Chip>PRs → {p.githubRepo}</Chip>}
         {p.runnerId && <Chip tone="info">on a local runner</Chip>}
+        <Link
+          href={`/projects/${p.id}/memory`}
+          className="ml-auto font-mono text-2xs text-focus hover:underline"
+        >
+          memory
+        </Link>
       </div>
       <p className="truncate font-mono text-xs text-fg-muted">
         {p.repoUrl ?? "no repository: missions start empty"}

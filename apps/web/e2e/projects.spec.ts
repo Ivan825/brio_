@@ -32,3 +32,23 @@ test("add a project with a git token: sealed, shown only as set, replaced and re
   await expect(row).toContainText("token set");
   expect(await page.content()).not.toContain(TOKEN);
 });
+
+test("project memory: remember a preference, see it in the brief, forget it", async ({ page }) => {
+  await signIn(page, uniqueEmail("memory"));
+  await createWorkspace(page, "Memory");
+  await page.goto("/projects");
+  const form = page.getByRole("form", { name: "New project" });
+  await form.getByLabel("Name", { exact: true }).fill("svc");
+  await form.getByRole("button", { name: "Add project" }).click();
+  await page.getByTestId("project").getByRole("link", { name: "memory" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("What Brio remembers about svc");
+  const remember = page.getByRole("form", { name: "Remember something" });
+  await remember.getByLabel("What to remember").fill("Use pnpm, never npm");
+  await remember.getByRole("button", { name: "Remember" }).click();
+  const item = page.getByTestId("memory-item");
+  await expect(item).toContainText("Use pnpm, never npm");
+  await page.getByRole("button", { name: "Show the brief" }).click();
+  await expect(page.getByTestId("brief")).toContainText("Use pnpm, never npm");
+  await item.getByRole("button", { name: "Forget" }).click();
+  await expect(page.getByTestId("memory-item")).toHaveCount(0);
+});
