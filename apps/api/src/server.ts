@@ -37,6 +37,7 @@ import { evalRoutes } from "./routes/evals";
 import { healthRoutes } from "./routes/health";
 import { hookRoutes } from "./routes/hooks";
 import { inboxRoutes } from "./routes/inbox";
+import { ledgerRoutes } from "./routes/ledger";
 import { messageRoutes } from "./routes/messages";
 import { missionRoutes } from "./routes/missions";
 import { notificationRoutes } from "./routes/notifications";
@@ -212,6 +213,7 @@ export async function buildServer({
   await budgetRoutes(app, ctx);
   await policyRoutes(app, ctx);
   await notificationRoutes(app, ctx);
+  await ledgerRoutes(app, ctx);
   if (config.BRIO_DEV_OUTBOX && config.NODE_ENV !== "production") await devRoutes(app, ctx);
   ctx.orchestrator.start();
   ctx.budgets.start();
