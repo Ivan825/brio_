@@ -79,9 +79,9 @@ export default function Home() {
                 Every AI.
               </h1>
               <p className="mt-6 max-w-xl text-md text-fg-muted">
-                Brio plans your goal into tasks with contracts, sends each one to the agent best at it —
-                across vendors — coordinates them while they work, checks the results (with another vendor
-                when you have one), and hands you the verified outcome.
+                Chat with all your agents at once and let them answer together, review each other or debate.
+                Or give Brio a goal: it plans it into tasks, sends each to the agent best at it, checks the
+                results with another vendor, and hands you the verified outcome.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <a href={LINKS.github} className={primary}>
@@ -156,8 +156,8 @@ export default function Home() {
               </h2>
             </div>
             <p className="max-w-md text-sm text-fg-muted">
-              {SHOTS.length} screens from one mission, run against Brio&apos;s scripted test vendor so it is
-              the same every time. With your agents, the board fills with theirs.
+              {SHOTS.length} screens from a chat and a mission, run against Brio&apos;s scripted test vendor
+              so it is the same every time. With your agents, the board fills with theirs.
             </p>
           </div>
           <div className="mt-10">

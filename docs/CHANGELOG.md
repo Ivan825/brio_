@@ -13,6 +13,17 @@
   - live vendor tests;
   - a local Kubernetes cluster;
   - the website.
+- **Chat** (D-109): talk to every agent you connected, the way you talk to one assistant.
+  - Pick who answers and how:
+    - **auto:** the best agent for it;
+    - **together:** each answers, one merges;
+    - **review:** one answers, another checks;
+    - **debate:** they argue, and a judge decides.
+  - Watch them work live, see each agent's own answer, rate it, or **turn it into a mission**.
+  - Each message is a task on the mission engine, so routing, budgets, policies, checks, the ledger and the scoreboard all apply. Follow-ups carry the conversation as quoted context.
+- **Refused models:** a model or key the vendor refuses is no longer retried. Planning moves to another agent, or says what to change and resumes once it's fixed.
+- **Stopped tasks:** a task someone stopped now stays stopped when its attempt ends late.
+- **Automatic server updates:** a systemd timer pulls `main` every 5 minutes, rebuilds, and clears old build layers ([Deploy on a cloud server](DEPLOY_CLOUD.md)).
 - **The product website** (`apps/site`, D-108): a static page in the Brio brand. Its screenshots are of the real app, and its claims are checked by tests against the registry, the load test and the CLI. It is published to a free `*.vercel.app` address from the owner's machine, so the repository is never connected to Vercel.
 - **Fixed:** Governance's daily usage bars were invisible, and its breakdowns lost their names in narrow columns. The brand check now flags opacity modifiers on brand colours, which Tailwind silently drops.
 

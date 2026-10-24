@@ -139,7 +139,7 @@ export const SAFETY = [
 ] as const;
 
 export const WAYS_IN = [
-  { from: "The web app", how: "Missions, the live board, plans, inbox, scoreboard, budgets" },
+  { from: "The web app", how: "Chat, missions, the live board, plans, inbox, scoreboard, budgets" },
   { from: "Your terminal", how: 'brio run "your goal" · brio board' },
   { from: "Claude Code, Cursor, Codex", how: "Brio's MCP server: delegate a goal, get the verified report" },
   { from: "Any A2A agent", how: "Brio is an A2A agent: /.well-known/agent-card.json" },
@@ -148,6 +148,10 @@ export const WAYS_IN = [
 ] as const;
 
 export const FEATURES = [
+  {
+    title: "Chat with all of them",
+    body: "Talk to your agents like one assistant: the best one answers, or they answer together, review each other or debate.",
+  },
   {
     title: "Live board",
     body: "A lane per agent, task cards, messages between agents, checks and cost against budget, as they happen.",
@@ -163,10 +167,6 @@ export const FEATURES = [
   {
     title: "Inbox everywhere",
     body: "Plans to approve, questions, results and pull requests reach you in the app, by email, browser push or Slack.",
-  },
-  {
-    title: "Crews and templates",
-    body: "Save a team of agents that works well together, and the missions you run often.",
   },
   {
     title: "Self-host",
@@ -216,6 +216,12 @@ export const BOARD = {
 /** Real screens of the web app (public/shots), captured from a run against Brio's scripted test vendor. */
 export const SHOTS = [
   {
+    file: "chat",
+    title: "Chat",
+    caption:
+      "Ask anything: two agents answer together and one merges; each one's own answer is a click away.",
+  },
+  {
     file: "board",
     title: "The live board",
     caption: "One mission: its tasks, attempts, checks, cost and every event, live.",
@@ -239,11 +245,6 @@ export const SHOTS = [
     file: "governance",
     title: "Governance",
     caption: "Budgets, policies, usage and the hash-chained audit ledger.",
-  },
-  {
-    file: "inbox",
-    title: "Inbox",
-    caption: "Everything waiting for you: plans, questions, results, pull requests.",
   },
 ] as const;
 

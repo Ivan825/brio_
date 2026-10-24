@@ -11,7 +11,7 @@ Give Brio one goal. It plans the work, hands each piece to the agent best at it,
 <p align="center">
   <a href="https://github.com/Ivan825/brio_/actions/workflows/ci.yml"><img src="https://github.com/Ivan825/brio_/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/licence-AGPL--3.0-blue.svg" alt="AGPL-3.0 licence"></a>
-  <img src="https://img.shields.io/badge/status-pre--alpha-F2B33D" alt="Pre-alpha">
+  <img src="https://img.shields.io/badge/status-alpha-F2B33D" alt="Alpha">
   <img src="https://img.shields.io/badge/node-22-339933" alt="Node 22">
   <img src="https://img.shields.io/badge/BYOK-only-6C8CFF" alt="Bring your own keys">
 </p>
@@ -26,9 +26,7 @@ Give Brio one goal. It plans the work, hands each piece to the agent best at it,
 
 ---
 
-> **Pre-alpha, being built in the open.** M0 to M8 are done: connectors, sandboxed coding agents, missions that plan, run as a graph and coordinate, a router that learns who wins, a verifier, merge engine and eval harness that check the work, hosted, browser, media and research agents, Brio as an MCP server and an A2A agent, and the complete web app, the `brio` CLI and the local runner. Governance, memory, notifications and organisations come next. This README describes
-> the product Brio is being built to be; the [roadmap](docs/BUILD_PLAN.md) shows what is done, and anything
-> not built yet is marked **planned** below.
+> **Built in the open.** Every milestone (M0–M10) is done, and so is **Chat**: talk to all your agents at once and have them answer together, review each other or debate. See the [changelog](docs/CHANGELOG.md) for what each step added, and [host it yourself](#host-it-yourself) in about fifteen minutes.
 
 ## The problem
 
@@ -75,6 +73,12 @@ done      PR ready · $1.12 · 6m40s_
 **Your keys, official routes only.** Brio uses official APIs, CLIs and SDKs with your own keys. It never automates consumer chat apps and never reuses a CLI's stored login tokens. On your own machine, a local runner can run a coding CLI under your own sign-in where the vendor's terms allow it (Antigravity; Claude Code for your own work), without Brio ever reading that sign-in.
 
 ## What you get
+
+**Chat with all of them.** Ask anything, the way you would ask one assistant.
+- The best agent for it answers.
+- Or, with two or more agents, they answer **together** (each answers, one merges), **review** each other (one answers, another checks), or **debate** (a judge decides).
+- Follow-ups carry the conversation, and you watch them work live.
+- Every reply shows each agent's own answer, its cost and its checks, and can become a full mission in one click.
 
 **The live board.** One lane per agent, task cards with IDs, a brass progress line for running work and verdict chips (pass / revise / fail). Everything on it streams from an append-only event log, so a reconnect resumes exactly where it left off.
 
