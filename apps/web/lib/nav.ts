@@ -1,4 +1,5 @@
 import {
+  BookOpen,
   Bot,
   FlaskConical,
   FolderGit2,
@@ -31,4 +32,5 @@ export const NAV: readonly NavItem[] = [
   { href: "/evals", label: "Evals", icon: FlaskConical },
   { href: "/governance", label: "Governance", icon: Scale },
   { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/docs", label: "Docs", icon: BookOpen },
 ];
