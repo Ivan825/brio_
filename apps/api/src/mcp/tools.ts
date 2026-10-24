@@ -5,6 +5,7 @@ import { renderMissionReport } from "@brio/core";
 import { schema } from "@brio/db";
 import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
 import type { AppContext } from "../context";
+import { decideApproval } from "../deliveries";
 import { HttpError, one, requireMember, type SessionInfo } from "../http";
 import { createMission } from "../missions";
 import { approvePlan, awaitingPerson } from "../orchestrator/plans";
@@ -18,6 +19,8 @@ export interface Caller {
   workspaceId: string;
   /** The MCP client's name, for the events (actor "user:<id>" acts through it). */
   client: string;
+  /** The person granted this client brio:approve (OAuth only): it may decide approvals as them (M9). */
+  canApprove?: boolean;
 }
 
 const ACTIVE = ["running", "verifying"];
@@ -361,6 +364,61 @@ export class BrioTools {
       payload: { messageId: r.id, kind: "review_request", to: "user", body: a.note, via: this.caller.client },
     });
     return `Review requested on the board (message ${r.id}): ${this.link(m.id)}`;
+  }
+
+  /** What waits for a yes in the workspace: plans to approve and actions such as opening a pull request. */
+  async pendingApprovals(): Promise<string> {
+    const { db } = this.ctx;
+    const rows = await db
+      .select({ a: schema.approvals, title: missions.title })
+      .from(schema.approvals)
+      .leftJoin(missions, eq(missions.id, schema.approvals.subjectId))
+      .where(
+        and(
+          eq(schema.approvals.workspaceId, this.caller.workspaceId),
+          eq(schema.approvals.status, "pending"),
+        ),
+      );
+    const plansWaiting = await db
+      .select({ id: missions.id, title: missions.title })
+      .from(missions)
+      .where(
+        and(eq(missions.workspaceId, this.caller.workspaceId), eq(missions.status, "awaiting_approval")),
+      );
+    if (!rows.length && !plansWaiting.length) return "Nothing is waiting for a yes.";
+    return [
+      ...rows.map(
+        ({ a, title }) =>
+          `- approval ${a.id}: ${a.action.replaceAll("_", " ")}${title ? ` for "${title}"` : ""} (requested by ${a.requestedBy})`,
+      ),
+      ...plansWaiting.map((m) => `- plan of mission ${m.id} "${m.title}": approve it with approve_plan`),
+      this.caller.canApprove
+        ? "Decide an approval with decide_approval."
+        : `Deciding needs the brio:approve permission, which you grant when this client signs in; or decide in the inbox: ${this.boardUrl}/inbox`,
+    ].join("\n");
+  }
+
+  /** Approves or denies an action as the person (only with brio:approve, which they granted on the consent page). */
+  async decideApproval(a: {
+    approval_id: string;
+    decision: "approve" | "deny";
+    reason?: string;
+  }): Promise<string> {
+    if (!this.caller.canApprove)
+      throw new HttpError(
+        403,
+        `deciding approvals needs the brio:approve permission, granted when this client signs in; or decide in the inbox: ${this.boardUrl}/inbox`,
+        "forbidden",
+      );
+    await requireMember(this.ctx, this.caller.workspaceId, this.caller.session, ["owner", "admin", "member"]);
+    const { approval, delivery } = await decideApproval(this.ctx, {
+      approvalId: a.approval_id,
+      workspaceId: this.caller.workspaceId,
+      userId: this.caller.session.userId,
+      approve: a.decision === "approve",
+      reason: a.reason ?? `decided through ${this.caller.client}`,
+    });
+    return `${approval.status === "approved" ? "Approved" : "Denied"}: ${approval.action.replaceAll("_", " ")}${delivery?.status === "queued" ? ". A runner is pushing it now." : "."}`;
   }
 
   async listMissions() {

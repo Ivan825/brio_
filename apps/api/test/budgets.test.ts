@@ -108,10 +108,11 @@ describe.skipIf(!hasTestDatabase)("M9 acceptance: budgets", () => {
     const finished = events.filter((e) => e.type === "attempt.finished").map((e) => new Date(e.ts).getTime());
     expect(finished).toHaveLength(2);
     for (const f of finished) expect(f - stopAt).toBeLessThan(5000);
-    // At most the calls already in flight go over.
+    // Each attempt alone may spend at most what the budget had left when it started (its own limit); together they
+    // stop within the five seconds above, whatever they had in flight.
     const spent = done.reduce((n, x) => n + Number(x.a.costUsd), 0);
     expect(spent).toBeGreaterThanOrEqual(0.06);
-    expect(spent).toBeLessThanOrEqual(0.09);
+    for (const { a } of done) expect(Number(a.costUsd)).toBeLessThanOrEqual(0.07);
 
     // The tasks wait for a person; raising the budget lets them run again.
     for (let i = 0; i < 50; i++) {

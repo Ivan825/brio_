@@ -24,6 +24,12 @@ export const CLI_CLIENT_ID = "brio-cli";
 /** The scope an MCP client asks for to act as its person in Brio (missions, agents' questions, reports). */
 export const MCP_SCOPE = "brio";
 
+/**
+ * The scope that lets an MCP client decide approvals as its person (M9): asked for explicitly, granted on the consent
+ * page, never a default. API tokens never carry it.
+ */
+export const APPROVE_SCOPE = "brio:approve";
+
 /** Brio's MCP endpoint, the audience OAuth access tokens are bound to (RFC 8707). */
 export const mcpResource = (appUrl: string) => `${appUrl.replace(/\/+$/, "")}/mcp`;
 
@@ -80,8 +86,10 @@ export function createAuth({ db, config, mailer, ledger }: AuthDeps) {
         loginPage: "/sign-in",
         consentPage: "/oauth/consent",
         resource: mcpResource(config.APP_URL),
-        scopes: ["openid", "profile", "email", "offline_access", MCP_SCOPE],
+        scopes: ["openid", "profile", "email", "offline_access", MCP_SCOPE, APPROVE_SCOPE],
         clientRegistrationDefaultScopes: ["openid", "profile", "email", "offline_access", MCP_SCOPE],
+        // A client may step up to brio:approve when it asks a person to sign in; only their consent grants it (M9).
+        clientRegistrationAllowedScopes: [APPROVE_SCOPE],
         allowDynamicClientRegistration: true,
         allowUnauthenticatedClientRegistration: true,
       }),

@@ -7,7 +7,7 @@ import { schema } from "@brio/db";
 import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import type { FastifyRequest } from "fastify";
 import { createLocalJWKSet, type JWTVerifyGetKey, jwtVerify } from "jose";
-import { MCP_SCOPE, mcpResource } from "../auth";
+import { APPROVE_SCOPE, MCP_SCOPE, mcpResource } from "../auth";
 import type { AppContext } from "../context";
 import { HttpError, requireSession, TOKEN_PREFIX } from "../http";
 import type { Caller } from "./tools";
@@ -47,12 +47,13 @@ export function mcpAuthenticator(ctx: AppContext) {
     if (!bearer) throw new McpAuthError("sign in: this MCP server needs an access token");
     if (bearer.startsWith(TOKEN_PREFIX)) {
       const session = await requireSession(ctx, req);
-      return { session, workspaceId: session.tokenWorkspaceId as string, client };
+      return { session, workspaceId: session.tokenWorkspaceId as string, client, canApprove: false };
     }
 
     // An OAuth access token: Brio's signature, Brio's issuer, this /mcp as its audience, not expired.
     const v = await verifier();
     let sub: string;
+    let scopes: string[] = [];
     try {
       const { payload } = await jwtVerify(bearer, v.keys, {
         issuer: v.issuer,
@@ -60,6 +61,9 @@ export function mcpAuthenticator(ctx: AppContext) {
       });
       if (!payload.sub) throw new Error("no subject");
       sub = payload.sub;
+      scopes = String(payload.scope ?? "")
+        .split(" ")
+        .filter(Boolean);
     } catch {
       // A key rotation would show up here once; read the keys again next time.
       keys = null;
@@ -101,6 +105,8 @@ export function mcpAuthenticator(ctx: AppContext) {
       },
       workspaceId,
       client,
+      // Only when the person granted it on the consent page.
+      canApprove: scopes.includes(APPROVE_SCOPE),
     };
   };
 }

@@ -3,9 +3,11 @@
 // with PKCE and the /mcp resource indicator, the person's consent, the token exchange, then MCP calls with the access
 // token, acting in the person's workspace. Needs Postgres.
 import { createHash, randomBytes } from "node:crypto";
+import { schema } from "@brio/db";
 import { hasTestDatabase } from "@brio/db/testing";
 import { Client as McpClient } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { APP_URL, Client, type Harness, startHarness } from "./helpers";
 
@@ -121,6 +123,90 @@ describe.skipIf(!hasTestDatabase)("M7: OAuth 2.1 for remote MCP clients", () => 
     expect((await mcp.listTools()).tools.map((t) => t.name)).toContain("delegate");
     expect(textOf(await mcp.callTool({ name: "list_missions", arguments: {} }))).toBe("No missions yet.");
     await mcp.close();
+  });
+
+  it("decides approvals only for a client the person granted brio:approve (M9)", async () => {
+    // An action waiting for a yes in the person's workspace.
+    const [ws] = await h.db.db.select().from(schema.workspaces).where(eq(schema.workspaces.name, "OAuth"));
+    const m = await c.request("POST", "/v1/missions", { goal: "Ship", title: "Ship" });
+    const [approval] = await h.db.db
+      .insert(schema.approvals)
+      .values({
+        workspaceId: ws!.id,
+        subjectKind: "mission",
+        subjectId: m.json().mission.id,
+        action: "open_pull_request",
+        requestedBy: "brio",
+      })
+      .returning();
+    const call = async (token: string, name: string, args: Record<string, unknown>) => {
+      const mcp = new McpClient({ name: "Claude Code", version: "1.0.0" });
+      await mcp.connect(
+        new StreamableHTTPClientTransport(new URL(`${base}/mcp`), {
+          requestInit: { headers: { Authorization: `Bearer ${token}` } },
+        }),
+      );
+      try {
+        return textOf(await mcp.callTool({ name, arguments: args }));
+      } finally {
+        await mcp.close();
+      }
+    };
+    // The first client was granted brio only: it sees what waits, and may not decide it.
+    expect(await call(accessToken, "pending_approvals", {})).toContain(
+      `approval ${approval!.id}: open pull request`,
+    );
+    expect(
+      await call(accessToken, "decide_approval", { approval_id: approval!.id, decision: "approve" }),
+    ).toContain("needs the brio:approve permission");
+
+    // Asked for when the person next signs in (a step up), and granted on the consent page, the client decides as them.
+    const verifier = randomBytes(32).toString("base64url");
+    const q = new URLSearchParams({
+      response_type: "code",
+      client_id: clientId,
+      redirect_uri: REDIRECT,
+      scope: "openid brio brio:approve",
+      state: "s-approve",
+      code_challenge: createHash("sha256").update(verifier).digest("base64url"),
+      code_challenge_method: "S256",
+      resource: RESOURCE,
+    });
+    const auth = await c.request("GET", `/api/auth/oauth2/authorize?${q}`);
+    const consentUrl = new URL(String(auth.headers.location), APP_URL);
+    expect(consentUrl.searchParams.get("scope"), String(auth.headers.location)).toContain("brio:approve");
+    const consent = await c.request("POST", "/api/auth/oauth2/consent", {
+      accept: true,
+      oauth_query: consentUrl.search.slice(1),
+    });
+    const code = new URL(consent.json().url).searchParams.get("code") ?? "";
+    const token = await h.server.app.inject({
+      method: "POST",
+      url: "/api/auth/oauth2/token",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      payload: new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: REDIRECT,
+        client_id: clientId,
+        code_verifier: verifier,
+        resource: RESOURCE,
+      }).toString(),
+    });
+    expect(token.statusCode, token.body).toBe(200);
+    const approver = token.json().access_token as string;
+    expect(
+      await call(approver, "decide_approval", {
+        approval_id: approval!.id,
+        decision: "deny",
+        reason: "not now",
+      }),
+    ).toBe("Denied: open pull request.");
+    const [after] = await h.db.db
+      .select()
+      .from(schema.approvals)
+      .where(eq(schema.approvals.id, approval!.id));
+    expect(after).toMatchObject({ status: "denied", reason: "not now" });
   });
 
   it("refuses tampered and foreign tokens", async () => {

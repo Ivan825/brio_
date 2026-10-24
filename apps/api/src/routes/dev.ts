@@ -6,6 +6,6 @@ import type { AppContext } from "../context";
 export async function devRoutes(app: FastifyInstance, ctx: AppContext) {
   app.get("/v1/dev/outbox", async (req) => {
     const { email } = z.object({ email: z.email() }).parse(req.query);
-    return { messages: ctx.mailer.messagesFor(email) };
+    return { messages: ctx.outbox.messagesFor(email) };
   });
 }

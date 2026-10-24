@@ -79,14 +79,14 @@ describe.skipIf(!hasTestDatabase)("M9 acceptance: policies", () => {
         .select()
         .from(schema.tasks)
         .where(and(eq(schema.tasks.missionId, id), gt(schema.tasks.planVersion, 0)));
-      if (rows.every((t) => t.status === "running" || t.status === "blocked")) {
-        const attempts = await h.db.db
-          .select({ a: schema.attempts, key: schema.tasks.key })
-          .from(schema.attempts)
-          .innerJoin(schema.tasks, eq(schema.tasks.id, schema.attempts.taskId))
-          .where(eq(schema.tasks.missionId, id));
+      const attempts = await h.db.db
+        .select({ a: schema.attempts, key: schema.tasks.key })
+        .from(schema.attempts)
+        .innerJoin(schema.tasks, eq(schema.tasks.id, schema.attempts.taskId))
+        .where(eq(schema.tasks.missionId, id));
+      // Routed (its attempts exist; a multi-agent mode starts them just after the task) or blocked.
+      if (rows.every((t) => t.status === "blocked" || attempts.some((x) => x.key === t.key)))
         return { id, tasks: rows, attempts };
-      }
       await new Promise((r) => setTimeout(r, 100));
     }
     throw new Error("the tasks were neither routed nor blocked");

@@ -20,8 +20,9 @@ import { BudgetGuard } from "./budgets";
 import type { Config } from "./config";
 import type { AppContext } from "./context";
 import { HttpError } from "./http";
-import { LogMailer } from "./mailer";
+import { LogMailer, type Mailer, ResendMailer } from "./mailer";
 import { mcpRoutes } from "./mcp/server";
+import { Notifier } from "./notify/notifier";
 import { Orchestrator } from "./orchestrator/orchestrator";
 import { PricingService, parseFx } from "./pricing";
 import { agentRoutes } from "./routes/agents";
@@ -38,6 +39,7 @@ import { hookRoutes } from "./routes/hooks";
 import { inboxRoutes } from "./routes/inbox";
 import { messageRoutes } from "./routes/messages";
 import { missionRoutes } from "./routes/missions";
+import { notificationRoutes } from "./routes/notifications";
 import { oauthRoutes } from "./routes/oauth";
 import { planRoutes } from "./routes/plans";
 import { policyRoutes } from "./routes/policies";
@@ -99,8 +101,21 @@ export async function buildServer({
     trustProxy: true,
   });
 
-  const mailer = new LogMailer();
-  mailer.attachLogger(app.log);
+  // Emails go through Resend when it is configured (M9); the local outbox keeps a copy in development and tests.
+  const outbox = new LogMailer();
+  outbox.attachLogger(app.log);
+  const mailer: Mailer = config.RESEND_API_KEY
+    ? new ResendMailer({
+        apiKey: config.RESEND_API_KEY,
+        from: config.BRIO_EMAIL_FROM,
+        fetch: (url, init) => outbound(url, init),
+        ...(config.BRIO_DEV_OUTBOX ? { outbox } : {}),
+      })
+    : outbox;
+  if (!config.RESEND_API_KEY && config.NODE_ENV === "production")
+    app.log.warn(
+      "RESEND_API_KEY is not set: emails (sign-in links, invitations, notifications) are only logged",
+    );
   const ledger = new Ledger(redactor);
   const feed = new EventFeed(handle.pool);
   await feed.start();
@@ -124,6 +139,7 @@ export async function buildServer({
     feed,
     ledger,
     mailer,
+    outbox,
     vault,
     redactor,
     fetch,
@@ -136,6 +152,7 @@ export async function buildServer({
   ctx.orchestrator = new Orchestrator(ctx, { ...(sweepMs ? { sweepMs } : {}) });
   ctx.runners = new RunnerHub(ctx);
   ctx.budgets = new BudgetGuard(ctx);
+  ctx.notifier = new Notifier(ctx);
 
   await ctx.pricing.seed();
   let pricingTimer: NodeJS.Timeout | undefined;
@@ -194,9 +211,11 @@ export async function buildServer({
   await runnerRoutes(app, ctx);
   await budgetRoutes(app, ctx);
   await policyRoutes(app, ctx);
+  await notificationRoutes(app, ctx);
   if (config.BRIO_DEV_OUTBOX && config.NODE_ENV !== "production") await devRoutes(app, ctx);
   ctx.orchestrator.start();
   ctx.budgets.start();
+  ctx.notifier.start();
   // Local runners connect over a WebSocket on the API's own HTTP server.
   ctx.runners.attach(app.server);
   await ctx.runners.start();
@@ -208,6 +227,7 @@ export async function buildServer({
       if (pricingTimer) clearInterval(pricingTimer);
       await ctx.orchestrator.stop();
       ctx.budgets.stop();
+      ctx.notifier.stop();
       await ctx.runners.stop();
       await app.close();
       await ctx.queue.stop({ graceful: false }).catch(() => {});

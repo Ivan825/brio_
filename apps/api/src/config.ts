@@ -33,6 +33,16 @@ const Env = z.object({
   BRIO_ALLOW_LOCAL_REPOS: z.enum(["true", "false"]).optional(),
   /** GitHub's REST API for issue links: api.github.com, or a GitHub Enterprise Server's https://host/api/v3. */
   BRIO_GITHUB_API_URL: z.url().default("https://api.github.com"),
+  /** Email through Resend (sign-in links, invitations, notifications); without a key emails are only logged. */
+  RESEND_API_KEY: z.string().min(1).optional(),
+  /** The sender, a verified Resend domain address, e.g. "Brio <brio@mail.example.com>". */
+  BRIO_EMAIL_FROM: z.string().min(3).default("Brio <onboarding@resend.dev>"),
+  /** Web push (VAPID): generate with `npx web-push generate-vapid-keys`; without them browser push is off. */
+  BRIO_VAPID_PUBLIC_KEY: z.string().min(20).optional(),
+  BRIO_VAPID_PRIVATE_KEY: z.string().min(20).optional(),
+  BRIO_VAPID_SUBJECT: z.string().min(5).default("mailto:admin@example.com"),
+  /** Slack's Web API (tests point it at a fake). */
+  BRIO_SLACK_API_URL: z.url().default("https://slack.com/api"),
   /** Hours between live price refreshes from public sources; 0 turns the timer off. */
   BRIO_PRICING_REFRESH_HOURS: z.coerce.number().min(0).default(24),
   /** Exposes GET /v1/dev/outbox with locally "sent" emails. Never in production. */

@@ -8,7 +8,8 @@ import type { AttemptRunner } from "./attempts";
 import type { Auth } from "./auth";
 import type { BudgetGuard } from "./budgets";
 import type { Config } from "./config";
-import type { LogMailer } from "./mailer";
+import type { LogMailer, Mailer } from "./mailer";
+import type { Notifier } from "./notify/notifier";
 import type { Orchestrator } from "./orchestrator/orchestrator";
 import type { PricingService } from "./pricing";
 import type { RunnerHub } from "./runners/hub";
@@ -21,7 +22,9 @@ export interface AppContext {
   events: EventWriter;
   feed: EventFeed;
   ledger: Ledger;
-  mailer: LogMailer;
+  mailer: Mailer;
+  /** Emails kept locally (the dev outbox; every email when Resend is not configured). */
+  outbox: LogMailer;
   vault: Vault;
   redactor: Redactor;
   /** Outbound HTTP for connectors, guarded against unsafe URLs (packages/adapters net.ts). */
@@ -38,5 +41,7 @@ export interface AppContext {
   runners: RunnerHub;
   /** Warns and stops at budgets while work runs (M9). */
   budgets: BudgetGuard;
+  /** Tells people what needs them: email, browser push, Slack (M9). */
+  notifier: Notifier;
   log: FastifyBaseLogger;
 }

@@ -135,6 +135,27 @@ export function buildBrioMcp(ctx: AppContext, caller: Caller, opts: { pollMs?: n
     },
     async (a) => run(() => tools.requestReview(a)),
   );
+  s.registerTool(
+    "pending_approvals",
+    {
+      description:
+        "What waits for a person's yes in the workspace: plans, and actions such as opening a pull request.",
+    },
+    async () => run(() => tools.pendingApprovals()),
+  );
+  s.registerTool(
+    "decide_approval",
+    {
+      description:
+        "Approve or deny an action waiting for a yes (e.g. opening a pull request), as your person. Needs the brio:approve permission they grant when this client signs in.",
+      inputSchema: {
+        approval_id: id,
+        decision: z.enum(["approve", "deny"]),
+        reason: z.string().max(2000).optional(),
+      },
+    },
+    async (a) => run(() => tools.decideApproval(a)),
+  );
   s.registerTool("list_missions", { description: "The workspace's recent missions." }, async () =>
     run(() => tools.listMissions()),
   );

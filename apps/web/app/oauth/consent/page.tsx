@@ -9,6 +9,8 @@ export const dynamic = "force-dynamic";
 /** What a scope lets an MCP client do, in words a person can judge. */
 const SCOPES: Record<string, string> = {
   brio: "Start missions, read their reports and status, and talk to their agents — as you, in your workspace",
+  "brio:approve":
+    "Approve or deny what waits for your yes — plans, and actions such as pushing a branch or opening a pull request — as you",
   openid: "Know who you are",
   profile: "See your name",
   email: "See your email address",
