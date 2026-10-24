@@ -37,7 +37,8 @@ describe("the npm package", () => {
     expect(m.files).toEqual(["dist", "images", "README.md", "LICENSE"]);
   });
 
-  it("runs on its own: version, usage, and a clear message when not signed in", () => {
+  // Each run loads the whole 2 MB bundle: a second or more apiece on a busy CI machine.
+  it("runs on its own: version, usage, and a clear message when not signed in", { timeout: 60_000 }, () => {
     expect(brio("--version")).toBe(`brio ${own.version}\n`);
     expect(brio("--help")).toContain("brio run");
     let failed: { status: number; stderr: string } | undefined;
