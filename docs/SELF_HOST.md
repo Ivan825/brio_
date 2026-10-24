@@ -128,6 +128,10 @@ All settings are environment variables. A variable left blank counts as unset. C
 | `BRIO_FX_USD_PER` | — | Exchange rates for vendors billing in other currencies, e.g. `INR=0.0114`. |
 | `BRIO_SSE_MAX_CONNECTION_MS` | `300000` | Event streams are rotated after this long (browsers resume from the last event). |
 | `BRIO_SLACK_API_URL` | `https://slack.com/api` | Slack Web API base. |
+| `BRIO_API_ROLE` | `all` | `all`: one process. At scale, `web` processes (as many as you like) serve requests, live events, MCP, A2A and runners' sockets, and exactly one `worker` runs missions (D-99). The Helm chart runs it that way. |
+| `DATABASE_POOL_MAX` | `20` | Postgres connections per API process. |
+| `BRIO_TRUST_PROXY_HOPS` | `1` | Proxies in front of the API whose `X-Forwarded-For` is believed: Caddy, an ingress, or the web app is 1. Use `0` when clients reach the API directly. Sign-in rate limits key on the address this yields. |
+| `BRIO_RATE_LIMIT_PER_MINUTE` | `1200` | Requests per client address per minute (the health check, live event streams and runners' sockets are exempt); `0` turns it off. |
 | `PORT`, `HOST`, `LOG_LEVEL` | `4000`, `0.0.0.0`, `info` | |
 
 Each workspace connects Slack and Mandate itself, under **Settings** and **Governance**.
