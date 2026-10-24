@@ -1,6 +1,7 @@
 // The planner's instructions (ROUTING §2): decompose into typed tasks with contracts, contract-first, footprints for
 // code tasks, estimates, at most 3 blocking questions. Pure: the orchestrator supplies the context.
 import { TASK_TYPES } from "@brio/schema";
+import { fence, untrustedBlock } from "../verify/untrusted";
 
 export interface PlannerContext {
   goal: string;
@@ -59,17 +60,17 @@ export function plannerInstructions(c: PlannerContext): string {
       ? [
           `\n## Template: ${c.template.name}`,
           "The user chose this saved pipeline. Keep its shape: the same tasks with the same types, dependencies, modes and pinned agents. Rewrite titles, objectives, outputs, footprints and checks for this goal; add or drop a task only when the goal clearly needs it, and say so in assumptions.",
-          `\`\`\`json\n${JSON.stringify(c.template.graph, null, 2)}\n\`\`\``,
+          fence(JSON.stringify(c.template.graph, null, 2), "json"),
         ].join("\n")
       : "",
     c.replan
       ? [
           "\n## Replanning",
-          `The approved plan could not finish: task ${c.replan.failed.key} ("${c.replan.failed.title}") failed for good:`,
-          ...c.replan.failed.reasons.map((r) => `- ${r}`),
+          `The approved plan could not finish: task ${c.replan.failed.key} ("${c.replan.failed.title}") failed for good.`,
+          untrustedBlock("Why it failed", c.replan.failed.reasons.map((r) => `- ${r}`).join("\n")),
           "Propose a complete plan for the goal that gets past this failure (another approach, a split, different checks).",
           c.replan.done.length
-            ? `These tasks are done. Copy them into your plan exactly as they are (same key, type and contract) and their work is kept:\n\`\`\`json\n${JSON.stringify(c.replan.done, null, 2)}\n\`\`\``
+            ? `These tasks are done. Copy them into your plan exactly as they are (same key, type and contract) and their work is kept:\n${fence(JSON.stringify(c.replan.done, null, 2), "json")}`
             : "No task is done yet.",
         ].join("\n")
       : "",

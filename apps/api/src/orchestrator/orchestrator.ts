@@ -33,6 +33,7 @@ import {
   seeded,
   staticRoute,
   stepInstructions,
+  untrustedBlock,
   verdict,
 } from "@brio/core";
 import { type DbOrTx, schema } from "@brio/db";
@@ -734,7 +735,7 @@ export class Orchestrator {
         ...(revising && previous ? { feedback: failedChecksFeedback(previous) } : {}),
         ...(rerouting
           ? {
-              instructions: `${renderInstructions(fresh, contract, m.goal)}\n\n## Another agent tried this task first and failed\n${rerouting.reasons.map((r) => `- ${r}`).join("\n")}\nStart from the task as described; avoid those failures.`,
+              instructions: `${renderInstructions(fresh, contract, m.goal)}\n\n${untrustedBlock("## Another agent tried this task first and failed", rerouting.reasons.map((r) => `- ${r}`).join("\n"))}\nStart from the task as described; avoid those failures.`,
             }
           : {}),
       });
@@ -2142,10 +2143,13 @@ function failedChecksFeedback(a: Attempt): string {
   const checks = a.checks as AttemptChecks | null;
   const failed = checks?.items.filter((i) => i.status === "failed") ?? [];
   if (!failed.length) return a.exitReason ?? "The previous attempt did not finish.";
+  // What failed is the contract's (trusted); why — summaries, output, a reviewer's reasons — is quoted.
   return failed
-    .map(
-      (f) =>
-        `- ${f.kind}${f.command ? ` (\`${f.command}\`)` : ""} failed: ${f.summary ?? ""}${f.output ? `\n\`\`\`\n${f.output.slice(-1500)}\n\`\`\`` : ""}`,
+    .map((f) =>
+      untrustedBlock(
+        `- ${f.kind}${f.command ? ` (\`${f.command}\`)` : ""} failed`,
+        [f.summary ?? "", f.output ? f.output.slice(-1500) : ""].filter(Boolean).join("\n\n"),
+      ),
     )
     .join("\n");
 }

@@ -90,7 +90,7 @@ export function factCheckInstructions(task: Brief, result: string, sources: Fetc
     ...sources.map((s, i) =>
       [
         `## Source ${i + 1}: ${s.url}${s.ok ? "" : " (could not be fetched)"}`,
-        `Claims citing it:\n${s.claims.map((c) => `- ${c}`).join("\n") || "- (none found)"}`,
+        block("Claims citing it", s.claims.map((c) => `- ${c}`).join("\n") || "- (none found)", 6_000),
         block(`Source ${i + 1} text`, s.text, 12_000),
       ].join("\n\n"),
     ),

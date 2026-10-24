@@ -70,7 +70,8 @@ export function systemPrompt(config: AgentConfig): string {
 
 export function userPrompt(input: RunInput): string {
   const parts = [input.instructions];
-  if (input.brief.summary) parts.push(`## Project memory\n${input.brief.summary}`);
+  // People and earlier work wrote it: quoted, like every other input that is not the task itself.
+  if (input.brief.summary) parts.push(untrustedBlock("## Project memory", input.brief.summary));
   for (const h of input.handoffs)
     parts.push(untrustedBlock(`## Handoff from ${h.from.taskKey}`, JSON.stringify(h), "json"));
   for (const a of input.attachments)
