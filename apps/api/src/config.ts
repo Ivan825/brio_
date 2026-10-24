@@ -27,6 +27,11 @@ const Env = z.object({
   BRIO_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(0).default(1200),
   /** Connections the API keeps to Postgres: the orchestrator, live event streams and requests share them. */
   DATABASE_POOL_MAX: z.coerce.number().int().min(2).max(500).default(20),
+  /**
+   * Who may create an account (D-107): addresses and "@domain"s, comma-separated. Unset: anyone who can reach Brio.
+   * Invited people may always join; existing accounts always sign in.
+   */
+  BRIO_SIGNUP_ALLOW: z.string().optional(),
   /** The browser-facing origin. The web app proxies /api and /v1 here, so auth cookies are first-party. */
   APP_URL: z.url().default("http://localhost:3000"),
   BETTER_AUTH_SECRET: z

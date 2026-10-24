@@ -36,6 +36,8 @@ secrets:
 # Non-secret settings, passed to the API and runner as they are (see docs/SELF_HOST.md for every variable).
 env:
   LOG_LEVEL: info
+  # Who may create an account (D-107): addresses and "@domain"s, comma-separated; empty: anyone. Invitees always may.
+  BRIO_SIGNUP_ALLOW: ""
   BRIO_KMS_PROVIDER: local # or aws, with BRIO_AWS_KMS_KEY_ID
   # Email through SMTP (or set secrets.RESEND_API_KEY): e.g. smtp.gmail.com, 465, you@gmail.com.
   BRIO_SMTP_HOST: ""

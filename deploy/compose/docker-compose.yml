@@ -51,6 +51,7 @@ services:
       <<: *brio-env
       APP_URL: ${BRIO_APP_URL:-http://localhost:8080}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?run ./setup.sh first}
+      BRIO_SIGNUP_ALLOW: ${BRIO_SIGNUP_ALLOW:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}

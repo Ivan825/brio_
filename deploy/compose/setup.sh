@@ -29,6 +29,10 @@ BRIO_VAULT_LOCAL_KEK=$(rand 32)
 BRIO_RUNNER_DIR=$data_dir
 BRIO_RUNNER_CONCURRENCY=2
 
+# Who may create an account: your address (and "@yourcompany.com" domains), comma-separated. Set it before Brio is
+# reachable from the internet (a tunnel, a public IP); invited people may always join. Empty: anyone who reaches Brio.
+BRIO_SIGNUP_ALLOW=
+
 # Email (sign-in links, invitations, notifications). Without any, links are only written to the API's log.
 # Any mailbox you have, no domain needed (docs/OWNER_SETUP.md): Gmail with an app password is
 # BRIO_SMTP_HOST=smtp.gmail.com, BRIO_SMTP_USER=you@gmail.com, BRIO_SMTP_PASSWORD=<16 letters, no spaces>.

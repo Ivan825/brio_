@@ -6,12 +6,14 @@ import { type Db, schema } from "@brio/db";
 import type { Ledger } from "@brio/governance";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { APIError } from "better-auth/api";
 import { bearer, deviceAuthorization, jwt, magicLink, organization } from "better-auth/plugins";
 import { createAccessControl } from "better-auth/plugins/access";
 import { adminAc, defaultStatements, memberAc, ownerAc } from "better-auth/plugins/organization/access";
 import { uuidv7 } from "uuidv7";
 import type { Config } from "./config";
 import type { Mailer } from "./mailer";
+import { SignupPolicy } from "./signup";
 
 export interface AuthDeps {
   db: Db;
@@ -51,6 +53,11 @@ export const mcpResource = (appUrl: string) => `${appUrl.replace(/\/+$/, "")}/mc
  */
 export function createAuth({ db, config, mailer, ledger }: AuthDeps) {
   const appUrl = new URL(config.APP_URL);
+  const signup = new SignupPolicy(db, config.BRIO_SIGNUP_ALLOW);
+  const closed = () =>
+    new APIError("FORBIDDEN", {
+      message: "Sign-up on this Brio is by invitation. Ask its owner to invite you.",
+    });
   return betterAuth({
     appName: "Brio",
     baseURL: config.APP_URL,
@@ -84,10 +91,21 @@ export function createAuth({ db, config, mailer, ledger }: AuthDeps) {
       useSecureCookies: appUrl.protocol === "https:",
     },
     socialProviders: config.google ? { google: config.google } : {},
+    // D-107: every way an account is made (magic link, Google, passkey) passes here.
+    databaseHooks: {
+      user: {
+        create: {
+          before: async (user) => {
+            if (!(await signup.maySignUp(user.email))) throw closed();
+          },
+        },
+      },
+    },
     plugins: [
       magicLink({
         expiresIn: 15 * 60,
         sendMagicLink: async ({ email, url }) => {
+          if (!(await signup.maySignIn(email))) throw closed();
           await mailer.send({ to: email, subject: "Sign in to Brio", text: `Sign in: ${url}`, link: url });
         },
       }),
