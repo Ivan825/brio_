@@ -6,6 +6,7 @@ import { z } from "zod";
 import { adapterOf, connectorConfig, meteringOf } from "../connectors";
 import type { AppContext } from "../context";
 import { HttpError, one, requireMember, requireSession, workspaceFor } from "../http";
+import { requireOwnRunner } from "../runner-owner";
 
 const { agents, connectors, connectorModels, runners } = schema;
 
@@ -196,6 +197,8 @@ export async function agentRoutes(app: FastifyInstance, ctx: AppContext) {
     const workspaceId = workspaceFor(req, s);
     await requireMember(ctx, workspaceId, s, ["owner", "admin", "member"]);
     const row = await load(workspaceId, Params.parse(req.params).id);
+    // An agent bound to someone's machine runs there as them: only they change it (security review H2).
+    await requireOwnRunner(ctx.db, row.runnerId, s.userId, "change an agent");
     const body = UpdateAgent.parse(req.body);
     if (body.tools) await checkTools(workspaceId, body.tools);
     if (body.runnerId)
@@ -222,6 +225,7 @@ export async function agentRoutes(app: FastifyInstance, ctx: AppContext) {
     const workspaceId = workspaceFor(req, s);
     await requireMember(ctx, workspaceId, s, ["owner", "admin", "member"]);
     const row = await load(workspaceId, Params.parse(req.params).id);
+    await requireOwnRunner(ctx.db, row.runnerId, s.userId, "remove an agent");
     await ctx.db.update(agents).set({ deletedAt: new Date() }).where(eq(agents.id, row.id));
     return reply.status(204).send();
   });

@@ -14,6 +14,7 @@ import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import type { AppContext } from "../context";
 import { HttpError } from "../http";
 import { loadPolicies } from "../policies";
+import { projectRunnerOwner, requireRunnerOwner } from "../runner-owner";
 
 const { attempts, missions, plans, tasks } = schema;
 
@@ -108,6 +109,7 @@ export async function editPlan(
   edits: PlanEdit[],
   actor: Actor,
 ) {
+  await requireRunnerOwner(ctx.db, mission.projectId, actor, "edit the plan");
   return ctx.db.transaction(async (tx) => {
     const latest = await latestPlan(tx, mission.id);
     if (!latest || latest.version !== version || latest.status !== "proposed")
@@ -136,6 +138,14 @@ export async function approvePlan(
   actor: Actor,
   userId: string | null,
 ) {
+  // On a project that lives on someone's machine, they approve; Brio approves for them only their own mission's first
+  // plan, when they asked for a quick start. A replanned version waits for them.
+  if (
+    userId !== null ||
+    version > 1 ||
+    (await projectRunnerOwner(ctx.db, mission.projectId))?.ownerId !== mission.createdBy
+  )
+    await requireRunnerOwner(ctx.db, mission.projectId, userId, "approve the plan");
   return ctx.db.transaction(async (tx) => {
     const [plan] = await tx
       .select()

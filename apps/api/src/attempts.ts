@@ -57,7 +57,9 @@ async function ownerConsents(
       .select({ approvedBy: plans.approvedBy })
       .from(plans)
       .where(and(eq(plans.missionId, mission.id), eq(plans.version, planVersion)));
-    const approver = plan?.approvedBy ?? (mission.autoApprove ? mission.createdBy : null);
+    // A quick start approves only the owner's own first plan for them; any later version needs their explicit yes.
+    const approver =
+      plan?.approvedBy ?? (mission.autoApprove && planVersion === 1 ? mission.createdBy : null);
     if (approver !== r.ownerId) refuse("they did not approve this version of the plan");
   }
 }

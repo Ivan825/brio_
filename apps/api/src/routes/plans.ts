@@ -8,6 +8,7 @@ import type { AppContext } from "../context";
 import { HttpError, requireMember, requireSession } from "../http";
 import { cancelMission } from "../missions";
 import { approvePlan, editPlan } from "../orchestrator/plans";
+import { requireRunnerOwner } from "../runner-owner";
 
 const { missions, plans } = schema;
 const Params = z.object({ id: z.uuid() });
@@ -85,6 +86,7 @@ export async function planRoutes(app: FastifyInstance, ctx: AppContext) {
     if (!["awaiting_approval", "draft", "failed"].includes(m.status))
       throw new HttpError(409, `a ${m.status} mission cannot be replanned`, "not_replannable");
     const { notes } = Replan.parse(req.body ?? {});
+    await requireRunnerOwner(ctx.db, m.projectId, s.userId, "replan the mission");
     await ctx.orchestrator.replan(m, notes, `user:${s.userId}`);
     return { replanning: true };
   });

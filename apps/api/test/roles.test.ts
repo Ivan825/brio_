@@ -229,6 +229,12 @@ describe.skipIf(!hasTestDatabase)("M9: roles enforced everywhere", () => {
       role: "admin",
     });
     expect(promote.json().error).toBe("owner_only");
+    // Nor by inviting one.
+    const invite = await call("admin", "POST", `/v1/workspaces/${workspaceId}/invitations`, {
+      email: "new-admin@example.com",
+      role: "admin",
+    });
+    expect(invite.json().error).toBe("owner_only");
     expect(
       (await call("admin", "DELETE", `/v1/workspaces/${workspaceId}/members/${ids.owner}`)).json().error,
     ).toBe("owner_only");

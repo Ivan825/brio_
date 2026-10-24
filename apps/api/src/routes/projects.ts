@@ -8,6 +8,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { AppContext } from "../context";
 import { HttpError, one, requireMember, requireSession, workspaceFor } from "../http";
+import { requireRunnerOwner } from "../runner-owner";
 
 const { projects } = schema;
 
@@ -160,6 +161,7 @@ export async function projectRoutes(app: FastifyInstance, ctx: AppContext) {
         ),
       );
     if (!p) throw new HttpError(404, "project not found", "not_found");
+    await requireRunnerOwner(ctx.db, p.id, s.userId, "change the project");
     const row = await ctx.db.transaction(async (tx) => {
       const settings = { ...p.settings };
       if (body.githubRepo !== undefined) {

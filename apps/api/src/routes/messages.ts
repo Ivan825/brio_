@@ -6,6 +6,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { AppContext } from "../context";
 import { HttpError, one, requireMember, requireSession } from "../http";
+import { requireRunnerOwner } from "../runner-owner";
 
 const { messages, missions, tasks } = schema;
 const Params = z.object({ id: z.uuid() });
@@ -97,6 +98,8 @@ export async function messageRoutes(app: FastifyInstance, ctx: AppContext) {
       .from(missions)
       .where(and(eq(missions.id, t.missionId)));
     if (!m) throw new HttpError(404, "mission not found", "not_found");
+    // A review's reasons go to the agent that revises: on someone's machine, only they review.
+    await requireRunnerOwner(ctx.db, m.projectId, s.userId, "review results");
     await ctx.orchestrator.review(m, t, body.verdict, body.reasons, s.userId);
     return { reviewed: body.verdict };
   });

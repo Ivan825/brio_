@@ -152,8 +152,11 @@ export async function workspaceRoutes(app: FastifyInstance, ctx: AppContext) {
     const s = await requireSession(ctx, req);
     const { id } = Params.parse(req.params);
     requireSignedIn(s, "invite people");
-    await requireMember(ctx, id, s, ["owner", "admin"]);
+    const { role: mine } = await requireMember(ctx, id, s, ["owner", "admin"]);
     const body = Invite.parse(req.body);
+    // As with role changes, only owners make admins (security review, M1 class).
+    if (body.role === "admin" && mine !== "owner")
+      throw new HttpError(403, "only an owner can invite admins", "owner_only");
     const inv = await ctx.auth.api.createInvitation({
       body: { email: body.email, role: body.role, organizationId: id },
       headers: fromNodeHeaders(req.headers),

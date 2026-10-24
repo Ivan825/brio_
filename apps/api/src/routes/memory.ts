@@ -9,6 +9,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { AppContext } from "../context";
 import { HttpError, one, requireMember, requireSession, workspaceFor } from "../http";
+import { requireRunnerOwner } from "../runner-owner";
 
 const { memoryEdges, memoryNodes, projects } = schema;
 
@@ -115,6 +116,8 @@ export async function memoryRoutes(app: FastifyInstance, ctx: AppContext) {
   /** Adds something for the project to remember (a preference, a decision). */
   app.post("/v1/projects/:id/memory", async (req, reply) => {
     const { s, workspaceId, project } = await projectFor(req, ["owner", "admin", "member"]);
+    // What a project remembers goes into every prompt there: on someone's machine, only they add to it.
+    await requireRunnerOwner(ctx.db, project.id, s.userId, "add to what the project remembers");
     const body = Add.parse(req.body);
     const row = one(
       await ctx.db
@@ -141,6 +144,7 @@ export async function memoryRoutes(app: FastifyInstance, ctx: AppContext) {
   /** Corrects a remembered item. */
   app.patch("/v1/memory/:id", async (req) => {
     const { s, workspaceId, node } = await nodeFor(req);
+    await requireRunnerOwner(ctx.db, node.projectId, s.userId, "change what the project remembers");
     const body = Edit.parse(req.body);
     const [row] = await ctx.db
       .update(memoryNodes)

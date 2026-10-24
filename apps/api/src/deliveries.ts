@@ -7,6 +7,7 @@ import { enqueueDelivery, githubRepoOf } from "@brio/runner";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import type { AppContext } from "./context";
 import { HttpError } from "./http";
+import { requireRunnerOwner } from "./runner-owner";
 import { pokeRunner } from "./runners/hub";
 
 const { approvals, deliveries, integrations, missions, projects } = schema;
@@ -136,6 +137,14 @@ export async function decideApproval(
   ctx: AppContext,
   i: { approvalId: string; workspaceId: string; userId: string; approve: boolean; reason?: string },
 ) {
+  // A push or pull request from someone's machine goes out with their git access: only they say yes to it.
+  const [subject] = await ctx.db
+    .select({ projectId: missions.projectId })
+    .from(approvals)
+    .innerJoin(missions, and(eq(approvals.subjectKind, "mission"), eq(missions.id, approvals.subjectId)))
+    .where(and(eq(approvals.id, i.approvalId), eq(approvals.workspaceId, i.workspaceId)));
+  if (subject)
+    await requireRunnerOwner(ctx.db, subject.projectId, i.userId, "decide what leaves the machine");
   const decided = await ctx.db.transaction(async (tx) => {
     const [a] = await tx
       .update(approvals)
