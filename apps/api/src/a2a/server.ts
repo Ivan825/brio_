@@ -524,8 +524,18 @@ export async function a2aRoutes(app: FastifyInstance, ctx: AppContext, opts: { p
       user: new BrioUser(session),
       ...(typeof version === "string" && version ? { requestedVersion: version } : {}),
     });
-    validateVersion(context.requestedVersion, await handler.getAgentCard(), "JSONRPC");
-    const result = await transport.handle(req.body as Record<string, unknown>, context);
+    let result: unknown;
+    try {
+      validateVersion(context.requestedVersion, await handler.getAgentCard(), "JSONRPC");
+      result = await transport.handle(req.body as Record<string, unknown>, context);
+    } catch (e) {
+      // A request the protocol refuses (an unknown version or method) is a JSON-RPC error, not a server error.
+      return reply.send({
+        jsonrpc: "2.0",
+        id: (req.body as { id?: unknown })?.id ?? null,
+        error: JsonRpcTransportHandler.mapToJSONRPCError(e),
+      });
+    }
     if (typeof (result as AsyncGenerator)[Symbol.asyncIterator] !== "function") return reply.send(result);
     const stream = result as AsyncGenerator<unknown>;
     reply.hijack();

@@ -175,6 +175,19 @@ describe.skipIf(!hasTestDatabase)("M9: roles enforced everywhere", () => {
     memberToken = made.json().token.value;
     const res = await a2a(memberToken);
     expect(res.statusCode, res.body).toBe(200);
+    // A request the protocol refuses comes back as a JSON-RPC error.
+    const refused = await h.server.app.inject({
+      method: "POST",
+      url: "/a2a",
+      headers: { authorization: `Bearer ${memberToken}`, "content-type": "application/json" },
+      payload: { jsonrpc: "2.0", id: 7, method: "no/such-method", params: {} },
+    });
+    expect(refused.statusCode).toBe(200);
+    expect(refused.json()).toMatchObject({
+      jsonrpc: "2.0",
+      id: 7,
+      error: expect.objectContaining({ code: expect.any(Number) }),
+    });
   });
 
   it("cannot go around Brio's rules through Better Auth's own workspace endpoints", async () => {
