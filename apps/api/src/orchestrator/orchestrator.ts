@@ -68,6 +68,12 @@ const NO_CONFLICT_MARKERS = "! git grep -nE '^(<<<<<<<|>>>>>>>)( |$)'";
 export const MAX_REPLANS = 1;
 /** Planner retries when its answer is not a valid plan. */
 export const MAX_PLANNING_RETRIES = 2;
+
+/**
+ * A vendor refused the agent itself — a model it no longer serves, a key it rejects, no access — so the same agent
+ * with the same model would only fail again. Planning moves on to another agent instead of spending its retries.
+ */
+export const AGENT_REFUSED = /^failed: (not_found|auth|forbidden|misconfigured)\b/;
 const MAX_PARALLEL = 4;
 const LEASE_TTL_MS = 6 * 3600_000;
 const COMMAND_CHECKS = new Set(["tests", "typecheck", "lint", "build"]);
@@ -367,8 +373,42 @@ export class Orchestrator {
       }
       return this.retryPlanning(m, task, parsed.errors);
     }
-    if (task.status === "failed" || (task.status === "verifying" && attempt?.status !== "succeeded"))
+    if (task.status === "failed" || (task.status === "verifying" && attempt?.status !== "succeeded")) {
+      if (attempt?.exitReason && AGENT_REFUSED.test(attempt.exitReason)) {
+        // Not the plan's fault: dispatchPlanner skips the refused agent, or says what to fix when none is left.
+        const [claimed] = await this.ctx.db
+          .update(tasks)
+          .set({ status: "ready" })
+          .where(and(eq(tasks.id, task.id), inArray(tasks.status, ["verifying", "failed"])))
+          .returning();
+        if (claimed) this.schedule(m.id);
+        return;
+      }
       return this.retryPlanning(m, task, [attempt?.exitReason ?? "the planner did not finish"]);
+    }
+  }
+
+  /** Agents whose vendor refused them on this task with the model they still have: they would only fail again. */
+  private async refusedAgents(
+    taskId: string,
+    agents: readonly WorkspaceAgent[],
+  ): Promise<Map<string, { name: string; model: string; reason: string }>> {
+    const rows = await this.ctx.db
+      .select({ agentId: attempts.agentId, exitReason: attempts.exitReason, dispatch: attempts.dispatch })
+      .from(attempts)
+      .where(and(eq(attempts.taskId, taskId), eq(attempts.status, "failed")));
+    const refused = new Map<string, { name: string; model: string; reason: string }>();
+    for (const r of rows) {
+      const agent = agents.find((a) => a.id === r.agentId);
+      const model = (r.dispatch?.agent as { model?: string } | undefined)?.model;
+      if (agent && r.exitReason && AGENT_REFUSED.test(r.exitReason) && model === agent.model)
+        refused.set(agent.id, {
+          name: agent.name,
+          model: agent.model,
+          reason: r.exitReason.replace(/^failed: /, "").slice(0, 300),
+        });
+    }
+    return refused;
   }
 
   /** The saved pipeline the planner adapts for this mission, if it started from one (and it still exists). */
@@ -413,7 +453,17 @@ export class Orchestrator {
       "internal",
       await loadPolicies(this.ctx.db, m.workspaceId),
     ).allowed;
-    const route = choosePlanner(agents, m.plannerAgentId);
+    const refused = await this.refusedAgents(task.id, agents);
+    const usable = agents.filter((a) => !refused.has(a.id));
+    if (refused.size && !usable.some((a) => a.route === "api")) {
+      const [first] = refused.values();
+      return this.block(
+        m,
+        `planning: the vendor refused ${[...refused.values()].map((r) => `${r.name} (${r.model})`).join(", ")}: ${first?.reason}. Open Agents and choose another model, or add another agent; planning resumes by itself.`,
+      );
+    }
+    const pinned = m.plannerAgentId && !refused.has(m.plannerAgentId) ? m.plannerAgentId : null;
+    const route = choosePlanner(usable, pinned);
     if (!route.ok) return this.block(m, `planning: ${route.reason}`);
     let repo = false;
     if (m.projectId) {
