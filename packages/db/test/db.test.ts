@@ -30,6 +30,8 @@ const EXPECTED_TABLES = [
   "invitations",
   "jwks",
   "leases",
+  "mandate_connections",
+  "mandate_holds",
   "ledger",
   "members",
   "memory_edges",

@@ -169,6 +169,13 @@
       "when": 1792801698147,
       "tag": "0023_score_contributors",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792802696230,
+      "tag": "0024_mandate",
+      "breakpoints": true
     }
   ]
 }
