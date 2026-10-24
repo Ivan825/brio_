@@ -162,6 +162,13 @@
       "when": 1792801263582,
       "tag": "0022_member_changed",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792801698147,
+      "tag": "0023_score_contributors",
+      "breakpoints": true
     }
   ]
 }

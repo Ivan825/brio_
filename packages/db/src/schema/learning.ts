@@ -8,6 +8,7 @@ import {
   jsonb,
   numeric,
   pgTable,
+  primaryKey,
   smallint,
   text,
   timestamp,
@@ -104,4 +105,19 @@ export const evalRuns = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index().on(t.workspaceId, t.createdAt)],
+);
+
+/**
+ * Who has contributed to a global score (D-14), as a salted hash of the workspace: global numbers are only used once
+ * enough different workspaces stand behind them, and no workspace can be read out of them.
+ */
+export const scoreContributors = pgTable(
+  "score_contributors",
+  {
+    agentKey: text().notNull(),
+    taskType: text().notNull(),
+    contributor: text().notNull(),
+    at: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.agentKey, t.taskType, t.contributor] })],
 );

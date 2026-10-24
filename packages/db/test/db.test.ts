@@ -54,6 +54,7 @@ const EXPECTED_TABLES = [
   "ratings",
   "reviews",
   "runners",
+  "score_contributors",
   "score_history",
   "scores",
   "sessions",
