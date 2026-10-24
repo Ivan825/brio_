@@ -7,6 +7,7 @@ import {
   LayoutTemplate,
   type LucideIcon,
   Plug,
+  Scale,
   Settings,
   Users,
   Workflow,
@@ -28,5 +29,6 @@ export const NAV: readonly NavItem[] = [
   { href: "/templates", label: "Templates", icon: LayoutTemplate },
   { href: "/scoreboard", label: "Scoreboard", icon: Gauge },
   { href: "/evals", label: "Evals", icon: FlaskConical },
+  { href: "/governance", label: "Governance", icon: Scale },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

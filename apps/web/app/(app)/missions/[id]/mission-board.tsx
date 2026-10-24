@@ -8,6 +8,7 @@ import { useRunning } from "@/components/running";
 import { RUNNING_STATUSES, StatusChip } from "@/components/status-chip";
 import { usd } from "@/lib/format";
 import type { AgentSummary, AttemptSummary } from "@/lib/types";
+import { BudgetPanel } from "./budget-panel";
 import { type Delivery, DeliveryPanel } from "./delivery-panel";
 import { MessagesPanel, type MissionMessage } from "./messages-panel";
 import { PlanGraph } from "./plan-graph";
@@ -85,7 +86,7 @@ type Connection = "connecting" | "live" | "reconnecting";
 
 /** Events that change the mission's shape (plan, task states, messages): the page re-reads its data on them. */
 const STRUCTURAL =
-  /^(plan|task|mission|message|review|judge|approval|check|handoff|contract|lease|delivery)\.|^attempt\.(queued|started|finished)$/;
+  /^(plan|task|mission|message|review|judge|approval|check|handoff|contract|lease|delivery|budget)\.|^attempt\.(queued|started|finished)$/;
 
 function summarise(e: BoardEvent): string {
   const p = e.payload;
@@ -137,6 +138,9 @@ function summarise(e: BoardEvent): string {
       return p.url ? `${p.branch} · ${p.url}` : String(p.branch ?? "");
     case "delivery.failed":
       return String(p.error ?? "");
+    case "budget.warn":
+    case "budget.stop":
+      return `${p.scope} budget $${p.limitUsd} · spent $${p.spentUsd}${p.reason ? ` · ${p.reason}` : ""}`;
     case "contract.changed":
       return `${p.name} v${p.from} → v${p.to}`;
     case "attempt.queued":
@@ -303,6 +307,13 @@ export function MissionBoard({
         <PlanPanel missionId={mission.id} plan={plan} agents={agents} />
       )}
       {openForUser.length > 0 && <MessagesPanel messages={openForUser} />}
+      <BudgetPanel
+        missionId={mission.id}
+        {...(mission.budget?.usd !== undefined ? { budgetUsd: mission.budget.usd } : {})}
+        reasons={work
+          .filter((t) => t.status === "blocked" && /^(dispatch: )?budget: /.test(t.blockedReason ?? ""))
+          .map((t) => t.blockedReason ?? "")}
+      />
       <DeliveryPanel
         missionId={mission.id}
         deliveries={initial.deliveries ?? []}

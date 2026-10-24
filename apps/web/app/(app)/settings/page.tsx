@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { EmptyState } from "@/components/empty-state";
 import { getWorkspaces, serverApi } from "@/lib/server-api";
 import type { RunnerSummary } from "@/lib/types";
+import { NotificationSettings, type NotificationSettingsView } from "./notifications";
 import { LocalRunners } from "./runners";
 import {
   type ApiTokenRow,
@@ -36,6 +37,7 @@ export default async function SettingsPage() {
     : [];
   const origin = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/+$/, "");
   const runners = (await serverApi<{ runners: RunnerSummary[] }>("/v1/runners")).data?.runners ?? [];
+  const notifications = (await serverApi<NotificationSettingsView>("/v1/notifications/prefs")).data;
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-10 px-6 py-8">
@@ -86,6 +88,15 @@ export default async function SettingsPage() {
             in this workspace only.
           </p>
           <ApiTokens tokens={tokens} origin={origin} />
+        </section>
+      )}
+
+      {notifications && (
+        <section aria-labelledby="notifications" className="flex flex-col gap-3">
+          <h2 id="notifications" className="font-mono text-2xs uppercase tracking-[0.08em] text-fg-muted">
+            Notifications
+          </h2>
+          <NotificationSettings view={notifications} canManage={canManage} />
         </section>
       )}
 

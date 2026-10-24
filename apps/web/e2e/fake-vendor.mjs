@@ -54,6 +54,30 @@ const CODE_PLAN = {
   questions: [],
 };
 
+/** For the M9 acceptance ("Confidential report"): one task whose data may only go where policy allows. */
+const CONFIDENTIAL_PLAN = {
+  tasks: [
+    {
+      key: "salary-summary",
+      type: "write.summary",
+      title: "Summarise the salary bands",
+      contract: {
+        objective: "Summarise the salary bands for the board",
+        inputs: [],
+        outputs: [{ kind: "report", description: "the summary" }],
+        acceptance: [{ kind: "human", hard: true }],
+        constraints: [],
+        sensitivity: "confidential",
+      },
+      dependsOn: [],
+      suggestedMode: "single",
+      estimate: { usd: 0.01, minutes: 1 },
+    },
+  ],
+  assumptions: [],
+  questions: [],
+};
+
 /** Pull requests opened through the fake GitHub API (the runner's BRIO_GITHUB_API_URL points here in e2e). */
 let pulls = 0;
 
@@ -77,7 +101,11 @@ createServer((req, res) => {
     });
     req.on("end", () => {
       const planning = body.includes("# Plan this mission");
-      const plan = body.includes("Ship the health file") ? CODE_PLAN : PLAN;
+      const plan = body.includes("Ship the health file")
+        ? CODE_PLAN
+        : body.includes("Confidential report")
+          ? CONFIDENTIAL_PLAN
+          : PLAN;
       // The coder's first turn writes the file; once the tool result is back it answers.
       const coding = !planning && body.includes("health.txt that says ok") && !body.includes('"role":"tool"');
       const message = coding

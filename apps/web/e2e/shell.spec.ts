@@ -10,6 +10,7 @@ const SCREENS = [
   { path: "/templates", nav: "Templates", heading: "Create a workspace first" },
   { path: "/scoreboard", nav: "Scoreboard", heading: "Nothing to score yet" },
   { path: "/evals", nav: "Evals", heading: "No eval runs yet" },
+  { path: "/governance", nav: "Governance", heading: "Create a workspace first" },
   { path: "/settings", nav: "Settings", heading: "Workspace settings" },
 ];
 
