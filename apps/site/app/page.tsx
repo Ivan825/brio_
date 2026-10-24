@@ -53,18 +53,19 @@ export default function Home() {
           <span className="h-1.5 w-1.5 rounded-xs bg-accent" aria-hidden />
           the conductor for AI agents · open source · self-hosted
         </p>
-        <div className="mt-4 flex max-w-full flex-wrap items-center gap-2 font-mono text-xs">
+        <div className="mt-6 flex w-fit max-w-full items-center gap-3 rounded-md border border-primary bg-surface-2 py-2.5 pl-3 pr-2.5 font-mono text-sm sm:text-md">
           <a
             href={NPM.page}
-            className="rounded-sm border border-line px-2 py-1 text-accent transition-colors duration-fast hover:border-line-strong"
+            className="rounded-sm bg-primary px-2 py-0.5 text-xs font-bold text-primary-fg transition-colors duration-fast hover:bg-primary-hover"
           >
             npm
           </a>
-          <code className="min-w-0 break-all rounded-sm bg-surface px-2.5 py-1 text-fg">
-            <span className="select-none text-accent">$ </span>
-            {NPM.install}
+          <code className="min-w-0 flex-1 text-fg">
+            <span className="select-none text-primary">$ </span>
+            {NPM.install.replace(NPM.name, "")}
+            <span className="whitespace-nowrap">{NPM.name}</span>
           </code>
-          <CopyButton text={NPM.install} />
+          <CopyButton text={NPM.install} large />
         </div>
         <div className="mt-8 grid items-start gap-12 lg:grid-cols-[1.05fr_1fr]">
           <div>
