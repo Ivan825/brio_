@@ -47,3 +47,90 @@ export function enqueueIntegration(boss: PgBoss, job: IntegrationJob): Promise<s
 export function enqueueDelivery(boss: PgBoss, deliveryId: string): Promise<string | null> {
   return boss.send(DELIVER_QUEUE, { deliveryId } satisfies DeliveryJob);
 }
+
+/**
+ * Takes jobs from one queue for up to `capacity` handlers at a time with a single claim loop: it asks pg-boss for as
+ * many jobs as it has free slots, so an idle runner costs the database one small query per queue each `pollMs`,
+ * whatever its concurrency (one poller per slot made eight idle runners cost Postgres ~2,000 queries a second).
+ * Each job is completed or failed when its handler settles; stopping aborts the running handlers' signals.
+ */
+export class JobPump<T extends object> {
+  private running = 0;
+  private stopped = false;
+  private readonly active = new Set<AbortController>();
+  private wake: (() => void) | null = null;
+  private loop: Promise<void> | null = null;
+
+  constructor(
+    private readonly boss: PgBoss,
+    private readonly queue: string,
+    private readonly capacity: number,
+    private readonly handle: (job: { id: string; data: T; signal: AbortSignal }) => Promise<void>,
+    private readonly pollMs = 500,
+  ) {}
+
+  start(): void {
+    this.loop ??= this.run();
+  }
+
+  /** Jobs being handled now. */
+  get busy(): number {
+    return this.running;
+  }
+
+  private async run(): Promise<void> {
+    while (!this.stopped) {
+      const free = this.capacity - this.running;
+      let full = false;
+      if (free > 0) {
+        const want = Math.min(free, 50);
+        const jobs = await this.boss.fetch<T>(this.queue, { batchSize: want }).catch(() => []);
+        for (const job of jobs) this.launch(job.id, job.data);
+        // A full batch: more may be waiting, so ask again at once.
+        full = jobs.length === want;
+      }
+      if (!full) await this.pause();
+    }
+  }
+
+  /** Waits for the next poll, or less when a slot frees up while the runner was full. */
+  private pause(): Promise<void> {
+    return new Promise((resolve) => {
+      const t = setTimeout(done, this.pollMs);
+      const self = this;
+      function done() {
+        clearTimeout(t);
+        self.wake = null;
+        resolve();
+      }
+      this.wake = this.running >= this.capacity ? done : null;
+    });
+  }
+
+  private launch(id: string, data: T): void {
+    this.running++;
+    const ac = new AbortController();
+    this.active.add(ac);
+    void this.handle({ id, data, signal: ac.signal })
+      .then(
+        () => this.boss.complete(this.queue, id),
+        (err: unknown) => this.boss.fail(this.queue, id, { message: String((err as Error)?.message ?? err) }),
+      )
+      .catch(() => {
+        // The job expires and is retried (or the attempt row's state wins): nothing to do here.
+      })
+      .finally(() => {
+        this.running--;
+        this.active.delete(ac);
+        this.wake?.();
+      });
+  }
+
+  /** Takes no more jobs and aborts the running handlers' signals; resolves when the claim loop has ended. */
+  async stop(): Promise<void> {
+    this.stopped = true;
+    for (const ac of this.active) ac.abort();
+    this.wake?.();
+    await this.loop;
+  }
+}

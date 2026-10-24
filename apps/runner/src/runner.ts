@@ -23,6 +23,7 @@ import {
   DELIVER_QUEUE,
   enqueueAttempt,
   INTEGRATE_QUEUE,
+  JobPump,
 } from "./queue";
 
 const { attempts, tasks } = schema;
@@ -70,6 +71,7 @@ export class Runner {
   private readonly running = new Map<string, { abort: AbortController; done: Promise<void> }>();
   private listener: pg.Client | null = null;
   private timers: NodeJS.Timeout[] = [];
+  private pumps: Array<{ start(): void; stop(): Promise<void> }> = [];
   private stopped = false;
 
   constructor(private readonly o: RunnerOptions) {
@@ -86,34 +88,22 @@ export class Runner {
 
   async start(): Promise<void> {
     await this.mailboxServer.start(this.o.mailboxPort ?? 0);
-    await this.o.boss.work<AttemptJob>(
-      ATTEMPT_QUEUE,
-      { localConcurrency: this.o.concurrency ?? 2, batchSize: 1, pollingIntervalSeconds: 0.5 },
-      async ([job]) => {
-        if (job) await this.run(job.data.attemptId);
-      },
-    );
-    await this.o.boss.work<AttemptJob>(
-      CHECK_QUEUE,
-      { localConcurrency: this.o.concurrency ?? 2, batchSize: 1, pollingIntervalSeconds: 0.5 },
-      async ([job]) => {
-        if (job && !this.stopped) await this.checks.run(job.data.attemptId, job.signal);
-      },
-    );
-    await this.o.boss.work<IntegrationJob>(
-      INTEGRATE_QUEUE,
-      { localConcurrency: 1, batchSize: 1, pollingIntervalSeconds: 0.5 },
-      async ([job]) => {
-        if (job && !this.stopped) await this.integrations.run(job.data, job.signal);
-      },
-    );
-    await this.o.boss.work<DeliveryJob>(
-      DELIVER_QUEUE,
-      { localConcurrency: 1, batchSize: 1, pollingIntervalSeconds: 0.5 },
-      async ([job]) => {
-        if (job && !this.stopped) await this.deliveries.run(job.data);
-      },
-    );
+    const n = this.o.concurrency ?? 2;
+    this.pumps = [
+      new JobPump<AttemptJob>(this.o.boss, ATTEMPT_QUEUE, n, async (job) => {
+        await this.run(job.data.attemptId);
+      }),
+      new JobPump<AttemptJob>(this.o.boss, CHECK_QUEUE, n, async (job) => {
+        if (!this.stopped) await this.checks.run(job.data.attemptId, job.signal);
+      }),
+      new JobPump<IntegrationJob>(this.o.boss, INTEGRATE_QUEUE, 1, async (job) => {
+        if (!this.stopped) await this.integrations.run(job.data, job.signal);
+      }),
+      new JobPump<DeliveryJob>(this.o.boss, DELIVER_QUEUE, 1, async (job) => {
+        if (!this.stopped) await this.deliveries.run(job.data);
+      }),
+    ];
+    for (const p of this.pumps) p.start();
     this.listener = new pg.Client({ connectionString: this.o.databaseUrl });
     this.listener.on("error", (err) => this.o.log.warn({ err: err.message }, "cancel listener error"));
     await this.listener.connect();
@@ -265,11 +255,8 @@ export class Runner {
   async stop(): Promise<void> {
     this.stopped = true;
     for (const t of this.timers) clearInterval(t);
-    await this.o.boss.offWork(ATTEMPT_QUEUE).catch(() => {});
-    await this.o.boss.offWork(CHECK_QUEUE).catch(() => {});
-    await this.o.boss.offWork(INTEGRATE_QUEUE).catch(() => {});
-    await this.o.boss.offWork(DELIVER_QUEUE).catch(() => {});
     for (const r of this.running.values()) r.abort.abort();
+    await Promise.all(this.pumps.map((p) => p.stop()));
     await Promise.all([...this.running.values()].map((r) => r.done));
     await this.listener?.end().catch(() => {});
     await this.mailboxServer.stop();
