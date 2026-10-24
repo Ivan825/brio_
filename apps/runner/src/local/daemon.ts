@@ -11,6 +11,7 @@ import {
   adapterFor,
   type CheckItem,
   type FetchLike,
+  guardedFetch,
   LimitExceeded,
   type Logger,
 } from "@brio/adapters";
@@ -253,7 +254,8 @@ export class LocalRunner {
               "this agent's key stays in Brio's vault: a local runner runs CLIs under the person's own sign-in",
             );
           },
-          fetch: this.o.fetch ?? fetch,
+          // The person's own network is theirs to reach (local models); cloud metadata and link-local never.
+          fetch: this.o.fetch ?? guardedFetch(fetch, { allowPrivate: true, allowHttp: true }),
           log: this.o.log,
           redactor: this.redactor,
           resolveAdapter: (key) => (this.o.resolveAdapter ?? adapterFor)(key),

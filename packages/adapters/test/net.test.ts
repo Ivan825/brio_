@@ -98,6 +98,16 @@ describe("URL guard: addresses in disguise (security review M2)", () => {
       expect(addressRefusal(ip, open), ip).toMatch(/blocked/);
     for (const ip of ["2606:4700::1111", "::ffff:8.8.8.8", "203.0.113.10"])
       expect(addressRefusal(ip, strict), ip).toBeNull();
+    // Ranges in disguise or outside the public internet.
+    for (const ip of [
+      "198.18.0.1",
+      "64:ff9b:1::a00:1",
+      "2001:0:4136:e378:8000:63bf:3fff:fdd2",
+      "::ffff:0:7f00:1",
+    ])
+      expect(addressRefusal(ip, strict), ip).toMatch(/private/);
+    for (const ip of ["224.0.0.1", "239.255.255.250", "255.255.255.255", "240.0.0.1", "::ffff:0:a9fe:a9fe"])
+      expect(addressRefusal(ip, open), ip).toMatch(/blocked/);
   });
 
   it("refuses an unspecified-address URL", async () => {

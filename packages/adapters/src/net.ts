@@ -10,6 +10,8 @@ const alwaysBlocked = new BlockList();
 alwaysBlocked.addSubnet("169.254.0.0", 16, "ipv4"); // link-local, incl. cloud metadata 169.254.169.254
 alwaysBlocked.addSubnet("100.100.100.200", 32, "ipv4"); // Alibaba Cloud metadata
 alwaysBlocked.addSubnet("0.0.0.0", 8, "ipv4");
+alwaysBlocked.addSubnet("224.0.0.0", 4, "ipv4"); // multicast
+alwaysBlocked.addSubnet("240.0.0.0", 4, "ipv4"); // reserved, incl. 255.255.255.255
 alwaysBlocked.addSubnet("fe80::", 10, "ipv6");
 alwaysBlocked.addAddress("fd00:ec2::254", "ipv6"); // AWS IMDS over IPv6
 
@@ -19,8 +21,11 @@ privateRanges.addSubnet("172.16.0.0", 12, "ipv4");
 privateRanges.addSubnet("192.168.0.0", 16, "ipv4");
 privateRanges.addSubnet("127.0.0.0", 8, "ipv4");
 privateRanges.addSubnet("100.64.0.0", 10, "ipv4"); // CGNAT
+privateRanges.addSubnet("198.18.0.0", 15, "ipv4"); // benchmarking, used inside some networks
 privateRanges.addSubnet("::", 96, "ipv6"); // :: (this host), ::1, and IPv4-compatible ::a.b.c.d
 privateRanges.addSubnet("fc00::", 7, "ipv6"); // unique local
+privateRanges.addSubnet("64:ff9b:1::", 48, "ipv6"); // NAT64 for local use
+privateRanges.addSubnet("2001::", 32, "ipv6"); // Teredo (its IPv4 address is obfuscated)
 
 /**
  * The IPv4 address an IPv6 address carries, if any — IPv4-mapped (::ffff:a.b.c.d, also written ::ffff:7f00:1),
@@ -33,6 +38,7 @@ export function embeddedIpv4(ip: string): string | null {
   const v4 = (hi: number, lo: number) => `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`;
   const zero = (from: number, to: number) => groups.slice(from, to).every((g) => g === 0);
   if (zero(0, 5) && groups[5] === 0xffff) return v4(groups[6]!, groups[7]!);
+  if (zero(0, 4) && groups[4] === 0xffff && groups[5] === 0) return v4(groups[6]!, groups[7]!); // IPv4-translated
   if (zero(0, 6) && (groups[6] !== 0 || groups[7]! > 1)) return v4(groups[6]!, groups[7]!);
   if (groups[0] === 0x64 && groups[1] === 0xff9b && zero(2, 6)) return v4(groups[6]!, groups[7]!);
   if (groups[0] === 0x2002) return v4(groups[1]!, groups[2]!);

@@ -195,8 +195,13 @@ export async function buildServer({
       max: config.BRIO_RATE_LIMIT_PER_MINUTE,
       timeWindow: "1 minute",
       keyGenerator: (req) => req.ip,
-      allowList: (req) =>
-        req.url === "/health" || req.url.endsWith("/events") || req.url.startsWith("/v1/runners/"),
+      // By path alone: a query string cannot make a request look like an event stream (security re-review).
+      allowList: (req) => {
+        const path = new URL(req.url, "http://brio.invalid").pathname;
+        return (
+          path === "/health" || /^\/v1\/missions\/[^/]+\/events$/.test(path) || path === "/v1/runners/connect"
+        );
+      },
     });
 
   app.setErrorHandler((err, req, reply) => {

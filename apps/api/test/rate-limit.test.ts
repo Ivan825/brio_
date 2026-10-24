@@ -26,5 +26,9 @@ describe.skipIf(!hasTestDatabase)("rate limit", () => {
     ).not.toBe(429);
     for (let i = 0; i < 10; i++)
       expect((await h.server.app.inject({ method: "GET", url: "/health" })).statusCode).toBe(200);
+    // A query string does not make a request an event stream.
+    expect((await h.server.app.inject({ method: "GET", url: "/v1/registry?x=/events" })).statusCode).toBe(
+      429,
+    );
   });
 });

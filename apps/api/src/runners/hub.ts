@@ -453,8 +453,16 @@ export class RunnerHub {
           return;
         }
         // Spend is live on the attempt, before its event, as with the cloud runner (budgets read it, M9).
-        if (m.type === "attempt.cost" && typeof m.payload.totalUsd === "number")
-          await db.update(attempts).set({ costUsd: m.payload.totalUsd }).where(eq(attempts.id, m.attemptId));
+        if (
+          m.type === "attempt.cost" &&
+          typeof m.payload.totalUsd === "number" &&
+          Number.isFinite(m.payload.totalUsd)
+        )
+          // Spend only grows: a runner cannot report its way under a budget.
+          await db
+            .update(attempts)
+            .set({ costUsd: sql`greatest(${attempts.costUsd}, ${Math.max(0, m.payload.totalUsd)})` })
+            .where(eq(attempts.id, m.attemptId));
         await this.ctx.events.append(db, {
           workspaceId: a.workspaceId,
           missionId: a.missionId,
@@ -522,6 +530,7 @@ export class RunnerHub {
         );
         // A local runner may settle only its own kinds of check, and only once.
         if (!current || current.status !== "pending" || current.kind !== m.item.kind) return;
+        if (m.item.status !== "passed" && m.item.status !== "failed") return;
         const item: CheckItem = { ...m.item, output: this.ctx.redactor.redact(m.item.output ?? "") };
         await recordCheck(
           this.ctx,
