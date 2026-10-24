@@ -24,10 +24,43 @@ import { inputsForAttempt } from "./mission-inputs";
 import { loadPolicies } from "./policies";
 import { pokeRunner } from "./runners/hub";
 
-const { agents, attempts, connectors, missions, projects, runners, tasks } = schema;
+const { agents, attempts, connectors, missions, plans, projects, runners, tasks, users } = schema;
 
 /** Per-attempt defaults when neither the agent nor the task sets a limit. */
 export const DEFAULT_LIMITS = { maxCostUsd: 1, maxMinutes: 10, maxOutputTokens: 8192, maxTurns: 12 } as const;
+
+/** Refuses work on a local runner's project that its owner did not start and approve themselves. */
+async function ownerConsents(
+  ctx: AppContext,
+  runnerId: string,
+  mission: { createdBy: string | null; autoApprove: boolean; id: string },
+  planVersion: number,
+  actor: Actor,
+): Promise<void> {
+  const [r] = await ctx.db
+    .select({ name: runners.name, ownerId: runners.ownerId, owner: users.email })
+    .from(runners)
+    .innerJoin(users, eq(users.id, runners.ownerId))
+    .where(and(eq(runners.id, runnerId), isNull(runners.revokedAt)));
+  if (!r) throw new HttpError(409, "the project's local runner was revoked", "runner_revoked");
+  const refuse = (why: string) => {
+    throw new HttpError(
+      403,
+      `${r.name} is ${r.owner}'s machine: only they start work there (${why})`,
+      "runner_owner_only",
+    );
+  };
+  if (mission.createdBy !== r.ownerId) refuse("this mission is someone else's");
+  if (actor.startsWith("user:") && actor !== `user:${r.ownerId}`) refuse("someone else started this run");
+  if (planVersion > 0) {
+    const [plan] = await ctx.db
+      .select({ approvedBy: plans.approvedBy })
+      .from(plans)
+      .where(and(eq(plans.missionId, mission.id), eq(plans.version, planVersion)));
+    const approver = plan?.approvedBy ?? (mission.autoApprove ? mission.createdBy : null);
+    if (approver !== r.ownerId) refuse("they did not approve this version of the plan");
+  }
+}
 
 export const RUNNABLE_TASK = ["pending", "ready", "failed", "verifying", "revise", "blocked"] as const;
 
@@ -134,6 +167,10 @@ export class AttemptRunner {
     const [project] = mission.projectId
       ? await ctx.db.select().from(projects).where(eq(projects.id, mission.projectId))
       : [];
+    // A project on a person's machine (a local runner) takes work only from that person (security review H2): the
+    // mission must be theirs, the plan version it follows approved by them, and a direct run started by them. Agents
+    // there run commands as that person, so no one else's goal, edits or checks may reach it.
+    if (project?.runnerId) await ownerConsents(ctx, project.runnerId, mission, task.planVersion, actor);
     // An agent bound to a local runner runs there, under the person's own sign-in: API keys never leave the vault.
     let target: Dispatch["target"];
     if (agent.runnerId) {

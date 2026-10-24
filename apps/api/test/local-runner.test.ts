@@ -268,6 +268,55 @@ describe.skipIf(!hasTestDatabase)("M8 acceptance: a local runner", () => {
     expect(git("ls-files")).toBe("README.md");
   }, 30_000);
 
+  it("takes work only from its owner: their mission, a plan version they approved", async () => {
+    const [p] = await h.db.db.select().from(schema.projects).where(eq(schema.projects.id, projectId));
+    const workspaceId = p!.workspaceId;
+    const other = new Client(h);
+    await other.signIn("colleague@example.com");
+    const inv = await c.request("POST", `/v1/workspaces/${workspaceId}/invitations`, {
+      email: "colleague@example.com",
+      role: "member",
+    });
+    expect(inv.statusCode, inv.body).toBe(201);
+    await other.request("POST", "/api/auth/organization/accept-invitation", {
+      invitationId: inv.json().invitation.id,
+    });
+    const as = (who: Client, method: "POST", url: string, body?: unknown) =>
+      who.request(method, url, body, { "x-brio-workspace": workspaceId });
+    const blockedTask = async (id: string) => {
+      for (let i = 0; i < 100; i++) {
+        const [t] = await h.db.db.select().from(schema.tasks).where(eq(schema.tasks.missionId, id));
+        if (t?.status === "blocked") return t;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      throw new Error("the task was not blocked");
+    };
+    const mission = async (who: Client, approver: Client) => {
+      const m = await as(who, "POST", "/v1/missions", {
+        goal: "Say hello",
+        plan: PLAN,
+        projectId,
+        routing: { strategy: "single", agentId },
+      });
+      expect(m.statusCode, m.body).toBe(201);
+      const id = m.json().mission.id as string;
+      expect((await as(approver, "POST", `/v1/missions/${id}/plans/1/approve`)).statusCode).toBe(200);
+      return id;
+    };
+
+    // A colleague's mission on the owner's machine.
+    const theirs = await blockedTask(await mission(other, other));
+    expect(theirs.blockedReason).toContain("only they start work there (this mission is someone else's)");
+    // The owner's mission, on a plan someone else approved.
+    const unapproved = await blockedTask(await mission(c, other));
+    expect(unapproved.blockedReason).toContain("they did not approve this version of the plan");
+    // Neither ever reached the machine.
+    for (const t of [theirs, unapproved])
+      expect(await h.db.db.select().from(schema.attempts).where(eq(schema.attempts.taskId, t.id))).toEqual(
+        [],
+      );
+  }, 60_000);
+
   it("a revoked runner is cut off", async () => {
     expect((await c.request("DELETE", `/v1/runners/${runnerId}`)).statusCode).toBe(204);
     await new Promise((r) => setTimeout(r, 500));
