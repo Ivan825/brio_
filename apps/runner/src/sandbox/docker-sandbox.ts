@@ -272,10 +272,15 @@ export class DockerSandbox implements SandboxHandle {
       return c;
     });
     child.catch((e: Error) => resolveExit({ code: null, stderr: e.message }));
+    // Read from the moment the process exists: a short one can finish before anyone asks for its lines, and a reader
+    // made after its output ended may wait forever. The iterator buffers lines until they are read.
+    const reader = child.then((c) =>
+      createInterface({ input: c.stdout, crlfDelay: Number.POSITIVE_INFINITY })[Symbol.asyncIterator](),
+    );
+    reader.catch(() => {});
     const lines = (async function* () {
-      const c = await child;
-      const rl = createInterface({ input: c.stdout, crlfDelay: Number.POSITIVE_INFINITY });
-      for await (const line of rl) yield line;
+      const it = await reader;
+      for (let next = await it.next(); !next.done; next = await it.next()) yield next.value;
     })();
     // Writes before the process has started wait for it, in order.
     let pending: Promise<unknown> = child;

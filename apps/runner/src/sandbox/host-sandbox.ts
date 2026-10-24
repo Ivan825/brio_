@@ -157,9 +157,13 @@ export class HostSandbox implements SandboxHandle {
     if (opts.interactive) {
       if (opts.stdin) c.stdin.write(opts.stdin);
     } else c.stdin.end(opts.stdin ?? "");
+    // Read from the start: a short process can finish before anyone asks for its lines, and a reader made after
+    // its output ended may wait forever. The iterator buffers lines until they are read.
+    const reader = createInterface({ input: c.stdout, crlfDelay: Number.POSITIVE_INFINITY })[
+      Symbol.asyncIterator
+    ]();
     const lines = (async function* () {
-      const rl = createInterface({ input: c.stdout, crlfDelay: Number.POSITIVE_INFINITY });
-      for await (const line of rl) yield line;
+      for (let next = await reader.next(); !next.done; next = await reader.next()) yield next.value;
     })();
     return {
       lines,
