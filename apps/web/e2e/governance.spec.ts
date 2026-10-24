@@ -60,6 +60,12 @@ test("confidential work stays put until a policy allows its connector; the ledge
   await ledger.getByRole("button", { name: "Verify the chain" }).click();
   await expect(ledger).toContainText(/chain intact · \d+ entries/);
 
+  // What it all cost: the usage the attempt just added.
+  const usage = page.getByTestId("usage");
+  await expect(usage).toContainText("Spent");
+  await expect(usage.getByText(/^\d+ · \d+% passed$/).first()).toBeVisible();
+  await expect(usage).toContainText("By agent");
+
   // A monthly budget for the workspace.
   const budgets = page.getByTestId("budgets");
   await budgets.getByLabel("Workspace monthly limit (USD)").fill("25");

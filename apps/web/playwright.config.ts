@@ -47,6 +47,8 @@ export default defineConfig({
         BRIO_SSE_MAX_CONNECTION_MS: "2000",
         BRIO_VAULT_LOCAL_KEK: E2E_KEK,
         BRIO_PRICING_REFRESH_HOURS: "0",
+        // every test comes from 127.0.0.1; the limiter has its own test (apps/api/test/rate-limit.test.ts)
+        BRIO_RATE_LIMIT_PER_MINUTE: "0",
         LOG_LEVEL: "warn",
       },
     },
