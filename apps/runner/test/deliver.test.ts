@@ -24,6 +24,10 @@ describe("delivery", () => {
     expect(githubRepoOf("https://gitlab.com/acme/site.git", {})).toBeNull();
     expect(githubRepoOf("/srv/git/site.git", { github: { repo: "acme/site" } })).toBe("acme/site");
     expect(githubRepoOf("/srv/git/site.git", { github: { repo: "not a repo" } })).toBeNull();
+    // Dot segments would walk the API path the project's token is sent to.
+    expect(githubRepoOf("/srv/git/site.git", { github: { repo: "../.." } })).toBeNull();
+    expect(githubRepoOf("/srv/git/site.git", { github: { repo: "acme/.." } })).toBeNull();
+    expect(githubRepoOf("https://github.com/../site", {})).toBeNull();
   });
 
   it("sends the token as a header from the environment and stores it nowhere", async () => {

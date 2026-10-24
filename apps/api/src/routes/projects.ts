@@ -19,7 +19,9 @@ const Branch = z
 const GithubRepo = z
   .string()
   .trim()
-  .regex(/^[\w.-]+\/[\w.-]+$/, "owner/name");
+  .regex(/^[\w.-]+\/[\w.-]+$/, "owner/name")
+  // Neither part may be "." or "..": the project's token goes to the GitHub API path built from it.
+  .refine((v) => v.split("/").every((p) => p !== "." && p !== ".."), "owner/name");
 /** A git token (GitHub fine-grained or classic, or any host that takes one as a password). Stored in the vault. */
 const GitToken = z.string().trim().min(8).max(500);
 

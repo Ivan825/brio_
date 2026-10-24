@@ -37,9 +37,15 @@ export interface DeliveryJob {
 /** owner/name of a github.com repository URL, or of the project's `github.repo` setting. */
 export function githubRepoOf(url: string, settings: Record<string, unknown>): string | null {
   const set = (settings.github as { repo?: unknown } | undefined)?.repo;
-  if (typeof set === "string" && /^[\w.-]+\/[\w.-]+$/.test(set)) return set;
+  if (typeof set === "string" && isOwnerName(set)) return set;
   const m = /^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+?)(?:\.git)?\/?$/.exec(url);
-  return m ? `${m[1]}/${m[2]}` : null;
+  return m && isOwnerName(`${m[1]}/${m[2]}`) ? `${m[1]}/${m[2]}` : null;
+}
+
+/** owner/name, neither part "." or ".." (they would walk the API path the project's token is sent to). */
+export function isOwnerName(s: string): boolean {
+  const parts = s.split("/");
+  return parts.length === 2 && parts.every((p) => /^[\w.-]+$/.test(p) && p !== "." && p !== "..");
 }
 
 export class DeliveryExecutor {

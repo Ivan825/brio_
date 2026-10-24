@@ -87,7 +87,8 @@ export async function readIssue(
   projectId: string | undefined,
 ): Promise<NonNullable<schema.MissionInputs["issue"]>> {
   const m = GITHUB_ISSUE.exec(url);
-  if (!m)
+  // "." or ".." as owner or repository would walk the API path the project's token is sent to.
+  if (!m || [m[1], m[2]].some((p) => p === "." || p === ".."))
     throw new HttpError(
       422,
       "issue links are read from GitHub (https://github.com/<owner>/<repo>/issues/<n>); paste other issues into the goal",
