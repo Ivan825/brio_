@@ -38,6 +38,7 @@ What Brio does with this (M8, D-87): the registry's `localLogin` field gates sig
 - Workspace policy maps sensitivity → allowed connectors (e.g. confidential → only enterprise endpoints with ZDR, or local models).
 - Claude Managed Agents is not ZDR/HIPAA eligible yet → excluded from `confidential` by default.
 - Router filters candidates by policy before scoring; violations are impossible, not merely warned.
+- As built (M9, D-90): with no data-routing policy, confidential work goes only to local models (self-hosted endpoints, local runners). A policy names the connectors a sensitivity may reach; connector allow/deny lists apply to everything (deny wins). The planner, router and reviewer choice all filter by the same engine, and dispatch checks again (`policy_denied`), so a pinned or hand-picked agent cannot slip past. Network policies add to or narrow a sandbox's allowlist. Policy changes are in the ledger.
 
 ## 3a. Local runners (M8, D-86, D-87)
 - A person's machine connects out to Brio with a runner token (shown once, stored hashed, revocable by its owner or an admin); nothing connects in.
@@ -50,6 +51,7 @@ What Brio does with this (M8, D-87): the registry's `localLogin` field gates sig
 - Pre-dispatch: estimate must fit remaining budget at every scope, else task → `blocked` with `budget.stop`.
 - Live: runner streams cost events; at soft threshold (default 80%) emit `budget.warn`; at 100% abort attempt with `limit_exceeded`.
 - All spend recorded in ledger.
+- As built (M9, D-89): workspace and agent limits are monthly (UTC); mission and task budgets are the mission's own. Spend is the attempts' live cost, so a running attempt counts. Each dispatch caps the attempt's `maxCostUsd` to what is left at the tightest scope; a guard on the event feed warns once per period and stops the attempt (cancel reason `budget: …`) when a scope is crossed — within seconds, tested at < 5 s. The task waits, blocked, until a person raises the budget (`PUT /v1/missions/:id/budget` resumes it).
 
 ## 6. Approvals
 Default policy (editable):
@@ -62,6 +64,17 @@ Default policy (editable):
 | Delete files outside task footprint | always denied |
 | Spend over mission budget | required |
 Approvals are requested in-app, by email/Slack/push, and via the Brio MCP tool for users working inside an agent.
+- As built (M9, D-91, D-92): email through Resend; web push signed with the deployment's VAPID keys; Slack through each workspace's own app, whose bot token and signing secret are in the vault. A Slack button press is accepted only with a valid signature less than five minutes old, and only from a Slack account whose email is a member of the workspace (viewers cannot decide). MCP clients decide only with the `brio:approve` scope, which a person grants on the consent page; API tokens never decide approvals.
+
+## 6a. Roles (M9, D-95)
+| | Owner | Admin | Member | Viewer |
+|---|---|---|---|---|
+| Read missions, boards, scores, memory | ✓ | ✓ | ✓ | ✓ |
+| Start missions, edit plans, run agents, approve | ✓ | ✓ | ✓ | |
+| Connectors, budgets, policies, ledger, Slack, score sharing | ✓ | ✓ | | |
+| Invite; move people between member and viewer | ✓ | ✓ | | |
+| Make or remove owners and admins; delete the workspace | ✓ | | | |
+A workspace always keeps an owner. Every role change and removal is a `member.changed` ledger entry.
 
 ## 7. Mandate integration
 Mandate (the owner's existing product: scoped, revocable spending authority for agents, hash-chained ledger, approvals inbox, API-key proxy with metering) is the reference design for `packages/governance`.
@@ -74,6 +87,7 @@ Decide in `docs/DECISIONS.md` (D-07). Either way the ledger format stays Mandate
 - DB trigger blocks UPDATE/DELETE.
 - Periodic anchor: daily root hash written to an external store (configurable).
 - Ledger entries: dispatch, spend, approval decision, external side effect, policy change, key added/rotated.
+- As built (M9, D-93): owners and admins list the ledger, verify the chain (the first broken entry is named) and export it as JSONL or CSV (`GET /v1/ledger/export`). Memory edits (`memory.change`) and role changes (`member.changed`) are entries too.
 
 ## 9. Prompt-injection defence
 - Treat all agent outputs, fetched pages, repo files and A2A responses as data. Agents never receive instructions from another agent's output as system-level text; handoff packets are wrapped and labelled as untrusted content.
