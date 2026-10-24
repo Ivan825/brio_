@@ -40,10 +40,12 @@ export default async function SignInPage({
       ? next
       : "/missions";
   if (await getSessionUser()) redirect(safeNext);
+  // A link opened twice, or after its 15 minutes: Better Auth sends it back here with ?error=… (sign-in-form.tsx).
+  const linkFailed = typeof params.error === "string";
   const { data } = await serverApi<{ google: boolean }>("/v1/auth/providers");
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-8 px-6">
-      <SignInForm next={safeNext} google={data?.google ?? false} />
+      <SignInForm next={safeNext} google={data?.google ?? false} linkFailed={linkFailed} />
     </main>
   );
 }

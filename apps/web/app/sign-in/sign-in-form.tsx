@@ -10,7 +10,16 @@ import { useRunning } from "@/components/running";
 import { Wordmark } from "@/components/wordmark";
 import { authClient } from "@/lib/auth-client";
 
-export function SignInForm({ next, google }: { next: string; google: boolean }) {
+export function SignInForm({
+  next,
+  google,
+  linkFailed = false,
+}: {
+  next: string;
+  google: boolean;
+  /** The emailed link was already used or has expired. */
+  linkFailed?: boolean;
+}) {
   const router = useRouter();
   const { setRunning } = useRunning();
   const [email, setEmail] = useState("");
@@ -37,7 +46,10 @@ export function SignInForm({ next, google }: { next: string; google: boolean }) 
 
   async function magic(e: FormEvent) {
     e.preventDefault();
-    if (await run(() => authClient.signIn.magicLink({ email, callbackURL: next }))) setSentTo(email);
+    // A used or expired link comes back to this page with ?error=…, rather than to a bare error.
+    const errorCallbackURL = `/sign-in?next=${encodeURIComponent(next)}`;
+    if (await run(() => authClient.signIn.magicLink({ email, callbackURL: next, errorCallbackURL })))
+      setSentTo(email);
   }
 
   return (
@@ -46,6 +58,18 @@ export function SignInForm({ next, google }: { next: string; google: boolean }) 
         <Wordmark className="text-2xl" />
         <p className="text-fg-muted">{BRAND.tagline}</p>
       </div>
+
+      {linkFailed && !sentTo ? (
+        <p
+          role="alert"
+          data-testid="link-failed"
+          className="rounded-md border border-warning px-3 py-2 text-sm text-fg-muted"
+        >
+          That sign-in link was already used or has expired: each link works once, for 15 minutes. If you
+          opened it before in another window or browser, you are signed in there. Otherwise, ask for a new one
+          below.
+        </p>
+      ) : null}
 
       {sentTo ? (
         <section
@@ -58,7 +82,7 @@ export function SignInForm({ next, google }: { next: string; google: boolean }) 
             minutes.
           </p>
           <p className="font-mono text-xs text-fg-subtle">
-            running locally? the link is printed in the API log.
+            running locally? the link is printed in the API log. open it once: it works only once.
           </p>
           <Button variant="ghost" size="sm" className="self-start" onClick={() => setSentTo(null)}>
             Use a different email
