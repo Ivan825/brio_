@@ -20,6 +20,7 @@ const BOOLEAN = new Set([
   "approve",
   "host",
   "yes",
+  "version",
 ]);
 
 export function parseArgs(argv: string[]): Args {

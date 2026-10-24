@@ -429,6 +429,7 @@ export const USAGE = `brio — run missions across your agents
   brio runner start [--api https://api.brio.example] [--dir path]
   brio runner status
   brio mcp                       Brio's MCP tools over stdio (BRIO_URL, BRIO_TOKEN)
+  brio --version
 `;
 
 export const COMMANDS: Record<string, (a: Args, io: Io) => Promise<void>> = {

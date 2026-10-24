@@ -1,6 +1,7 @@
 // The brio CLI entry point (BUILD_PLAN M8): login, missions, run, plan, board, approve; and `brio mcp` (M7), the stdio
 // MCP server for local MCP clients.
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import pkg from "../package.json" with { type: "json" };
 import { parseArgs } from "./args";
 import { BrioError } from "./client";
 import { COMMANDS, type Io, USAGE, UsageError } from "./commands";
@@ -11,7 +12,9 @@ import { runner } from "./runner";
 const args = parseArgs(process.argv.slice(2));
 const [command] = args._;
 
-if (command === "mcp") {
+if (args.flags.version || command === "version") {
+  process.stdout.write(`brio ${pkg.version}\n`);
+} else if (command === "mcp") {
   try {
     await runMcpProxy(proxyOptionsFromEnv(), new StdioServerTransport());
   } catch (e) {

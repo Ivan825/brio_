@@ -8,6 +8,7 @@
 node_modules/
 .pnpm-store/
 dist/
+dist-npm/
 build/
 .next/
 out/

@@ -9,7 +9,9 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "pack:npm": "node scripts/pack.mjs",
+    "publish:npm": "node scripts/pack.mjs --publish"
   },
   "bin": {
     "brio": "./bin/brio.mjs"
@@ -18,5 +20,8 @@
     "@brio/runner": "workspace:*",
     "@modelcontextprotocol/sdk": "1.32.1",
     "tsx": "4.23.15"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
   }
 }
