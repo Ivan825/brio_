@@ -20,6 +20,7 @@
     "@brio/registry": "workspace:*",
     "@brio/schema": "workspace:*",
     "@brio/vault": "workspace:*",
-    "@modelcontextprotocol/sdk": "1.32.1"
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "undici": "7.30.0"
   }
 }

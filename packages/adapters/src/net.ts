@@ -2,6 +2,7 @@
 // metadata endpoints ever, and no private networks unless the deployment allows them (self-host, local dev).
 import { lookup } from "node:dns/promises";
 import { BlockList, isIP } from "node:net";
+import { Agent, fetch as undiciFetch } from "undici";
 import { AdapterError } from "./errors";
 import type { FetchLike } from "./types";
 
@@ -18,8 +19,53 @@ privateRanges.addSubnet("172.16.0.0", 12, "ipv4");
 privateRanges.addSubnet("192.168.0.0", 16, "ipv4");
 privateRanges.addSubnet("127.0.0.0", 8, "ipv4");
 privateRanges.addSubnet("100.64.0.0", 10, "ipv4"); // CGNAT
-privateRanges.addSubnet("::1", 128, "ipv6");
-privateRanges.addSubnet("fc00::", 7, "ipv6");
+privateRanges.addSubnet("::", 96, "ipv6"); // :: (this host), ::1, and IPv4-compatible ::a.b.c.d
+privateRanges.addSubnet("fc00::", 7, "ipv6"); // unique local
+
+/**
+ * The IPv4 address an IPv6 address carries, if any — IPv4-mapped (::ffff:a.b.c.d, also written ::ffff:7f00:1),
+ * IPv4-compatible (::a.b.c.d), NAT64 (64:ff9b::/96) and 6to4 (2002:aabb:ccdd::) — so it is judged as that address.
+ */
+export function embeddedIpv4(ip: string): string | null {
+  if (isIP(ip) !== 6) return null;
+  const groups = expandIpv6(ip);
+  if (!groups) return null;
+  const v4 = (hi: number, lo: number) => `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`;
+  const zero = (from: number, to: number) => groups.slice(from, to).every((g) => g === 0);
+  if (zero(0, 5) && groups[5] === 0xffff) return v4(groups[6]!, groups[7]!);
+  if (zero(0, 6) && (groups[6] !== 0 || groups[7]! > 1)) return v4(groups[6]!, groups[7]!);
+  if (groups[0] === 0x64 && groups[1] === 0xff9b && zero(2, 6)) return v4(groups[6]!, groups[7]!);
+  if (groups[0] === 0x2002) return v4(groups[1]!, groups[2]!);
+  return null;
+}
+
+/** The eight 16-bit groups of an IPv6 address (with a trailing dotted IPv4 part folded in). */
+function expandIpv6(ip: string): number[] | null {
+  let text = ip.toLowerCase().split("%")[0] ?? "";
+  const dotted = /(\d+\.\d+\.\d+\.\d+)$/.exec(text);
+  if (dotted?.[1]) {
+    const [a, b, c, d] = dotted[1].split(".").map(Number) as [number, number, number, number];
+    text = `${text.slice(0, -dotted[1].length)}${((a << 8) | b).toString(16)}:${((c << 8) | d).toString(16)}`;
+  }
+  const [head, tail] = text.split("::") as [string, string | undefined];
+  const left = head ? head.split(":") : [];
+  const right = tail === undefined ? [] : tail ? tail.split(":") : [];
+  const missing = 8 - left.length - right.length;
+  if (tail === undefined ? left.length !== 8 : missing < 0) return null;
+  const all = [...left, ...Array.from({ length: tail === undefined ? 0 : missing }, () => "0"), ...right];
+  const groups = all.map((g) => Number.parseInt(g, 16));
+  return groups.length === 8 && groups.every((g) => g >= 0 && g <= 0xffff) ? groups : null;
+}
+
+/** Why an address may not be reached under the policy, or null when it may. */
+export function addressRefusal(ip: string, policy: Pick<UrlPolicy, "allowPrivate">): string | null {
+  for (const a of [ip, embeddedIpv4(ip)].filter((x): x is string => Boolean(x))) {
+    if (alwaysBlocked.check(a, family(a))) return "a blocked address";
+    if (!policy.allowPrivate && privateRanges.check(a, family(a)))
+      return "a private address; private networks are disabled here";
+  }
+  return null;
+}
 
 export interface UrlPolicy {
   /** Allow loopback and private networks (local models, self-hosted proxies). */
@@ -65,14 +111,8 @@ export async function assertSafeUrl(
         throw new AdapterError("network", `cannot resolve ${host}`);
       });
   for (const ip of addresses) {
-    const mapped = ip.startsWith("::ffff:") && isIP(ip.slice(7)) === 4 ? ip.slice(7) : ip;
-    if (alwaysBlocked.check(mapped, family(mapped)))
-      throw new AdapterError("unsafe_url", `${host} resolves to a blocked address`);
-    if (!policy.allowPrivate && privateRanges.check(mapped, family(mapped)))
-      throw new AdapterError(
-        "unsafe_url",
-        `${host} is a private address; private networks are disabled here`,
-      );
+    const why = addressRefusal(ip, policy);
+    if (why) throw new AdapterError("unsafe_url", `${host} resolves to ${why}`);
   }
   return url;
 }
@@ -86,9 +126,59 @@ export function guardedFetch(
   policy: UrlPolicy,
   resolve: Resolver = systemResolver,
 ): FetchLike {
+  // On the real network, connections go only to addresses checked as they are looked up (pinnedFetch).
+  const base = inner === globalThis.fetch ? pinnedFetch(policy) : inner;
   return async (input, init) => {
     await assertSafeUrl(input, policy, resolve);
-    return inner(input, { ...init, redirect: init?.redirect === "manual" ? "manual" : "error" });
+    return base(input, { ...init, redirect: init?.redirect === "manual" ? "manual" : "error" });
+  };
+}
+
+/**
+ * fetch whose connections go only to addresses that pass the policy, checked in the connection's own DNS lookup.
+ * A name that resolves to a public address when checked and to 127.0.0.1 or 169.254.169.254 a moment later (DNS
+ * rebinding) cannot get past it: there is no second, unchecked lookup.
+ */
+export function pinnedFetch(policy: Pick<UrlPolicy, "allowPrivate">): FetchLike {
+  const agent = new Agent({
+    connect: {
+      lookup: (hostname, options, callback) => {
+        lookup(hostname, { all: true }).then(
+          (found) => {
+            const allowed = found.filter((a) => !addressRefusal(a.address, policy));
+            if (!allowed.length) {
+              const why = found[0] ? addressRefusal(found[0].address, policy) : "no address";
+              callback(new AdapterError("unsafe_url", `${hostname} resolves to ${why}`), "", 4);
+              return;
+            }
+            if ((options as { all?: boolean }).all)
+              (callback as (e: null, a: typeof allowed) => void)(null, allowed);
+            else callback(null, allowed[0]!.address, allowed[0]!.family);
+          },
+          (err: Error) => callback(err as NodeJS.ErrnoException, "", 4),
+        );
+      },
+    },
+  });
+  return async (input, init = {}) => {
+    let body = init.body;
+    let headers = new Headers(init.headers);
+    // Bodies undici's own classes would not recognise (the runtime's FormData, Blob, URLSearchParams) go as bytes,
+    // with the content type (multipart boundary included) the runtime gives them.
+    if (body instanceof FormData || body instanceof Blob || body instanceof URLSearchParams) {
+      const encoded = new Request("http://encode.invalid/", { method: "POST", body });
+      if (!headers.has("content-type"))
+        headers.set("content-type", encoded.headers.get("content-type") ?? "");
+      body = new Uint8Array(await encoded.arrayBuffer());
+    }
+    if (!headers.get("content-type"))
+      headers = new Headers([...headers].filter(([k]) => k !== "content-type"));
+    return undiciFetch(String(input), {
+      ...(init as object),
+      body,
+      headers,
+      dispatcher: agent,
+    } as unknown as Parameters<typeof undiciFetch>[1]) as unknown as Promise<Response>;
   };
 }
 

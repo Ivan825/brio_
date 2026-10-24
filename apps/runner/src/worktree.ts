@@ -27,6 +27,9 @@ const SAFE_CONFIG = [
   "-c",
   "core.symlinks=true",
   "-c",
+  // A repository URL is checked when it is set; a redirect from it could lead anywhere (security review M2).
+  "http.followRedirects=false",
+  "-c",
   "protocol.allow=never",
   "-c",
   "protocol.file.allow=always",
