@@ -181,18 +181,32 @@ export const START = [
   "open http://localhost:8080",
 ] as const;
 
+/** A published doc's page on this site (lib/docs.ts lists them; checked by test). */
+export const docPage = (slug: string) => `/docs/${slug}`;
+
 export const LINKS = {
   github: REPO,
-  gettingStarted: doc("GETTING_STARTED.md"),
-  selfHost: doc("SELF_HOST.md"),
-  ownerSetup: doc("OWNER_SETUP.md"),
-  deployCloud: doc("DEPLOY_CLOUD.md"),
-  architecture: doc("ARCHITECTURE.md"),
-  security: doc("SECURITY_GOVERNANCE.md"),
-  adapters: doc("ADAPTERS.md"),
-  api: doc("API.md"),
-  loadTest: doc("LOAD_TEST.md"),
-  changelog: doc("CHANGELOG.md"),
+  docs: "/docs",
+  gettingStarted: docPage("getting-started"),
+  selfHost: docPage("self-host"),
+  ownerSetup: docPage("owner-setup"),
+  deployCloud: docPage("deploy-cloud"),
+  architecture: docPage("architecture"),
+  security: docPage("security-governance"),
+  securityReview: docPage("security-review"),
+  routing: docPage("routing-and-quality"),
+  handoff: docPage("handoff-packet"),
+  connectors: docPage("connectors"),
+  adapters: docPage("adapters"),
+  adapterSpec: docPage("adapter-spec"),
+  api: docPage("api"),
+  loadTest: docPage("load-test"),
+  changelog: docPage("changelog"),
+  decisions: docPage("decisions"),
+  prd: docPage("prd"),
+  buildPlan: docPage("build-plan"),
+  licence: `${REPO}/blob/main/LICENSE`,
+  issues: `${REPO}/issues`,
 } as const;
 
 /** The board in the hero: what a mission's event stream looks like (brand voice: status lines read like logs). */
@@ -273,8 +287,9 @@ export const HOSTING = [
   {
     title: "A cloud server",
     tag: "always on",
-    body: "Any Ubuntu server, free for students with Azure for Students. A free cloudapp.azure.com or duckdns.org name gets real HTTPS on its own.",
-    needs: "2 CPUs · 4 GB RAM + swap · 64 GB disk",
+    body: "Any Ubuntu server. Free for students: Azure for Students includes a small 1 GB server for 750 hours a month, and Brio's containers measured about 510 MB idle and 560 MB at peak on ready-made images. A free cloudapp.azure.com or duckdns.org name gets real HTTPS on its own.",
+    needs: "1 GB RAM + swap · 64 GB disk (ready-made images)",
+    alt: "Building the images on the server instead needs 2 CPUs · 4 GB",
     link: "deployCloud",
     cta: "Deploy on a server",
   },
@@ -283,6 +298,7 @@ export const HOSTING = [
     tag: "free",
     body: "Docker Desktop on your Mac or PC. Share it with a free Tailscale Funnel address when others need it.",
     needs: "Docker · 8 GB RAM · 30 GB free",
+    alt: null,
     link: "ownerSetup",
     cta: "Set up on your computer",
   },
@@ -291,6 +307,7 @@ export const HOSTING = [
     tag: "teams",
     body: "A Helm chart: web pods that scale, one worker, runners each with their own Docker engine.",
     needs: "Kubernetes 1.27+ · Postgres with pgvector",
+    alt: null,
     link: "selfHost",
     cta: "Install with Helm",
   },
@@ -300,7 +317,7 @@ export const HOSTING = [
 export const SERVER_START = [
   "curl -fsSL https://get.docker.com | sudo sh && sudo usermod -aG docker $USER",
   "git clone https://github.com/Ivan825/brio_.git brio && cd brio/deploy/compose",
-  "./setup.sh https://brio-you.duckdns.org",
-  "nano .env   # your address, ports 80/443, BRIO_SIGNUP_ALLOW",
-  "docker compose up -d",
+  "./setup.sh https://ADDRESS --prebuilt",
+  "nano .env   # BRIO_SITE_ADDRESS, ports 80/443, BRIO_SIGNUP_ALLOW=you@example.com, BRIO_RUNNER_CONCURRENCY=1",
+  "docker compose pull && docker compose up -d --no-build",
 ] as const;

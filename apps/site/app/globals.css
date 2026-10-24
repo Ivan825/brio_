@@ -68,3 +68,171 @@
     animation: none;
   }
 }
+
+/* A rendered doc (lib/docs.ts): the repository's Markdown in the site's type and colours. */
+.doc {
+  font-size: var(--text-base);
+  line-height: 1.7;
+  color: var(--text-muted);
+  overflow-wrap: break-word;
+}
+.doc > * + * {
+  margin-top: 1em;
+}
+.doc h2,
+.doc h3,
+.doc h4 {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  scroll-margin-top: 80px;
+}
+.doc h2 {
+  margin-top: 2.6em;
+  padding-top: 1.2em;
+  border-top: 1px solid var(--line);
+  font-size: var(--text-lg);
+  line-height: 1.35;
+}
+.doc h3 {
+  margin-top: 2em;
+  font-size: var(--text-md);
+}
+.doc h4 {
+  margin-top: 1.6em;
+  font-size: var(--text-base);
+}
+.doc .anchor {
+  margin-right: 0.4em;
+  color: var(--text-subtle);
+  text-decoration: none;
+  opacity: 0.45;
+}
+.doc h2:hover .anchor,
+.doc h3:hover .anchor,
+.doc h4:hover .anchor {
+  color: var(--accent);
+  opacity: 1;
+}
+.doc strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.doc a {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 2px;
+}
+.doc a:hover {
+  text-decoration-color: var(--accent);
+}
+.doc ul,
+.doc ol {
+  padding-left: 1.4em;
+}
+.doc ul {
+  list-style: disc;
+}
+.doc ol {
+  list-style: decimal;
+}
+.doc li + li,
+.doc li > ul,
+.doc li > ol {
+  margin-top: 0.35em;
+}
+.doc li::marker {
+  color: var(--text-subtle);
+}
+.doc :not(pre) > code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  padding: 0.05em 0.35em;
+}
+.doc .code-block {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.doc .code-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--text-subtle);
+}
+.doc .code-copy {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 0 8px;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+.doc .code-copy:hover {
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+.doc pre {
+  margin: 0;
+  overflow-x: auto;
+  padding: 14px 16px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.65;
+  color: var(--text);
+}
+.doc blockquote {
+  border-left: 2px solid var(--accent);
+  background: var(--surface);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 0.7em 1em;
+}
+.doc .table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+.doc table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+.doc th,
+.doc td {
+  border-top: 1px solid var(--line);
+  padding: 8px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+.doc thead th {
+  border-top: 0;
+  background: var(--surface);
+  color: var(--text-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.doc td {
+  min-width: 120px;
+}
+.doc hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 2em 0;
+}
