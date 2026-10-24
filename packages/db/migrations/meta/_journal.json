@@ -176,6 +176,13 @@
       "when": 1792802696230,
       "tag": "0024_mandate",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792802816378,
+      "tag": "0025_mandate_purpose",
+      "breakpoints": true
     }
   ]
 }

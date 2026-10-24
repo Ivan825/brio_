@@ -1,0 +1,1 @@
+ALTER TABLE "mandate_holds" ADD COLUMN "purpose" text DEFAULT '' NOT NULL;

@@ -45,6 +45,8 @@ export const mandateHolds = pgTable(
     requestKey: text().notNull().unique(),
     amountCents: integer().notNull(),
     merchant: text().notNull(),
+    /** Sent with the request (a retry must send exactly the same body). */
+    purpose: text().notNull().default(""),
     /** pending | held | captured | voided | declined */
     status: text().notNull(),
     transactionId: text(),

@@ -9,6 +9,7 @@ import type { Auth } from "./auth";
 import type { BudgetGuard } from "./budgets";
 import type { Config } from "./config";
 import type { LogMailer, Mailer } from "./mailer";
+import type { MandateSettler } from "./mandate";
 import type { MemoryIngest } from "./memory";
 import type { Notifier } from "./notify/notifier";
 import type { Orchestrator } from "./orchestrator/orchestrator";
@@ -42,6 +43,8 @@ export interface AppContext {
   runners: RunnerHub;
   /** Warns and stops at budgets while work runs (M9). */
   budgets: BudgetGuard;
+  /** Settles Mandate holds and follows requests waiting for a person (D-07). */
+  mandate: MandateSettler;
   /** Tells people what needs them: email, browser push, Slack (M9). */
   notifier: Notifier;
   /** Builds each project's memory graph from the event log (M9). */

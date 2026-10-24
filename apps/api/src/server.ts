@@ -21,6 +21,7 @@ import type { Config } from "./config";
 import type { AppContext } from "./context";
 import { HttpError } from "./http";
 import { LogMailer, type Mailer, ResendMailer } from "./mailer";
+import { MandateSettler } from "./mandate";
 import { mcpRoutes } from "./mcp/server";
 import { MemoryIngest } from "./memory";
 import { Notifier } from "./notify/notifier";
@@ -39,6 +40,7 @@ import { healthRoutes } from "./routes/health";
 import { hookRoutes } from "./routes/hooks";
 import { inboxRoutes } from "./routes/inbox";
 import { ledgerRoutes } from "./routes/ledger";
+import { mandateRoutes } from "./routes/mandate";
 import { memoryRoutes } from "./routes/memory";
 import { messageRoutes } from "./routes/messages";
 import { missionRoutes } from "./routes/missions";
@@ -71,6 +73,8 @@ export interface BuildOptions {
   resolve?: Resolver;
   /** How often the orchestrator sweeps active missions (default 3 s). */
   sweepMs?: number;
+  /** How often Mandate requests waiting for a person are asked about again (default 30 s). */
+  mandateSweepMs?: number;
 }
 
 export interface BrioServer {
@@ -88,6 +92,7 @@ export async function buildServer({
   fetch: outbound = globalThis.fetch,
   resolve,
   sweepMs,
+  mandateSweepMs,
 }: BuildOptions): Promise<BrioServer> {
   const handle = database ?? createDb(config.DATABASE_URL);
   const ownsDb = !database;
@@ -155,6 +160,7 @@ export async function buildServer({
   ctx.orchestrator = new Orchestrator(ctx, { ...(sweepMs ? { sweepMs } : {}) });
   ctx.runners = new RunnerHub(ctx);
   ctx.budgets = new BudgetGuard(ctx);
+  ctx.mandate = new MandateSettler(ctx, mandateSweepMs);
   ctx.notifier = new Notifier(ctx);
   ctx.memory = new MemoryIngest(ctx);
 
@@ -218,9 +224,11 @@ export async function buildServer({
   await notificationRoutes(app, ctx);
   await ledgerRoutes(app, ctx);
   await memoryRoutes(app, ctx);
+  await mandateRoutes(app, ctx);
   if (config.BRIO_DEV_OUTBOX && config.NODE_ENV !== "production") await devRoutes(app, ctx);
   ctx.orchestrator.start();
   ctx.budgets.start();
+  ctx.mandate.start();
   ctx.notifier.start();
   ctx.memory.start();
   // Local runners connect over a WebSocket on the API's own HTTP server.
@@ -234,6 +242,7 @@ export async function buildServer({
       if (pricingTimer) clearInterval(pricingTimer);
       await ctx.orchestrator.stop();
       ctx.budgets.stop();
+      ctx.mandate.stop();
       ctx.notifier.stop();
       ctx.memory.stop();
       await ctx.runners.stop();

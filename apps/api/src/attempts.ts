@@ -11,6 +11,7 @@ import {
 } from "@brio/core";
 import { schema } from "@brio/db";
 import { brief } from "@brio/memory";
+import { registry } from "@brio/registry";
 import { enqueueAttempt, requestCancel } from "@brio/runner";
 import { type Actor, type HandoffPacket, TaskContract, TaskType } from "@brio/schema";
 import { and, eq, inArray, isNull } from "drizzle-orm";
@@ -18,6 +19,7 @@ import { checkBudgets, stopReason } from "./budgets";
 import { adapterOf, connectorConfig, type Metering, meteringOf, toolsFor } from "./connectors";
 import type { AppContext } from "./context";
 import { HttpError, one } from "./http";
+import { authorizeSpend } from "./mandate";
 import { inputsForAttempt } from "./mission-inputs";
 import { loadPolicies } from "./policies";
 import { pokeRunner } from "./runners/hub";
@@ -368,6 +370,19 @@ export class AttemptRunner {
       throw new HttpError(402, reason, "budget_exceeded");
     }
     if (budget.capUsd !== null) limits.maxCostUsd = Math.min(limits.maxCostUsd, budget.capUsd);
+    // The workspace's mandate, when it connected one (D-07): authority for the attempt's cap, from the vendor that
+    // bills it. A person's own plan (local sign-in) bills nothing here.
+    const spend =
+      metering.priceKind === "subscription"
+        ? null
+        : await authorizeSpend(ctx, {
+            workspaceId: input.workspaceId,
+            taskId: task.id,
+            maxCostUsd: limits.maxCostUsd,
+            merchant: registry().connector(connector.registryKey)?.maker ?? connector.registryKey,
+            purpose: `Brio: ${task.title}`,
+          });
+    if (spend) limits.maxCostUsd = Math.min(limits.maxCostUsd, spend.capUsd);
 
     const attempt = await ctx.db.transaction(async (tx) => {
       // Lock the task so two clicks cannot start two attempts (multi-agent modes add attempts to a running task).
@@ -392,6 +407,11 @@ export class AttemptRunner {
           .returning(),
         "attempt",
       );
+      if (spend)
+        await tx
+          .update(schema.mandateHolds)
+          .set({ attemptId: row.id })
+          .where(eq(schema.mandateHolds.id, spend.holdId));
       const dispatch: Dispatch = {
         version: 1,
         adapterKey: adapter.key,
