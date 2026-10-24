@@ -54,13 +54,28 @@ export async function inboxRoutes(app: FastifyInstance, ctx: AppContext) {
       items.push({ kind: "plan", missionId: m.id, mission: m.title, version: p.version, at: p.createdAt });
 
     const verifying = await ctx.db
-      .select({ t: tasks, m: missions })
+      .select({
+        t: { id: tasks.id, key: tasks.key, title: tasks.title, updatedAt: tasks.updatedAt },
+        m: { id: missions.id, title: missions.title },
+      })
       .from(tasks)
       .innerJoin(missions, eq(missions.id, tasks.missionId))
       .where(and(eq(tasks.workspaceId, workspaceId), eq(tasks.status, "verifying")));
+    // Their attempts' checklists in one query (only what the inbox needs, not the dispatches).
+    const checklists = verifying.length
+      ? await ctx.db
+          .select({ taskId: attempts.taskId, checks: attempts.checks })
+          .from(attempts)
+          .where(
+            inArray(
+              attempts.taskId,
+              verifying.map(({ t }) => t.id),
+            ),
+          )
+      : [];
     for (const { t, m } of verifying) {
-      const rows = await ctx.db.select().from(attempts).where(eq(attempts.taskId, t.id));
-      const human = rows
+      const human = checklists
+        .filter((a) => a.taskId === t.id)
         .flatMap(
           (a) =>
             (a.checks as { items?: Array<{ kind: string; status: string; summary?: string }> } | null)
@@ -104,24 +119,20 @@ export async function inboxRoutes(app: FastifyInstance, ctx: AppContext) {
       });
 
     const pending = await ctx.db
-      .select()
+      .select({ a: approvals, mission: missions.title })
       .from(approvals)
+      .leftJoin(missions, and(eq(approvals.subjectKind, "mission"), eq(missions.id, approvals.subjectId)))
       .where(and(eq(approvals.workspaceId, workspaceId), eq(approvals.status, "pending")));
-    for (const a of pending) {
-      const [m] =
-        a.subjectKind === "mission"
-          ? await ctx.db.select().from(missions).where(eq(missions.id, a.subjectId))
-          : [];
+    for (const { a, mission } of pending)
       items.push({
         kind: "action",
-        missionId: m?.id ?? null,
-        mission: m?.title ?? null,
+        missionId: mission === null ? null : a.subjectId,
+        mission,
         approvalId: a.id,
         action: a.action,
         requestedBy: a.requestedBy,
         at: a.createdAt,
       });
-    }
 
     items.sort((x, y) => x.at.getTime() - y.at.getTime());
     return { items, count: items.length };
