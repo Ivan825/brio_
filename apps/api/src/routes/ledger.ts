@@ -4,7 +4,7 @@
 import { schema } from "@brio/db";
 import { type ChainEntry, canonicalJson, verifyChain } from "@brio/governance";
 import { LedgerKind } from "@brio/schema";
-import { and, asc, desc, eq, lt } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, lt } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { AppContext } from "../context";
@@ -29,11 +29,17 @@ export async function ledgerRoutes(app: FastifyInstance, ctx: AppContext) {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
     await requireMember(ctx, workspaceId, s, ["owner", "admin"]);
+    // Entries written a moment ago are chained before anyone reads (D-98).
+    await ctx.ledger.chain(ctx.db, workspaceId);
     return workspaceId;
   };
   const chain = async (workspaceId: string) =>
     (
-      await ctx.db.select().from(ledger).where(eq(ledger.workspaceId, workspaceId)).orderBy(asc(ledger.seq))
+      await ctx.db
+        .select()
+        .from(ledger)
+        .where(and(eq(ledger.workspaceId, workspaceId), isNotNull(ledger.hash)))
+        .orderBy(asc(ledger.seq))
     ).map(
       (r) =>
         ({
@@ -57,6 +63,7 @@ export async function ledgerRoutes(app: FastifyInstance, ctx: AppContext) {
       .where(
         and(
           eq(ledger.workspaceId, workspaceId),
+          isNotNull(ledger.hash),
           ...(q.before ? [lt(ledger.seq, q.before)] : []),
           ...(q.kind ? [eq(ledger.kind, q.kind)] : []),
         ),

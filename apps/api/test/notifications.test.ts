@@ -99,8 +99,8 @@ describe.skipIf(!hasTestDatabase)("M9: notifications and approvals beyond the we
     await h?.close();
   });
 
-  /** An action waiting for a yes, as a finished mission's delivery would ask. */
-  async function askForApproval(): Promise<{ seq: number; id: string }> {
+  /** An action waiting for a yes, as a finished mission's delivery would ask; waits for `channels` to be notified. */
+  async function askForApproval(channels = 3): Promise<{ seq: number; id: string }> {
     const [a] = await h.db.db
       .insert(schema.approvals)
       .values({
@@ -119,15 +119,17 @@ describe.skipIf(!hasTestDatabase)("M9: notifications and approvals beyond the we
       actor: "system",
       payload: { what: "open a pull request", approvalId, branch: "brio/ship-it" },
     });
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < 200; i++) {
       await new Promise((r) => setTimeout(r, 50));
       await h.server.ctx.notifier.idle();
       const n = await h.db.db
         .select()
         .from(schema.notifications)
         .where(eq(schema.notifications.eventId, e.id));
-      if (n.length) break;
+      if (n.length >= channels) break;
     }
+    // Each row is claimed before its send: let the sends finish.
+    await h.server.ctx.notifier.idle();
     return { seq: e.seq, id: e.id };
   }
 
@@ -161,7 +163,7 @@ describe.skipIf(!hasTestDatabase)("M9: notifications and approvals beyond the we
   it("tells its people by email, in their browsers and in Slack, once", async () => {
     seen.length = 0;
     const { seq, id: eventId } = await askForApproval();
-    const [email] = of("https://api.resend.com/emails");
+    const email = of("https://api.resend.com/emails").find((m) => m.body.includes("Waiting for your yes"));
     expect(email?.headers.authorization).toMatch(/^Bearer re_/);
     expect(JSON.parse(email!.body)).toMatchObject({
       from: "Brio <brio@mail.example.com>",
@@ -175,7 +177,8 @@ describe.skipIf(!hasTestDatabase)("M9: notifications and approvals beyond the we
     expect(push?.headers.authorization).toMatch(/^vapid t=.+, k=/);
     expect(push?.headers.ttl).toBe("3600");
 
-    const [post] = of("https://slack.test/api/chat.postMessage");
+    // The approval's own message (others, for earlier events, may arrive in the same moment).
+    const post = of("https://slack.test/api/chat.postMessage").find((p) => p.body.includes("brio_approve"));
     const message = JSON.parse(post!.body);
     expect(message.channel).toBe("C123456");
     const buttons = message.blocks.find((b: { type: string }) => b.type === "actions").elements;
@@ -200,13 +203,15 @@ describe.skipIf(!hasTestDatabase)("M9: notifications and approvals beyond the we
     });
     expect(put.statusCode, put.body).toBe(200);
     seen.length = 0;
-    await askForApproval();
+    await askForApproval(2);
     expect(of("https://api.resend.com/emails")).toEqual([]);
     expect(of("https://push.example.com/")).toHaveLength(1);
   });
 
   it("decides an approval from Slack, as the member whose Slack email it is; forged requests are refused", async () => {
-    const posted = of("https://slack.test/api/chat.postMessage").at(-1);
+    const posted = of("https://slack.test/api/chat.postMessage").findLast((p) =>
+      p.body.includes("brio_approve"),
+    );
     const value = JSON.parse(posted!.body).blocks.find((b: { type: string }) => b.type === "actions")
       .elements[0].value;
     const send = (user: string, secret = SIGNING, ts = Math.floor(Date.now() / 1000)) => {

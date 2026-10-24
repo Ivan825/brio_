@@ -5,7 +5,7 @@
 // Mandate blocks it too (fail closed). Needs Postgres.
 import { readEventsSince, schema } from "@brio/db";
 import { hasTestDatabase } from "@brio/db/testing";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client, type Harness, startHarness } from "./helpers";
 import { ScriptedVendors } from "./vendors";
@@ -227,7 +227,11 @@ describe.skipIf(!hasTestDatabase)("M9: the optional Mandate connection (D-07)", 
       (queued?.payload as { limits?: { maxCostUsd: number } } | undefined)?.limits?.maxCostUsd,
     ).toBeLessThanOrEqual(0.75);
     const spend = (
-      await h.db.db.select().from(schema.ledger).where(eq(schema.ledger.workspaceId, workspaceId))
+      await h.db.db
+        .select()
+        .from(schema.ledger)
+        .where(eq(schema.ledger.workspaceId, workspaceId))
+        .orderBy(asc(schema.ledger.id))
     ).filter((l) => l.kind === "spend" && (l.payload as { mandate?: unknown }).mandate);
     expect(spend.map((l) => (l.payload as { mandate: Record<string, unknown> }).mandate)).toEqual([
       expect.objectContaining({ decision: "approved", amountCents: 75 }),

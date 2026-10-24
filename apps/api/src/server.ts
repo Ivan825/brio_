@@ -1,6 +1,6 @@
 import { assertSafeUrl, type FetchLike, guardedFetch, type Resolver } from "@brio/adapters";
 import { createDb, type DbHandle, EventFeed, EventWriter } from "@brio/db";
-import { Ledger } from "@brio/governance";
+import { Ledger, LedgerChainer } from "@brio/governance";
 import { startQueue } from "@brio/runner";
 import {
   redactor as defaultRedactor,
@@ -169,6 +169,9 @@ export async function buildServer({
   ctx.mandate = new MandateSettler(ctx, mandateSweepMs);
   ctx.notifier = new Notifier(ctx);
   ctx.memory = new MemoryIngest(ctx);
+  const chainer = new LedgerChainer(handle.db, ledger, (err) =>
+    app.log.warn({ err: err.message }, "ledger chaining failed"),
+  );
 
   await ctx.pricing.seed();
   let pricingTimer: NodeJS.Timeout | undefined;
@@ -243,6 +246,7 @@ export async function buildServer({
     ctx.mandate.start();
     ctx.notifier.start();
     ctx.memory.start();
+    chainer.start();
   }
 
   return {
@@ -255,6 +259,7 @@ export async function buildServer({
       ctx.mandate.stop();
       ctx.notifier.stop();
       ctx.memory.stop();
+      await chainer.stop();
       await ctx.runners.stop();
       await app.close();
       await ctx.queue.stop({ graceful: false }).catch(() => {});

@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { schema } from "@brio/db";
 import { hasTestDatabase } from "@brio/db/testing";
 import { dockerAvailable } from "@brio/runner";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client, type Harness, startHarness } from "./helpers";
 import { type CallInfo, ScriptedVendors, taskTitle } from "./vendors";
@@ -212,7 +212,11 @@ describe.skipIf(!hasTestDatabase || !hasDocker)("M9 acceptance: project memory",
     expect((await c.request("DELETE", `/v1/memory/${assumption.id}`)).statusCode).toBe(204);
     brief = (await c.request("GET", `/v1/projects/${projectId}/brief?paths=src/health.ts`)).json();
     expect(brief.summary).not.toContain("Node 2");
-    const ledger = await h.db.db.select().from(schema.ledger).where(eq(schema.ledger.kind, "memory.change"));
+    const ledger = await h.db.db
+      .select()
+      .from(schema.ledger)
+      .where(eq(schema.ledger.kind, "memory.change"))
+      .orderBy(asc(schema.ledger.id));
     expect(ledger.map((l) => (l.payload as { change: string }).change)).toEqual([
       "added",
       "edited",

@@ -152,10 +152,16 @@ describe.skipIf(!hasTestDatabase)("M9 acceptance: budgets", () => {
       if (!stop) await new Promise((r) => setTimeout(r, 100));
     }
     expect(stop?.payload).toMatchObject({ scope: "workspace", scopeId: workspaceId, limitUsd: 0.01 });
-    const [t] = await h.db.db
-      .select()
-      .from(schema.tasks)
-      .where(and(eq(schema.tasks.missionId, id), gt(schema.tasks.planVersion, 0)));
+    // The stop is announced as dispatch refuses; the task is blocked a moment later.
+    let t: typeof schema.tasks.$inferSelect | undefined;
+    for (let i = 0; i < 100; i++) {
+      [t] = await h.db.db
+        .select()
+        .from(schema.tasks)
+        .where(and(eq(schema.tasks.missionId, id), gt(schema.tasks.planVersion, 0)));
+      if (t?.status === "blocked") break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
     expect(t?.status).toBe("blocked");
     expect(t?.blockedReason).toContain("workspace's monthly budget");
     const ledger = await h.db.db

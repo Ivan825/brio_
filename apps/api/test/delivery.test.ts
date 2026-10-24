@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { readEventsSince, schema } from "@brio/db";
 import { hasTestDatabase } from "@brio/db/testing";
 import { dockerAvailable } from "@brio/runner";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client, type Harness, startHarness } from "./helpers";
 import { type CallInfo, type Reply, ScriptedVendors, taskTitle } from "./vendors";
@@ -267,7 +267,8 @@ describe.skipIf(!hasTestDatabase || !hasDocker)("M8 acceptance: approve the PR a
     const ledger = await h.db.db
       .select()
       .from(schema.ledger)
-      .where(eq(schema.ledger.workspaceId, workspaceId));
+      .where(eq(schema.ledger.workspaceId, workspaceId))
+      .orderBy(asc(schema.ledger.id));
     const decisions = ledger.filter((l) => l.kind === "approval.decision");
     expect(decisions.map((l) => (l.payload as { decision: string }).decision)).toEqual([
       "denied",

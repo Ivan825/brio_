@@ -4,7 +4,7 @@
 // Needs Postgres.
 import { schema } from "@brio/db";
 import { hasTestDatabase } from "@brio/db/testing";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client, type Harness, startHarness } from "./helpers";
 import { ScriptedVendors } from "./vendors";
@@ -205,7 +205,8 @@ describe.skipIf(!hasTestDatabase)("M9: roles enforced everywhere", () => {
     const changes = await h.db.db
       .select()
       .from(schema.ledger)
-      .where(and(eq(schema.ledger.workspaceId, workspaceId), eq(schema.ledger.kind, "member.changed")));
+      .where(and(eq(schema.ledger.workspaceId, workspaceId), eq(schema.ledger.kind, "member.changed")))
+      .orderBy(asc(schema.ledger.id));
     expect(changes.map((l) => l.payload)).toEqual([
       expect.objectContaining({ userId: ids.viewer, from: "viewer", to: "member" }),
       expect.objectContaining({ userId: ids.viewer, from: "member", to: "viewer" }),
