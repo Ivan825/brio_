@@ -186,6 +186,7 @@ export const LINKS = {
   gettingStarted: doc("GETTING_STARTED.md"),
   selfHost: doc("SELF_HOST.md"),
   ownerSetup: doc("OWNER_SETUP.md"),
+  deployCloud: doc("DEPLOY_CLOUD.md"),
   architecture: doc("ARCHITECTURE.md"),
   security: doc("SECURITY_GOVERNANCE.md"),
   adapters: doc("ADAPTERS.md"),
@@ -264,4 +265,41 @@ export const CLI = [
   ["brio runner register", "make this machine a runner"],
   ["brio runner start", "run your tasks here, under your own CLI sign-ins"],
   ["brio mcp", "Brio's MCP tools over stdio"],
+] as const;
+
+/** Where to run it: Brio is self-hosted, so each option is a machine you control (docs/DEPLOY_CLOUD.md). */
+export const HOSTING = [
+  {
+    title: "A cloud server",
+    tag: "always on",
+    body: "Any Ubuntu server, free for students with Azure for Students. A free cloudapp.azure.com or duckdns.org name gets real HTTPS on its own.",
+    needs: "2 CPUs · 4 GB RAM + swap · 64 GB disk",
+    link: "deployCloud",
+    cta: "Deploy on a server",
+  },
+  {
+    title: "Your own computer",
+    tag: "free",
+    body: "Docker Desktop on your Mac or PC. Share it with a free Tailscale Funnel address when others need it.",
+    needs: "Docker · 8 GB RAM · 30 GB free",
+    link: "ownerSetup",
+    cta: "Set up on your computer",
+  },
+  {
+    title: "Kubernetes",
+    tag: "teams",
+    body: "A Helm chart: web pods that scale, one worker, runners each with their own Docker engine.",
+    needs: "Kubernetes 1.27+ · Postgres with pgvector",
+    link: "selfHost",
+    cta: "Install with Helm",
+  },
+] as const;
+
+/** A fresh Ubuntu server, start to finish (docs/DEPLOY_CLOUD.md). */
+export const SERVER_START = [
+  "curl -fsSL https://get.docker.com | sudo sh && sudo usermod -aG docker $USER",
+  "git clone https://github.com/Ivan825/brio_.git brio && cd brio/deploy/compose",
+  "./setup.sh https://brio-you.duckdns.org",
+  "nano .env   # your address, ports 80/443, BRIO_SIGNUP_ALLOW",
+  "docker compose up -d",
 ] as const;

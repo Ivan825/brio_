@@ -2,7 +2,18 @@
 // load test's, and every documentation link must name a file that exists.
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { AGENTS, CLI, CONNECTOR_COUNT, LINKS, MEASURED, REPO, SHOTS, START } from "../lib/content";
+import {
+  AGENTS,
+  CLI,
+  CONNECTOR_COUNT,
+  HOSTING,
+  LINKS,
+  MEASURED,
+  REPO,
+  SERVER_START,
+  SHOTS,
+  START,
+} from "../lib/content";
 
 const root = new URL("../../../", import.meta.url);
 const read = (path: string) => readFileSync(new URL(path, root), "utf8");
@@ -44,5 +55,22 @@ describe("the site's claims", () => {
   it("shows only screenshots that exist", () => {
     for (const s of SHOTS)
       expect(existsSync(new URL(`../public/shots/${s.file}.jpg`, import.meta.url)), s.file).toBe(true);
+  });
+
+  it("gives the server steps the cloud guide gives, and links each hosting option to its guide", () => {
+    const guide = read("docs/DEPLOY_CLOUD.md");
+    const shown = SERVER_START.join("\n");
+    for (const step of [
+      "curl -fsSL https://get.docker.com | sudo sh",
+      "sudo usermod -aG docker $USER",
+      "git clone https://github.com/Ivan825/brio_.git brio",
+      "./setup.sh https://",
+      "BRIO_SIGNUP_ALLOW",
+      "docker compose up -d",
+    ]) {
+      expect(shown, step).toContain(step);
+      expect(guide, step).toContain(step);
+    }
+    for (const h of HOSTING) expect(LINKS[h.link]).toMatch(/\.md$/);
   });
 });

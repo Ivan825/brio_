@@ -2,7 +2,7 @@
 
 Brio takes one goal, plans it into tasks with contracts, sends each task to the agent best placed to do it, checks the results across vendors, and hands you the verified outcome. You bring the agents: your own API keys, the coding CLIs you are signed in to, hosted agents, or any A2A agent.
 
-This page takes you from nothing to a finished mission in about ten minutes. To run Brio yourself first, see [Self-hosting](SELF_HOST.md), or [Owner setup](OWNER_SETUP.md) for a step-by-step install with no domain and free accounts only.
+This page takes you from nothing to a finished mission in about ten minutes. To run Brio yourself first, see [Self-hosting](SELF_HOST.md), [Deploy on a cloud server](DEPLOY_CLOUD.md) to have it always on, or [Owner setup](OWNER_SETUP.md) for a step-by-step install on your own computer with free accounts only.
 
 ## 1. Sign in and make a workspace
 

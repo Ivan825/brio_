@@ -31,6 +31,14 @@ export const DOCS: readonly DocPage[] = [
     summary: "Docker Compose or Helm, every setting, backups and upgrades.",
   },
   {
+    slug: "deploy-cloud",
+    file: "DEPLOY_CLOUD.md",
+    title: "Deploy on a cloud server",
+    section: "Start",
+    summary:
+      "Always on, with free HTTPS and no domain: Azure for Students, or any Ubuntu server with DuckDNS.",
+  },
+  {
     slug: "owner-setup",
     file: "OWNER_SETUP.md",
     title: "Owner setup, no domain",

@@ -11,6 +11,8 @@ There are two ways to run it:
 | Sandboxes | The machine's Docker | A Docker engine inside each runner pod (privileged `docker:dind` sidecar) |
 | TLS | Caddy, automatic with a domain | Your ingress controller |
 
+On a rented server with no domain, follow [Deploy on a cloud server](DEPLOY_CLOUD.md): it walks through Azure for Students or any Ubuntu server, with a free address and automatic HTTPS.
+
 Either way you get the same five parts: **web** (Next.js), **api** (REST, SSE, MCP, A2A, the orchestrator), **runner** (one sandbox container per attempt), **Postgres**, and a one-shot **migrate** step that runs before the API starts.
 
 ---

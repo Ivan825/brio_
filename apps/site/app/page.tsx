@@ -1,8 +1,8 @@
 import { agentColorVar, BRAND } from "@brio/brand";
 import { Board } from "@/components/board";
-import { CopyButton } from "@/components/copy";
 import { Gallery } from "@/components/gallery";
 import { Section, Wordmark } from "@/components/section";
+import { Terminal } from "@/components/terminal";
 import {
   AGENT_COUNTS,
   AGENTS,
@@ -13,9 +13,11 @@ import {
   doc,
   FEATURES,
   FLOW,
+  HOSTING,
   LINKS,
   MEASURED,
   SAFETY,
+  SERVER_START,
   SHOTS,
   START,
   STEPS,
@@ -27,7 +29,7 @@ const NAV = [
   { href: "#how", label: "How it works" },
   { href: "#verify", label: "Verification" },
   { href: "#safety", label: "Safety" },
-  { href: "#start", label: "Get started" },
+  { href: "#start", label: "Host it" },
 ] as const;
 
 const button =
@@ -308,25 +310,37 @@ export default function Home() {
         <Section
           id="start"
           index="05"
-          label="Get started"
-          title="Running on your machine in about fifteen minutes."
-          lead="Docker is all you need. No account with us, no domain: sign-in links appear in the log until you add a mailbox."
+          label="Host it yourself"
+          title="Running on your own machine in about fifteen minutes."
+          lead="Brio is self-hosted: there is no Brio cloud, no account with us and no domain to buy. Pick a machine; Docker is all it needs."
         >
-          <div className="grid gap-8 lg:grid-cols-[1.1fr_1fr]">
-            <div className="overflow-hidden rounded-lg border border-line bg-surface">
-              <div className="flex items-center justify-between border-b border-line px-4 py-2">
-                <span className="font-mono text-xs text-fg-muted">terminal</span>
-                <CopyButton text={START.join("\n")} label="Copy all" />
+          <div className="mb-10 grid gap-px overflow-hidden rounded-lg border border-line bg-line md:grid-cols-3">
+            {HOSTING.map((h) => (
+              <div key={h.title} className="flex flex-col bg-bg p-6">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-mono text-sm font-bold text-fg">{h.title}</h3>
+                  <span className="rounded-xs border border-line px-1.5 font-mono text-2xs text-accent">
+                    {h.tag}
+                  </span>
+                </div>
+                <p className="mt-2 flex-1 text-sm text-fg-muted">{h.body}</p>
+                <p className="mt-3 font-mono text-2xs text-fg-subtle">{h.needs}</p>
+                <a
+                  href={LINKS[h.link]}
+                  className="mt-4 self-start text-sm text-fg underline decoration-line underline-offset-2 hover:decoration-fg"
+                >
+                  {h.cta} →
+                </a>
               </div>
-              <ol className="space-y-2 p-4 font-mono text-xs sm:text-sm">
-                {START.map((cmd) => (
-                  <li key={cmd} className="flex gap-2 break-all">
-                    <span className="select-none text-accent">$</span>
-                    <span className="text-fg">{cmd}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
+            ))}
+          </div>
+          <div className="grid gap-8 lg:grid-cols-[1.1fr_1fr]">
+            <Terminal
+              tabs={[
+                { label: "a fresh Ubuntu server", commands: SERVER_START },
+                { label: "your computer", commands: START },
+              ]}
+            />
             <div className="overflow-hidden rounded-lg border border-line">
               <table className="w-full text-left text-sm">
                 <caption className="border-b border-line bg-surface px-4 py-2 text-left font-mono text-2xs uppercase tracking-[0.08em] text-fg-subtle">
