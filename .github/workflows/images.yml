@@ -1,0 +1,96 @@
+# Publishes Brio's service images to GitHub Packages after CI passes on main (D-110), so a server can download them
+# instead of building: ghcr.io/<owner>/brio-{api,runner,web}, tagged sha-<12 chars of the commit> and latest, for
+# linux/amd64 and linux/arm64 (each built natively). It reads the code and writes packages; it never writes to the
+# repository.
+name: images
+
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: images
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    strategy:
+      fail-fast: true
+      matrix:
+        target: [api, runner, web]
+        platform: [amd64, arm64]
+    runs-on: ${{ matrix.platform == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - name: Image name
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/brio-${{ matrix.target }}" >> "$GITHUB_ENV"
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: ${{ matrix.target }}
+          platforms: linux/${{ matrix.platform }}
+          build-args: ${{ matrix.target == 'web' && 'API_URL=http://api:4000' || '' }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.event.workflow_run.head_sha || github.sha }}
+            org.opencontainers.image.licenses=AGPL-3.0-only
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.target }}-${{ matrix.platform }}
+          cache-to: type=gha,scope=${{ matrix.target }}-${{ matrix.platform }},mode=max
+      - name: Keep the digest
+        run: |
+          mkdir -p digests
+          echo "${{ steps.build.outputs.digest }}" > "digests/${{ matrix.target }}-${{ matrix.platform }}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: digest-${{ matrix.target }}-${{ matrix.platform }}
+          path: digests/*
+          retention-days: 1
+
+  # One tag per image for both platforms, only once every image has built, so a server never sees half a release.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: digest-*
+          path: digests
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Tag sha-<commit> and latest
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          for target in api runner web; do
+            image="ghcr.io/$owner/brio-$target"
+            docker buildx imagetools create \
+              -t "$image:sha-${SHA:0:12}" -t "$image:latest" \
+              "$image@$(cat digests/$target-amd64)" "$image@$(cat digests/$target-arm64)"
+            docker buildx imagetools inspect "$image:sha-${SHA:0:12}"
+          done
