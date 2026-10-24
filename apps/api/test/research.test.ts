@@ -154,7 +154,10 @@ describe.skipIf(!hasTestDatabase)("research through the API", () => {
     const dispatch = attempt?.dispatch as { tools?: { search?: { connector: { serviceKey: string } } } };
     expect(dispatch.tools?.search?.connector.serviceKey).toBe("tavily");
     const checks = attempt?.checks as { items: { kind: string; status: string }[] };
-    expect(checks.items).toEqual([expect.objectContaining({ kind: "citation_present", status: "passed" })]);
+    expect(checks.items).toEqual([
+      expect.objectContaining({ kind: "citation_present", status: "passed" }),
+      expect.objectContaining({ kind: "injection_scan", status: "passed" }),
+    ]);
     // No credential is stored with the dispatch.
     expect(JSON.stringify(attempt?.dispatch)).not.toContain(TAVILY);
   });

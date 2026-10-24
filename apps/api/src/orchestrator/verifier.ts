@@ -9,6 +9,7 @@ import {
   DEFAULT_CRITERIA,
   diffScope,
   factCheckInstructions,
+  findInjection,
   findJsonSchema,
   inFootprint,
   type MediaSpec,
@@ -242,6 +243,21 @@ export class Verifier {
           items.push({ ...base, status: "needs_human", summary: "waiting for a person" });
       }
     }
+    // Every result is read for instructions aimed at the agents that will read it next (SECURITY_GOVERNANCE §9):
+    // reviewers, judges, the next task's agent. What it finds holds the result for a person.
+    const signals = findInjection(
+      [text, diff ? diff.bytes.toString("utf8") : ""].filter(Boolean).join("\n\n"),
+    );
+    items.push({
+      index: contract.acceptance.length,
+      kind: "injection_scan",
+      hard: true,
+      status: signals.length ? "needs_human" : "passed",
+      summary: signals.length
+        ? `possible instructions to the agents reading this result (${[...new Set(signals.map((x) => x.kind))].join(", ")}): a person should look`
+        : "no instructions aimed at other agents",
+      ...(signals.length ? { details: signals.map((x) => `${x.kind}: ${x.excerpt}`) } : {}),
+    });
 
     const checks: AttemptChecks = { requestedAt: new Date().toISOString(), items };
     const [claimed] = await this.ctx.db

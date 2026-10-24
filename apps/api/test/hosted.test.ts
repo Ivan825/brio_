@@ -168,6 +168,7 @@ describe.skipIf(!hasTestDatabase || !hasDocker)("hosted agents through the API",
     expect(checks.items.map((i) => [i.kind, i.status])).toEqual([
       ["tests", "passed"],
       ["diff_scope", "passed"],
+      ["injection_scan", "passed"],
     ]);
     const diff = (
       await h.db.db.select().from(schema.artifacts).where(eq(schema.artifacts.attemptId, attempt!.id))

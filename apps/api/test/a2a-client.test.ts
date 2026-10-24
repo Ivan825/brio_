@@ -124,7 +124,10 @@ describe.skipIf(!hasTestDatabase)("M7: A2A agents as Brio workers", () => {
       .from(schema.attempts)
       .where(eq(schema.attempts.taskId, task!.id));
     const checks = attempt?.checks as { items: { kind: string; status: string }[] };
-    expect(checks.items).toEqual([expect.objectContaining({ kind: "citation_present", status: "passed" })]);
+    expect(checks.items).toEqual([
+      expect.objectContaining({ kind: "citation_present", status: "passed" }),
+      expect.objectContaining({ kind: "injection_scan", status: "passed" }),
+    ]);
     expect(attempt?.transcriptRef).toBeTruthy();
     const out = (await c.request("GET", `/v1/attempts/${attempt!.id}/output`)).body;
     expect(out).toContain("https://example.com/orchestration");

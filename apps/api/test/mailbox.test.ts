@@ -46,7 +46,7 @@ async function script(call: { model: string; body: string; turn: number }): Prom
     return { text: `The frontend calls the API on ${answer.trim()}.` };
   }
   if (title === "Write the backend notes") {
-    const q = /message ([0-9a-f-]{36}) \(question from frontend\.notes\)/.exec(call.body);
+    const q = /message ([0-9a-f-]{36}) \(question from frontend\.notes\)/i.exec(call.body);
     if (q && !call.body.includes('"answered"'))
       return { tools: [{ name: "answer", args: { message_id: q[1], text: "port 4000" } }] };
     if (call.body.includes("answered")) return { text: "The API listens on port 4000." };

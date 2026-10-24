@@ -364,6 +364,7 @@ describe.skipIf(!hasTestDatabase || !hasDocker)("M5 acceptance: the verifier", (
       ["fact_check", "passed"],
       ["link_check", "passed"],
       ["citation_present", "passed"],
+      ["injection_scan", "passed"],
     ]);
     expect(final.items[0]?.scores).toEqual({ accurate: 5, clear: 4 });
     expect(final.items[1]?.sources?.[0]).toMatchObject({ url: "https://facts.example/connectors", ok: true });

@@ -396,6 +396,7 @@ describe.skipIf(!hasTestDatabase || !hasDocker)("M4 acceptance: execution modes 
     expect(checks.items.map((i) => [i.kind, i.status])).toEqual([
       ["citation_present", "passed"],
       ["human", "needs_human"],
+      ["injection_scan", "passed"],
     ]);
     const r = await c.request("POST", `/v1/tasks/${e.task.id}/review`, { verdict: "pass", reasons: "good" });
     expect(r.statusCode, r.body).toBe(200);
