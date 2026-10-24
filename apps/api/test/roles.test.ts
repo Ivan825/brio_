@@ -155,6 +155,28 @@ describe.skipIf(!hasTestDatabase)("M9: roles enforced everywhere", () => {
     );
   });
 
+  let memberToken = "";
+  const a2a = (token: string) =>
+    h.server.app.inject({
+      method: "POST",
+      url: "/a2a",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json", "a2a-version": "1.0" },
+      payload: {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "GetTask",
+        params: { id: "00000000-0000-7000-8000-000000000000" },
+      },
+    });
+
+  it("lets an A2A client act only for someone who may act in the workspace", async () => {
+    const made = await call("member", "POST", "/v1/tokens", { name: "a2a" });
+    expect(made.statusCode, made.body).toBe(201);
+    memberToken = made.json().token.value;
+    const res = await a2a(memberToken);
+    expect(res.statusCode, res.body).toBe(200);
+  });
+
   it("changes roles by the rules, and records each change", async () => {
     // Members and viewers change nobody.
     expect(
@@ -197,6 +219,17 @@ describe.skipIf(!hasTestDatabase)("M9: roles enforced everywhere", () => {
       (await call("owner", "DELETE", `/v1/workspaces/${workspaceId}/members/${ids.member}`)).statusCode,
     ).toBe(204);
     expect((await call("member", "GET", "/v1/missions")).statusCode).toBe(404);
+    // Their API token went with them: no more A2A, no more REST.
+    expect((await a2a(memberToken)).statusCode).toBe(401);
+    expect(
+      (
+        await h.server.app.inject({
+          method: "GET",
+          url: "/v1/missions",
+          headers: { authorization: `Bearer ${memberToken}` },
+        })
+      ).statusCode,
+    ).toBe(401);
     const [viewer] = await h.db.db
       .select({ role: schema.members.role })
       .from(schema.members)
@@ -210,7 +243,7 @@ describe.skipIf(!hasTestDatabase)("M9: roles enforced everywhere", () => {
     expect(changes.map((l) => l.payload)).toEqual([
       expect.objectContaining({ userId: ids.viewer, from: "viewer", to: "member" }),
       expect.objectContaining({ userId: ids.viewer, from: "member", to: "viewer" }),
-      expect.objectContaining({ userId: ids.member, removed: true }),
+      expect.objectContaining({ userId: ids.member, removed: true, tokensRevoked: 2 }),
     ]);
   });
 });

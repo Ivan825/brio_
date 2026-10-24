@@ -7,7 +7,7 @@ import { z } from "zod";
 import type { AppContext } from "../context";
 import { forwardCookies, HttpError, one, requireMember, requireSession, requireSignedIn } from "../http";
 
-const { workspaces, members, users, invitations } = schema;
+const { apiTokens, invitations, members, runners, users, workspaces } = schema;
 
 const Name = z.string().trim().min(1).max(80);
 const Slug = z
@@ -202,13 +202,39 @@ export async function workspaceRoutes(app: FastifyInstance, ctx: AppContext) {
       body: { memberIdOrEmail: target.id, organizationId: id },
       headers: fromNodeHeaders(req.headers),
     });
+    const revoked = await revokeAccess(id, userId);
     await ctx.ledger.append(ctx.db, {
       workspaceId: id,
       kind: "member.changed",
-      payload: { userId, from: target.role, removed: true, by: s.userId },
+      payload: { userId, from: target.role, removed: true, ...revoked, by: s.userId },
     });
     return reply.status(204).send();
   });
+
+  /** Someone removed keeps nothing that acts in the workspace: their API tokens and local runners there are revoked. */
+  async function revokeAccess(workspaceId: string, userId: string) {
+    const now = new Date();
+    const tokens = await ctx.db
+      .update(apiTokens)
+      .set({ revokedAt: now })
+      .where(
+        and(
+          eq(apiTokens.workspaceId, workspaceId),
+          eq(apiTokens.userId, userId),
+          isNull(apiTokens.revokedAt),
+        ),
+      )
+      .returning({ id: apiTokens.id });
+    const gone = await ctx.db
+      .update(runners)
+      .set({ revokedAt: now })
+      .where(
+        and(eq(runners.workspaceId, workspaceId), eq(runners.ownerId, userId), isNull(runners.revokedAt)),
+      )
+      .returning({ id: runners.id });
+    for (const r of gone) ctx.runners.disconnect(r.id);
+    return { tokensRevoked: tokens.length, runnersRevoked: gone.length };
+  }
 
   async function memberOf(workspaceId: string, userId: string) {
     const [row] = await ctx.db

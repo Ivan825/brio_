@@ -34,7 +34,7 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { uuidv7 } from "uuidv7";
 import type { AppContext } from "../context";
-import { HttpError, requireSession, type SessionInfo } from "../http";
+import { HttpError, requireMember, requireSession, type SessionInfo } from "../http";
 import { cancelMission, createMission } from "../missions";
 import { approvePlan, awaitingPerson } from "../orchestrator/plans";
 import { missionReport } from "../orchestrator/report";
@@ -517,6 +517,8 @@ export async function a2aRoutes(app: FastifyInstance, ctx: AppContext, opts: { p
     const session = await requireSession(ctx, req);
     if (!session.tokenWorkspaceId)
       throw new HttpError(401, "use an API token (Authorization: Bearer brio_pat_…)", "token_required");
+    // An A2A caller starts missions, answers agents and approves plans: someone who may act in the workspace now.
+    await requireMember(ctx, session.tokenWorkspaceId, session, ["owner", "admin", "member"]);
     const version = req.headers["a2a-version"];
     const context = new ServerCallContext({
       user: new BrioUser(session),
