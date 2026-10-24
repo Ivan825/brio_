@@ -7,7 +7,7 @@
   "scripts": {
     "sync-brand": "node scripts/sync-brand-assets.mjs",
     "dev": "pnpm sync-brand && next dev --port 3100",
-    "build": "pnpm sync-brand && next build",
+    "build": "pnpm sync-brand && next build && node scripts/check-links.mjs",
     "deploy": "pnpm build && node scripts/deploy.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"

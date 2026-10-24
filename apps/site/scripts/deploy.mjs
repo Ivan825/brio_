@@ -6,7 +6,7 @@
 //   pnpm run deploy                              build and publish
 //   BRIO_SITE_PROJECT=my-name pnpm run deploy    another project name (the first time only)
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdtempSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,6 +24,8 @@ if (!existsSync(join(out, "index.html"))) {
 // Vercel names a new project after its folder, so the site is published from a folder named after the project.
 const stage = join(mkdtempSync(join(tmpdir(), "brio-site-")), name);
 cpSync(out, stage, { recursive: true });
+// Pages are files like docs/connectors.html; clean URLs serve them at /docs/connectors, as the site links them.
+writeFileSync(join(stage, "vercel.json"), `${JSON.stringify({ cleanUrls: true }, null, 2)}\n`);
 if (existsSync(link)) cpSync(link, join(stage, ".vercel"), { recursive: true });
 
 const run = spawnSync("npx", ["--yes", VERCEL, "deploy", stage, "--prod", "--yes"], { stdio: "inherit" });
