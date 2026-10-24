@@ -30,6 +30,15 @@ docker compose ps               # wait until api, runner and web are "healthy"
 
 Open **http://localhost:8080**.
 
+**Ready-made images** (for a small server: 1 GB of RAM is enough to run Brio, but not to build it). GitHub builds `ghcr.io/ivan825/brio-api`, `-runner` and `-web` for amd64 and arm64 from every commit on `main` that passes its checks, tagged `sha-<first 12 characters of the commit>` and `latest`. To use them, run `./setup.sh --prebuilt` (it sets `BRIO_IMAGE_PREFIX` and `BRIO_VERSION=latest` in a new `.env`; in an existing one, set them yourself), then:
+
+```sh
+docker compose pull
+docker compose up -d --no-build
+```
+
+On 1 GB, also set `BRIO_RUNNER_CONCURRENCY=1` and add swap ([Deploy on a cloud server](DEPLOY_CLOUD.md), step 1).
+
 **First sign-in.** Without an email provider, sign-in links are written to the API's log rather than sent:
 
 ```sh
@@ -202,7 +211,9 @@ git pull
 docker compose up -d --build     # migrations run before the new API starts
 ```
 
-With Helm, build and push the new tag, then `helm upgrade brio deploy/helm/brio --reuse-values --set image.tag=<new>`.
+With ready-made images, `deploy/compose/autoupdate/brio-update.sh` does all of it: it moves to the newest commit once that commit's images are published, sets `BRIO_VERSION` to them, pulls and restarts. `sudo deploy/compose/autoupdate/install.sh` runs it every 5 minutes ([automatic updates](DEPLOY_CLOUD.md#automatic-updates)).
+
+With Helm, use a published tag (`image.registry=ghcr.io/ivan825`, `image.tag=sha-<commit>`) or build and push your own, then `helm upgrade brio deploy/helm/brio --reuse-values --set image.tag=<new>`.
 
 Migrations only move forward. Take a backup first. An attempt running during the restart is marked failed once its heartbeat lapses (about a minute), and the orchestrator tries its task again. Queued attempts are simply picked up. The board shows both.
 

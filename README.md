@@ -113,20 +113,19 @@ Brio is self-hosted: there is no Brio cloud. It runs on a machine you control, w
 | Where | Cost | Address | Guide |
 |---|---|---|---|
 | **A cloud server** (always on) | free with Azure for Students, or about €5–25/month anywhere | a free `*.cloudapp.azure.com` or `*.duckdns.org` name, with automatic HTTPS | [`docs/DEPLOY_CLOUD.md`](docs/DEPLOY_CLOUD.md) |
-| **Your own computer** | free | `localhost`, or a free Tailscale Funnel address | [`docs/DEPLOY_CLOUD.md`](docs/DEPLOY_CLOUD.md) | A cloud server, always on, with free HTTPS and no domain: Azure for Students or any Ubuntu server with DuckDNS |
-| [`docs/OWNER_SETUP.md`](docs/OWNER_SETUP.md) |
+| **Your own computer** | free | `localhost`, or a free Tailscale Funnel address | [`docs/OWNER_SETUP.md`](docs/OWNER_SETUP.md) |
 | **Kubernetes** | your cluster | your ingress | [`docs/SELF_HOST.md`](docs/SELF_HOST.md#2-kubernetes-with-helm-about-25-minutes) |
 
-The server needs at least 2 CPUs, 4 GB RAM with swap, and a 64 GB disk. 4 CPUs, 8 GB and 80–100 GB are comfortable for a small team.
+A server for one person needs only **1 GB of RAM** (with swap) and a 64 GB disk when it downloads Brio's ready-made images, which GitHub builds for every commit that passes its checks: Azure for Students includes such a server for free. Building the images on the server instead needs 2 CPUs and 4 GB. 4 CPUs, 8 GB and 80–100 GB are comfortable for a small team.
 
 On a fresh Ubuntu server, the whole install is:
 
 ```bash
 curl -fsSL https://get.docker.com | sudo sh && sudo usermod -aG docker $USER   # then log in again
 git clone https://github.com/Ivan825/brio_.git brio && cd brio/deploy/compose
-./setup.sh https://brio-you.duckdns.org
+./setup.sh https://brio-you.duckdns.org --prebuilt
 nano .env                # BRIO_SITE_ADDRESS=brio-you.duckdns.org, ports 80/443, BRIO_SIGNUP_ALLOW=you@example.com
-docker compose up -d     # builds, migrates, starts; Caddy gets the HTTPS certificate
+docker compose pull && docker compose up -d --no-build   # migrates, starts; Caddy gets the HTTPS certificate
 ```
 
 [`docs/SELF_HOST.md`](docs/SELF_HOST.md) lists every setting and covers backups, upgrades and a smoke test that proves an install works. [`docs/OWNER_SETUP.md`](docs/OWNER_SETUP.md) covers the rest with free accounts only:

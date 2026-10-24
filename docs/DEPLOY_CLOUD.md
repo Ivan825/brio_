@@ -6,13 +6,14 @@ Brio is self-hosted: it runs on a machine you control. This guide puts it on a r
 
 | Option | Cost | Address | Use it when |
 |---|---|---|---|
-| **A. Azure for Students** | free: $100 credit a year, no card | free `yourname.<region>.cloudapp.azure.com` | you are a student |
+| **A. Azure for Students** | free: a small server is included (750 hours a month), plus $100 of credit a year; no card | free `yourname.<region>.cloudapp.azure.com` | you are a student |
 | **B. Any Ubuntu server** (Hetzner, DigitalOcean, Linode, AWS Lightsail, your own box) | from about €5–25 a month | free `yourname.duckdns.org` | everyone else |
 | Your own laptop | free | Tailscale Funnel | trying it out: [Owner setup](OWNER_SETUP.md) |
 | Kubernetes | your cluster | your ingress | teams with a cluster: [Self-hosting §2](SELF_HOST.md#2-kubernetes-with-helm-about-25-minutes) |
 
 **What the server needs:**
-- **Minimum:** 2 CPUs, 4 GB RAM with 4 GB of swap, and a 64 GB disk.
+- **Smallest (one person):** 1–2 CPUs, **1 GB RAM** with 4 GB of swap, and a 64 GB disk. The server downloads Brio's ready-made images (`./setup.sh --prebuilt`) instead of building them, and runs one task at a time. Measured: Brio's five containers use about 510 MB idle and 560 MB at their peak while a mission plans, runs a sandboxed task and checks it; Ubuntu itself needs roughly 300 MB more, and swap absorbs the rest. Chat and agents reached through vendors' APIs (Gemini, Groq, OpenAI, Claude) fit comfortably; coding agents that run inside sandboxes on the server (Claude Code, Codex) are slow on 1 GB.
+- **Building the images on the server instead:** 2 CPUs, 4 GB RAM with 4 GB of swap, and a 64 GB disk.
 - **Comfortable for a small team:** 4 CPUs, 8 GB RAM and 80–100 GB of disk.
 - **What uses the disk:** Brio's three images, the sandbox images (the browser sandbox, which carries Chromium, is only built the first time a task needs it), Docker's build cache, one git worktree per running attempt, and the database. [Disk](#disk) below says how to keep it in check.
 
@@ -20,10 +21,10 @@ Brio is self-hosted: it runs on a machine you control. This guide puts it on a r
 
 ## A. Azure for Students (free for students)
 
-### A1. Get the credit (10 min)
+### A1. Get the student offer (10 min)
 1. Open <https://azure.microsoft.com/free/students> and click **Start free**.
 2. Sign in with a Microsoft account, then verify with your **school email** (for example `you@iiitb.ac.in`).
-   - Microsoft gives $100 of credit for 12 months, with no card. It renews each year while you are a student.
+   - Microsoft includes some services for free, among them 750 hours a month of a small server (enough to run one all month), and gives $100 of credit for 12 months for everything else. No card. It renews each year while you are a student.
    - Optional: the GitHub Student Developer Pack (<https://education.github.com/pack>) lists more student offers. Check what it currently includes.
 
 ### A2. Create the server (10 min)
@@ -34,11 +35,16 @@ Brio is self-hosted: it runs on a machine you control. This guide puts it on a r
    - **Virtual machine name:** `brio`.
    - **Region:** the one nearest you (for example *Central India*).
    - **Image:** *Ubuntu Server 24.04 LTS – x64 Gen2*.
-   - **Size:** *Standard_B2s* (2 vCPUs, 4 GB). It costs roughly $30–40 a month: the portal shows the price, so check it against your credit. For more room, *Standard_B2ms* (8 GB) costs about twice as much.
+   - **Size:** click **See all sizes** and pick **Standard_B2ats_v2** (2 vCPUs, 1 GiB), one of the sizes included for free (750 hours a month).
+     - The portal shows its normal monthly price; the free hours are taken off your bill. After a day, **Cost Management** shows what you were actually charged.
+     - Not offered in your region? Try another region (*South India*, *East US*), or **Standard_B1s** (1 vCPU, 1 GiB), also free. **Standard_B2pts_v2** is free too, but needs the image *Ubuntu Server 24.04 LTS – Arm64*.
+     - For more room, *Standard_B2s* (4 GB) costs roughly $30–40 a month from your credit, and can build the images itself.
    - **Authentication type:** *SSH public key*; **Username:** `brio`.
    - **SSH public key source:** *Generate new key pair*; **Key pair name:** `brio-key`.
    - **Public inbound ports:** *Allow selected ports* → tick **SSH (22)**, **HTTP (80)** and **HTTPS (443)**.
-3. **Disks** tab: **OS disk size** → **64 GiB** (128 GiB if you expect heavy use).
+3. **Disks** tab:
+   - **OS disk size:** **64 GiB**.
+   - **OS disk type:** **Premium SSD**. A 64 GiB Premium SSD (P6) is included for free for 12 months; a bigger disk is paid from your credit.
 4. **Review + create** → **Create** → **Download private key and create resource**. Keep `brio-key.pem` safe: it is your only way in.
 5. When it finishes, click **Go to resource**.
 
@@ -58,7 +64,7 @@ ssh -i ~/Downloads/brio-key.pem brio@brio-ivan.centralindia.cloudapp.azure.com
 ```
 Type `yes` the first time. Continue with **[Install Brio on the server](#install-brio-on-the-server)**, using your `cloudapp.azure.com` address.
 
-**Spending:** in the portal, **Cost Management → Budgets**, set a budget of $8 a month with an email alert. When you are not using Brio, **Stop** the VM from its page: a stopped (deallocated) VM costs only its disk.
+**Spending:** in the portal, **Cost Management → Budgets**, set a budget of $5 a month with an email alert, so you hear about anything that is not free (the public IP address can cost a little). On a paid size, **Stop** the VM from its page when you are not using Brio: a stopped (deallocated) VM costs only its disk.
 
 ---
 
@@ -67,7 +73,7 @@ Type `yes` the first time. Continue with **[Install Brio on the server](#install
 ### B1. Rent a server
 Any provider works:
 - **Image:** Ubuntu 24.04.
-- **Size:** at least 2 CPUs, 4 GB RAM and 64 GB of disk (see the top of this page).
+- **Size:** at least 1 GB RAM with ready-made images, or 2 CPUs and 4 GB to build them on the server; 64 GB of disk (see the top of this page).
 - **Firewall:** open ports 22, 80 and 443.
 - **Address:** the server's public IPv4 address must not change. Most providers keep it for as long as the server exists.
 
@@ -87,7 +93,7 @@ Continue below, using your `duckdns.org` address.
 
 Everything below runs on the server, over SSH. `ADDRESS` means your address from A3 or B2, without `https://`.
 
-**1. Swap**, so building the images never runs out of memory on a 4 GB machine (1 min):
+**1. Swap**, so Brio never runs out of memory on a small machine (1 min):
 ```sh
 sudo fallocate -l 4G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
@@ -105,9 +111,11 @@ Then SSH in again, so the group change applies, and check with `docker version`.
 ```sh
 git clone https://github.com/Ivan825/brio_.git brio
 cd brio/deploy/compose
-./setup.sh https://ADDRESS
+./setup.sh https://ADDRESS --prebuilt
 nano .env
 ```
+
+`--prebuilt` makes the server download Brio's images, which GitHub builds for every commit that passes its checks. Leave it out to build them on the server instead (4 GB of memory needed).
 
 In `.env`, change these lines:
 
@@ -116,10 +124,12 @@ BRIO_SITE_ADDRESS=ADDRESS
 BRIO_HTTP_PORT=80
 BRIO_HTTPS_PORT=443
 BRIO_SIGNUP_ALLOW=you@example.com
+BRIO_RUNNER_CONCURRENCY=1
 ```
 
 - `BRIO_SITE_ADDRESS` is your address, without `https://`.
 - `BRIO_SIGNUP_ALLOW` is your email address. Only you, and the people you invite from inside Brio, can create accounts.
+- `BRIO_RUNNER_CONCURRENCY=1` runs one task at a time, which a 1 GB server needs. Keep `2` or more on a bigger server.
 
 Optionally, fill in the email lines too (Gmail with an app password: [Owner setup, Part 3](OWNER_SETUP.md#3-email-from-your-gmail)). Without them, sign-in links appear in the log instead of being emailed.
 
@@ -133,11 +143,14 @@ scp -i ~/Downloads/brio-key.pem brio@ADDRESS:brio/deploy/compose/.env ~/brio-ser
 
 For option B, use your own SSH login instead.
 
-**4. Start it** (10–20 min the first time, while the images build):
+**4. Start it.** With ready-made images (2–5 min, while they download):
 ```sh
-docker compose up -d
+docker compose pull
+docker compose up -d --no-build
 docker compose ps
 ```
+Building on the server instead (10–20 min the first time): `docker compose up -d`, then `docker compose ps`.
+
 Repeat `docker compose ps` until `api`, `runner` and `web` show `healthy`. Caddy fetches the HTTPS certificate on its own within a minute; ports 80 and 443 must be open for that.
 
 **5. Sign in.** Open `https://ADDRESS` in your browser and enter your email. Without email set up, get the link with:
@@ -160,10 +173,11 @@ sudo ./install.sh
 ```
 
 Every 5 minutes, a systemd timer runs `brio-update.sh`. When the branch has moved, it:
-1. pulls the new commits;
-2. adds any new settings to `.env` (it never changes your values);
-3. rebuilds and restarts Brio;
-4. clears old build layers, so updates don't fill the disk.
+1. with ready-made images, waits until GitHub has published the new commit's images (about 15 minutes after a push; never, if its checks failed, so a broken commit is not installed);
+2. pulls the new commits;
+3. adds any new settings to `.env` (it never changes your values, except `BRIO_VERSION`, which it moves to the new commit's images);
+4. downloads the new images and restarts Brio, or, without ready-made images, rebuilds and restarts;
+5. removes the previous images and build layers, so updates don't fill the disk.
 
 Your data stays in the database volume.
 
@@ -174,7 +188,7 @@ Your data stays in the database volume.
 | Only check whether an update is waiting | `~/brio/deploy/compose/autoupdate/brio-update.sh --check` |
 | Turn it off | `sudo ./install.sh --remove` |
 
-While a rebuild runs, Brio keeps serving: the new containers replace the old ones once they are built. Pages may blank for a few seconds during the swap.
+While an update downloads or builds, Brio keeps serving: the new containers replace the old ones once they are ready. Pages may blank for a few seconds during the swap.
 
 ## Running it
 
@@ -182,15 +196,15 @@ While a rebuild runs, Brio keeps serving: the new containers replace the old one
 |---|---|
 | See what is running | `docker compose ps` |
 | Read errors | `docker compose logs api --tail 100` (or `runner`, `web`, `caddy`) |
-| Update Brio by hand | `git pull && ./setup.sh && docker compose up -d --build` (or turn on [automatic updates](#automatic-updates)) |
+| Update Brio by hand | `autoupdate/brio-update.sh` (or turn on [automatic updates](#automatic-updates)) |
 | Back up the database | `docker compose exec -T postgres pg_dump -U brio -d brio -Fc > ~/brio-$(date +%F).dump` |
-| Stop / start | `docker compose stop` / `docker compose up -d` |
+| Stop / start | `docker compose stop` / `docker compose up -d --no-build` (without ready-made images: `docker compose up -d`) |
 
 Brio restarts on its own after the server reboots.
 
 ### Disk
 See what Docker uses with `docker system df`. The parts that grow:
-- **Build cache:** every update builds new images; the old layers stay in the cache.
+- **Build cache** (only when building on the server): every update builds new images; the old layers stay in the cache.
 - **Old images:** each update leaves the previous version's images behind.
 - **The runner's worktrees:** one per running attempt, under `deploy/compose/data/runner`.
 
@@ -211,5 +225,7 @@ Check free space with `df -h /`. Keep at least 10 GB free; Postgres and Docker b
 | The browser says the connection is not private, or there is no certificate | Ports 80 and 443 must be open in the provider's firewall. `BRIO_SITE_ADDRESS` must be exactly your address, and the address must point to this server. Then check `docker compose logs caddy`. |
 | A sign-in link says "already used or expired" | Each link works once, for 15 minutes. Ask for a new one. |
 | "Too many requests" | Sign-in is limited to 5 tries a minute. Wait a minute. |
-| The build stops with "killed" | Not enough memory: add the swap from step 1. |
+| The build stops with "killed" | Not enough memory: add the swap from step 1, or use ready-made images (`--prebuilt`). |
+| `docker compose pull` says "denied" or "not found" | The images are not published under that name. Check `BRIO_IMAGE_PREFIX` (for this repository: `ghcr.io/ivan825/brio`); right after a push, wait about 15 minutes for GitHub to publish them. |
+| The updater says a commit "is waiting for its images" | GitHub is still building them, or that commit's checks failed. It retries every 5 minutes; nothing is installed meanwhile. |
 | "no space left on device" | See [Disk](#disk). |
