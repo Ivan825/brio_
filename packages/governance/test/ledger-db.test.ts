@@ -110,6 +110,26 @@ describe.skipIf(!hasTestDatabase)("Ledger (Postgres)", () => {
     expect(String(err?.cause?.message ?? err?.message)).toMatch(/append-only/);
   };
 
+  it("refuses an entry written already chained (a forged head would jam the chain)", async () => {
+    await refused(
+      t.db.execute(
+        sql`insert into ledger (id, workspace_id, kind, payload, hash, prev_hash) values (gen_random_uuid(), ${DEMO.workspaceId}, 'spend', '{}'::jsonb, repeat('a', 64), repeat('0', 64))`,
+      ),
+    );
+    await t.db.execute(sql`alter table ledger disable trigger ledger_insert_pending`);
+    const err = await t.db
+      .execute(
+        sql`insert into ledger (id, workspace_id, kind, payload, hash) values (gen_random_uuid(), ${DEMO.workspaceId}, 'spend', '{}'::jsonb, repeat('b', 64))`,
+      )
+      .then(
+        () => null,
+        (e: Error & { cause?: Error }) => String(e.cause?.message ?? e.message),
+      );
+    await t.db.execute(sql`alter table ledger enable trigger ledger_insert_pending`);
+    // Even past the trigger, a half-chained row breaks the check that the three are set together.
+    expect(err).toMatch(/ledger_chained_together/);
+  });
+
   it("lets a pending entry be chained once, and nothing else change", async () => {
     const e = await ledger.append(t.db, {
       workspaceId: DEMO.workspaceId,

@@ -197,6 +197,13 @@
       "when": 1792808793467,
       "tag": "0027_ledger_deferred_chain",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1792818448898,
+      "tag": "0028_ledger_insert_guard",
+      "breakpoints": true
     }
   ]
 }

@@ -134,11 +134,9 @@ describe.skipIf(!hasTestDatabase)("database", () => {
       "ledger",
       () => ({
         table: ledger,
+        // Written pending (D-98): Brio's chainer numbers and hashes it.
         row: {
           workspaceId: DEMO.workspaceId,
-          seq: 1,
-          prevHash: "0".repeat(64),
-          hash: "a".repeat(64),
           kind: "dispatch" as const,
           payload: {},
         },

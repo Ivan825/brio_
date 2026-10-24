@@ -62,7 +62,7 @@ export class Ledger {
       const [head] = await tx
         .select({ seq: ledger.seq, hash: ledger.hash })
         .from(ledger)
-        .where(and(eq(ledger.workspaceId, workspaceId), isNotNull(ledger.hash)))
+        .where(and(eq(ledger.workspaceId, workspaceId), isNotNull(ledger.hash), isNotNull(ledger.seq)))
         .orderBy(desc(ledger.seq))
         .limit(1);
       let seq = head?.seq ?? 0;
@@ -86,8 +86,15 @@ export class Ledger {
       .selectDistinct({ workspaceId: ledger.workspaceId })
       .from(ledger)
       .where(isNull(ledger.hash));
+    // One workspace that cannot be chained (its chain damaged) does not hold up the others; the failure is reported.
     let n = 0;
-    for (const w of waiting) n += await this.chain(db, w.workspaceId);
+    const failed: Error[] = [];
+    for (const w of waiting)
+      n += await this.chain(db, w.workspaceId).catch((err: Error) => {
+        failed.push(new Error(`workspace ${w.workspaceId}: ${err.message}`));
+        return 0;
+      });
+    if (failed.length) throw new AggregateError(failed, failed.map((e) => e.message).join("; "));
     return n;
   }
 
