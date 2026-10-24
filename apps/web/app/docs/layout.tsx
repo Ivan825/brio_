@@ -9,7 +9,7 @@ const SECTIONS = ["Start", "Use", "Extend", "Under the hood"] as const;
 export default function DocsLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-dvh bg-bg text-fg">
-      <header className="sticky top-0 z-10 border-b border-line bg-bg/90 backdrop-blur">
+      <header className="sticky top-0 z-10 border-b border-line bg-bg backdrop-blur">
         <div className="mx-auto flex h-12 max-w-6xl items-center gap-4 px-4">
           <Link href="/docs" className="font-mono text-md font-bold tracking-tight">
             {BRAND.wordmark}

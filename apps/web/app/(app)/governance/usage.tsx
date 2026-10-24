@@ -48,8 +48,11 @@ function DailySpend({ view, days }: { view: UsageView; days: number }) {
           <div
             key={s.day}
             title={`${s.day}: ${usd(s.costUsd)}, ${s.attempts} attempts`}
-            className="min-h-px flex-1 rounded-t-xs bg-accent/70 hover:bg-accent"
-            style={{ height: `${Math.max(1, (s.costUsd / top) * 100)}%`, opacity: s.costUsd ? 1 : 0.25 }}
+            className="min-h-px flex-1 rounded-t-xs bg-accent opacity-80 hover:opacity-100"
+            style={{
+              height: `${Math.max(1, (s.costUsd / top) * 100)}%`,
+              ...(s.costUsd ? {} : { opacity: 0.25 }),
+            }}
           />
         ))}
       </div>
@@ -74,15 +77,17 @@ function Breakdown({
       <p className={heading}>{title}</p>
       <ul className="divide-y divide-line rounded-md border border-line text-sm">
         {rows.map((r) => (
-          <li key={r.label} className="flex items-center gap-3 px-3 py-1.5">
-            <span className="min-w-0 flex-1 truncate">
-              {r.label}
-              {r.detail && <span className="ml-2 font-mono text-2xs text-fg-subtle">{r.detail}</span>}
-            </span>
-            <span className="font-mono text-xs tabular-nums text-fg-muted">
+          <li key={r.label} className="flex flex-col gap-0.5 px-3 py-1.5">
+            <div className="flex items-baseline gap-3">
+              <span className="min-w-0 flex-1 truncate">
+                {r.label}
+                {r.detail && <span className="ml-2 font-mono text-2xs text-fg-subtle">{r.detail}</span>}
+              </span>
+              <span className="shrink-0 font-mono text-xs tabular-nums">{usd(r.costUsd)}</span>
+            </div>
+            <span className="font-mono text-2xs tabular-nums text-fg-muted">
               {r.attempts} runs{r.ok !== undefined ? ` · ${pct(r.ok, r.attempts)} passed` : ""}
             </span>
-            <span className="w-20 text-right font-mono text-xs tabular-nums">{usd(r.costUsd)}</span>
           </li>
         ))}
       </ul>

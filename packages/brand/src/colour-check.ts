@@ -7,7 +7,7 @@ export interface ColourViolation {
   file: string;
   line: number;
   match: string;
-  rule: "hex" | "colour-function" | "tailwind-palette";
+  rule: "hex" | "colour-function" | "tailwind-palette" | "token-opacity";
 }
 
 const SCANNED_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".css", ".scss", ".html"]);
@@ -18,6 +18,7 @@ const SKIPPED_DIRS = new Set([
   ".turbo",
   "dist",
   "build",
+  "out",
   "coverage",
   "test-results",
   "playwright-report",
@@ -36,6 +37,13 @@ const TAILWIND_PALETTE = new RegExp(
   "g",
 );
 
+// An opacity modifier on a brand colour (bg-accent/70): the preset's colours are CSS variables without an alpha
+// channel, so Tailwind silently generates nothing and the element has no colour at all. Font sizes take /<line-height>.
+const TOKEN_OPACITY = new RegExp(
+  `(?<![\\w-])(?:[\\w-]+:)*(?:${UTILITIES})-(?!(?:2xs|xs|sm|base|md|lg|[2-9]?xl)\\/)[a-z][\\w-]*\\/\\d+(?![\\w-])`,
+  "g",
+);
+
 /** Find colour literals in one file's text. */
 export function findColourLiterals(text: string, file = "<inline>"): ColourViolation[] {
   const out: ColourViolation[] = [];
@@ -45,6 +53,7 @@ export function findColourLiterals(text: string, file = "<inline>"): ColourViola
       ["hex", HEX],
       ["colour-function", COLOUR_FUNCTION],
       ["tailwind-palette", TAILWIND_PALETTE],
+      ["token-opacity", TOKEN_OPACITY],
     ] as const) {
       re.lastIndex = 0;
       for (const m of content.matchAll(re)) out.push({ file, line: i + 1, match: m[0], rule });

@@ -16,6 +16,9 @@ describe("findColourLiterals", () => {
     ['className="text-white"', "tailwind-palette"],
     ['className="hover:bg-red-500/50"', "tailwind-palette"],
     ['className="dark:border-slate-700"', "tailwind-palette"],
+    ['className="bg-accent/70 hover:bg-accent"', "token-opacity"],
+    ['className="sticky top-0 bg-bg/90"', "token-opacity"],
+    ['className="hover:border-line-strong/50"', "token-opacity"],
   ] as const)("flags %s", (text, rule) => {
     const found = findColourLiterals(text);
     expect(found.map((v) => v.rule)).toContain(rule);
@@ -29,6 +32,7 @@ describe("findColourLiterals", () => {
     "&#123; entity",
     "const id = item.id; // #42",
     "background: currentColor;",
+    'className="w-1/2 translate-x-1/2 text-sm/6"',
   ])("allows %s", (text) => {
     expect(findColourLiterals(text)).toEqual([]);
   });
