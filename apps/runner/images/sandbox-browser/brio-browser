@@ -21,11 +21,24 @@ PROXY=""
 [ -n "${HTTPS_PROXY:-}" ] && PROXY="--proxy-server=${HTTPS_PROXY}"
 KIOSK=""
 [ "${MODE}" = "kiosk" ] && KIOSK="--kiosk"
-nohup chromium --no-sandbox --no-first-run --no-default-browser-check --disable-gpu --disable-dev-shm-usage \
-  --disable-sync --disable-extensions --password-store=basic --test-type --user-data-dir=/tmp/brio-chrome \
-  --remote-debugging-address=127.0.0.1 --remote-debugging-port=9222 \
-  --window-position=0,0 --window-size="${W},${H}" ${KIOSK} ${PROXY} "${URL}" >/tmp/chromium.log 2>&1 &
-i=0; until xdotool search --onlyvisible --class chromium >/dev/null 2>&1; do i=$((i+1)); [ "$i" -gt 200 ] && { tail -20 /tmp/chromium.log >&2; exit 1; }; sleep 0.1; done
+start_chromium() {
+  nohup chromium --ozone-platform=x11 --no-sandbox --no-first-run --no-default-browser-check --disable-gpu \
+    --disable-dev-shm-usage --disable-sync --disable-extensions --password-store=basic --test-type \
+    --user-data-dir=/tmp/brio-chrome --remote-debugging-address=127.0.0.1 --remote-debugging-port=9222 \
+    --window-position=0,0 --window-size="${W},${H}" ${KIOSK} ${PROXY} "${URL}" >/tmp/chromium.log 2>&1 &
+}
+# On a busy machine Chromium can give up on a display that has only just started ("Missing X server"): it exits at
+# once, so start it again, a few times, before failing.
+start_chromium
+tries=1; i=0
+until xdotool search --onlyvisible --class chromium >/dev/null 2>&1; do
+  i=$((i+1))
+  if ! pgrep -x chromium >/dev/null && [ "$tries" -lt 4 ]; then
+    sleep 0.5; tries=$((tries+1)); start_chromium
+  fi
+  [ "$i" -gt 300 ] && { tail -20 /tmp/chromium.log >&2; exit 1; }
+  sleep 0.1
+done
 # The window is up; wait for the page to load (DevTools), then for it to be painted.
 brio-cdp settle >/dev/null 2>&1 || true
 sleep 1
