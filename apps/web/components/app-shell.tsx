@@ -27,7 +27,7 @@ export function AppShell({
           <Wordmark />
         </Link>
         {workspaceSwitcher}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 overflow-hidden">
           <Breadcrumb />
         </div>
         <ThemeToggle />

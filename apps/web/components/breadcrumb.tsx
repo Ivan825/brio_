@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 export function Breadcrumb() {
   const pathname = usePathname();
   return (
-    <span className="truncate font-mono text-xs text-fg-subtle" data-testid="breadcrumb">
+    <span className="block truncate font-mono text-xs text-fg-subtle" data-testid="breadcrumb">
       ~{pathname === "/" ? "" : pathname}
     </span>
   );

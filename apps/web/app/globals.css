@@ -121,3 +121,92 @@
   border-top: 1px solid var(--line);
   margin: var(--space-6) 0;
 }
+
+/* Agents' Markdown in a chat reply: compact, in the brand's tokens. Raw HTML never reaches it (lib/markdown.ts). */
+.md {
+  line-height: 1.6;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.md > * + * {
+  margin-top: 0.6em;
+}
+.md h1,
+.md h2,
+.md h3,
+.md h4 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-top: 1em;
+}
+.md h1 {
+  font-size: var(--text-lg);
+}
+.md h2 {
+  font-size: var(--text-md);
+}
+.md h3,
+.md h4 {
+  font-size: var(--text-base);
+}
+.md ul,
+.md ol {
+  padding-left: 1.4em;
+}
+.md ul {
+  list-style: disc;
+}
+.md ol {
+  list-style: decimal;
+}
+.md li + li {
+  margin-top: 0.2em;
+}
+.md a {
+  color: var(--focus);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.md code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--surface-2);
+  border-radius: var(--radius-xs);
+  padding: 0.1em 0.35em;
+}
+.md pre {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 0.75em 1em;
+  overflow-x: auto;
+}
+.md pre code {
+  background: none;
+  padding: 0;
+  font-size: var(--text-sm);
+}
+.md blockquote {
+  border-left: 2px solid var(--line-strong);
+  padding-left: 0.9em;
+  color: var(--text-muted);
+}
+.md table {
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+}
+.md th,
+.md td {
+  border: 1px solid var(--line);
+  padding: 0.35em 0.7em;
+  text-align: left;
+}
+.md th {
+  background: var(--surface-2);
+  font-weight: 600;
+}
+.md hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+}

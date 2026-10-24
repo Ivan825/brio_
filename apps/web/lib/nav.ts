@@ -7,6 +7,7 @@ import {
   Inbox,
   LayoutTemplate,
   type LucideIcon,
+  MessageSquare,
   Plug,
   Scale,
   Settings,
@@ -21,6 +22,7 @@ export interface NavItem {
 }
 
 export const NAV: readonly NavItem[] = [
+  { href: "/chat", label: "Chat", icon: MessageSquare },
   { href: "/missions", label: "Missions", icon: Workflow },
   { href: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/projects", label: "Projects", icon: FolderGit2 },

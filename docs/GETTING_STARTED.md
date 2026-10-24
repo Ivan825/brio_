@@ -18,7 +18,19 @@ Then make an **agent** from it on **Agents**: a model, a price (filled in from t
 - **One agent works.** Brio plans, runs and checks everything with it, and its reviews say honestly that they come from the same vendor.
 - **Two or more from different vendors** let Brio do what it is built for: route each task to whoever is best at it, have another vendor review the result, and learn from every verdict ([routing and quality](ROUTING_AND_QUALITY.md)).
 
-## 3. Run a mission
+## 3. Chat with your agents
+
+**Chat** is the quickest way in: ask anything, the way you would ask one assistant.
+- **Auto:** the agent best at that kind of question answers.
+- **Together, Review or Debate:** with two or more agents connected, they build the reply between them.
+  - **Together:** each picked agent answers, then one merges the answers.
+  - **Review:** one answers, and another checks it and asks for fixes.
+  - **Debate:** they argue it out, and a judge decides.
+- **Who answers:** pick agents above the message box to choose who takes part.
+
+Follow-ups carry the conversation. Every reply shows who worked on it, what it cost and each agent's own answer, and you can rate it, which feeds the scoreboard. When a request needs real work on a repository, **Turn into a mission** hands the conversation to a full mission: planned, run in sandboxes, checked and reported.
+
+## 4. Run a mission
 
 On **Missions**, describe the goal in a sentence or two, for example *"Add a /health endpoint to the API with a test"*. Optionally choose:
 - a **project** (a repository);
@@ -28,7 +40,7 @@ On **Missions**, describe the goal in a sentence or two, for example *"Add a /he
 
 Brio plans the mission. You see the tasks, each with its contract (what goes in, what comes out, how it is checked), the agent it would go to and the estimated cost. Edit anything: reorder, split, merge, pin an agent, add a check. Then **Approve plan**. Small, cheap plans can start on their own with **quick start**.
 
-## 4. Watch it, then take the result
+## 5. Watch it, then take the result
 
 The mission's board is live:
 - each task's attempts, as they happen;
@@ -41,7 +53,7 @@ Anything that needs you lands in your **Inbox**: a plan to approve, a question, 
 
 When the mission is done you get its report: what was done, by whom, which checks passed, and what is still open. On a repository it also proposes a pull request, which opens once you approve it.
 
-## 5. Keep going
+## 6. Keep going
 
 - **Scoreboard:** who wins at which kind of task, at what cost and speed. Brio routes by it, and it improves with every mission.
 - **Governance:**
