@@ -32,6 +32,8 @@ export const EVENT_TYPES = [
   "judge.verdict",
   "handoff.created",
   "message.sent",
+  // D-109: the person's message in a chat; the task that answers it follows.
+  "chat.message",
   "message.answered",
   "contract.changed",
   "budget.warn",

@@ -34,6 +34,7 @@ import { approvalRoutes } from "./routes/approvals";
 import { attemptRoutes } from "./routes/attempts";
 import { authRoutes } from "./routes/auth";
 import { budgetRoutes } from "./routes/budgets";
+import { chatRoutes } from "./routes/chats";
 import { connectorRoutes } from "./routes/connectors";
 import { crewRoutes } from "./routes/crews";
 import { devRoutes } from "./routes/dev";
@@ -233,6 +234,7 @@ export async function buildServer({
     await authRoutes(app, ctx);
     await workspaceRoutes(app, ctx);
     await missionRoutes(app, ctx);
+    await chatRoutes(app, ctx);
     await registryRoutes(app, ctx);
     await connectorRoutes(app, ctx);
     await agentRoutes(app, ctx);

@@ -114,8 +114,9 @@ describe.skipIf(!hasTestDatabase)("M9 acceptance: budgets", () => {
     expect(spent).toBeGreaterThanOrEqual(0.06);
     for (const { a } of done) expect(Number(a.costUsd)).toBeLessThanOrEqual(0.07);
 
-    // The tasks wait for a person; raising the budget lets them run again.
-    for (let i = 0; i < 50; i++) {
+    // The tasks wait for a person; raising the budget lets them run again. (The 5 s bound is on the attempts, above;
+    // the orchestrator blocks the tasks on its next tick, which a busy machine may delay.)
+    for (let i = 0; i < 150; i++) {
       const r = await rows();
       if (r.every((x) => x.t.status === "blocked")) break;
       await new Promise((res) => setTimeout(res, 100));

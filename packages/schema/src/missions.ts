@@ -20,6 +20,13 @@ export const MissionBudget = z.object({ usd: Usd.optional(), minutes: z.number()
 export const MissionPriority = z.enum(["quality", "balanced", "cheap", "fast"]);
 
 /**
+ * mission: a goal planned into tasks, run, checked and reported. chat (D-109): a conversation that stays open; each
+ * message the person sends is one task, answered by one agent or several working together, never planned or ended.
+ */
+export const MissionKind = z.enum(["mission", "chat"]);
+export type MissionKind = z.infer<typeof MissionKind>;
+
+/**
  * How a mission's tasks are routed. learned: the scoreboard router with multi-agent modes (the default). static: the
  * capability router without learning or modes. single: one agent does all the work in one shot (no revisions, no
  * other agents) — the "agent alone" baseline the eval harness compares Brio against.

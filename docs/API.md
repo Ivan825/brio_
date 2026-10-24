@@ -52,6 +52,20 @@ Budgets (M9, SECURITY_GOVERNANCE §5): the workspace's and each agent's monthly 
 | PUT | `/v1/budgets` | owner, admin | Sets the workspace's or an agent's monthly limit (USD) and warning threshold; null removes it. |
 | PUT | `/v1/missions/:id/budget` | owner, admin, member | A mission's budget, raised or set: tasks a spent budget stopped run again. |
 
+## chats
+
+Chat (D-109): conversations with your agents. Each message becomes a task the orchestrator routes to the best agent, or to several working together; the reply streams onto the chat's events (GET /v1/missions/:id/events).
+
+| Method | Path | Who | What |
+|---|---|---|---|
+| GET | `/v1/chats` | any member | The workspace's chats, most recent first. |
+| POST | `/v1/chats` | any member | Starts a chat; with a `message`, its first turn starts at once. |
+| GET | `/v1/chats/:id` | any member | A chat with every turn: the message, who answered and how, the reply, its cost. |
+| POST | `/v1/chats/:id/messages` | any member | Sends a message: `mode` (auto, together, review, debate) and `agentIds` say who answers and how. |
+| POST | `/v1/chats/:id/turns/:turnId/stop` | any member | Stops the reply being worked on. |
+| DELETE | `/v1/chats/:id` | any member | Archives a chat (it leaves the list; anything running stops). |
+| POST | `/v1/chats/:id/mission` | any member | Hands the conversation to a full mission (planned, run, checked, reported), with the chat as its context. |
+
 ## connectors
 
 | Method | Path | Who | What |

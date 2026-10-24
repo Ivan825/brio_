@@ -120,6 +120,8 @@ type ModeParams = {
   keepConflicts?: boolean;
   /** The integration round that created this task. */
   integration?: string;
+  /** A chat turn (D-109): only these agents may take it (the ones the person picked); empty or unset: any. */
+  agentIds?: string[];
 };
 const paramsOf = (t: Task) => t.modeParams as ModeParams;
 /** Attempts that made a result (single-mode makers and a mode's makers and mergers), not reviewers or judges. */
@@ -593,7 +595,12 @@ export class Orchestrator {
     for (const t of fresh)
       if (paramsOf(t).carriedFrom && t.status === "done" && (await this.markOnce(t.id, "handed-off")))
         await this.handOffCarried(m, t);
-    const snapshot: SchedTask[] = fresh.map((t) => ({
+    // A chat (D-109) is never done and never fails: each turn stands alone, so the scheduler sees only the turns still
+    // at work, and with none it has nothing to do.
+    const chat = m.kind === "chat";
+    const scheduled = chat ? fresh.filter((t) => !["done", "failed", "cancelled"].includes(t.status)) : fresh;
+    if (chat && !scheduled.length) return;
+    const snapshot: SchedTask[] = scheduled.map((t) => ({
       id: t.id,
       key: t.key,
       status: t.status,
@@ -658,9 +665,11 @@ export class Orchestrator {
           break;
         }
         case "mission_done":
+          if (chat) break;
           await this.integrateOrFinish(m, fresh);
           break;
         case "mission_failed": {
+          if (chat) break;
           if (await this.proposeReplan(m, fresh, a.reason)) break;
           await this.endMission(m, "failed", { reason: a.reason });
           break;
@@ -680,7 +689,10 @@ export class Orchestrator {
     const contract = TaskContract.parse(fresh.contract);
     // Work on the files of a project that lives on a local runner goes to that runner's agents only.
     const onRunner = worksOnFiles(fresh, contract) ? await projectRunnerOf(this.ctx, m.projectId) : null;
-    const placed = (await missionAgents(this.ctx, m)).filter((a) => !onRunner || a.runnerId === onRunner);
+    const picked = paramsOf(fresh).agentIds;
+    const placed = (await missionAgents(this.ctx, m)).filter(
+      (a) => (!onRunner || a.runnerId === onRunner) && (!picked?.length || picked.includes(a.id)),
+    );
     // The workspace's policies (M9) filter candidates before any scoring: a violation is impossible, not warned.
     const { allowed: agents, refused } = allowedAgents(
       placed,

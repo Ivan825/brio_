@@ -27,7 +27,7 @@ import { type Db, type DbOrTx, type EventWriter, schema } from "@brio/db";
 import type { Ledger } from "@brio/governance";
 import type { Actor, EventType } from "@brio/schema";
 import type { Redactor } from "@brio/vault";
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import type { CollectedResult, PreparedWorktree, Worktrees } from "./worktree";
 
 const { attempts, artifacts, blobs, tasks } = schema;
@@ -419,7 +419,8 @@ export async function recordAttemptFinish(
             ? { resultArtifactId: diffId ?? producedIds[0] ?? answerId }
             : {}),
         })
-        .where(eq(tasks.id, attempt.taskId));
+        // A task someone stopped (a chat reply, a cancelled mission) stays stopped when its attempt ends late.
+        .where(and(eq(tasks.id, attempt.taskId), ne(tasks.status, "cancelled")));
     if (!missionId) return;
     await deps.events.append(tx, {
       workspaceId: attempt.workspaceId,

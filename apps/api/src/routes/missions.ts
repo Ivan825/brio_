@@ -37,7 +37,8 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
     const rows = await ctx.db
       .select()
       .from(missions)
-      .where(eq(missions.workspaceId, workspaceId))
+      // Chats (D-109) have their own list: GET /v1/chats.
+      .where(and(eq(missions.workspaceId, workspaceId), eq(missions.kind, "mission")))
       .orderBy(desc(missions.createdAt))
       .limit(100);
     return { missions: rows.map(presentMission) };

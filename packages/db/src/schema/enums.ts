@@ -16,6 +16,7 @@ import {
   MemberRole,
   MessageKind,
   MessageStatus,
+  MissionKind,
   MissionPriority,
   MissionStatus,
   PlanStatus,
@@ -41,6 +42,7 @@ export const sandboxProfile = pgEnum("sandbox_profile", values(SandboxProfile));
 export const projectKind = pgEnum("project_kind", values(ProjectKind));
 export const missionStatus = pgEnum("mission_status", values(MissionStatus));
 export const missionPriority = pgEnum("mission_priority", values(MissionPriority));
+export const missionKind = pgEnum("mission_kind", values(MissionKind));
 export const planStatus = pgEnum("plan_status", values(PlanStatus));
 export const executionMode = pgEnum("execution_mode", values(ExecutionMode));
 export const taskStatus = pgEnum("task_status", values(TaskStatus));

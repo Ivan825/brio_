@@ -24,6 +24,7 @@ import {
   attemptRole,
   attemptStatus,
   executionMode,
+  missionKind,
   missionPriority,
   missionStatus,
   planStatus,
@@ -56,6 +57,8 @@ export const missions = pgTable(
     title: text().notNull(),
     goal: text().notNull(),
     status: missionStatus().notNull().default("draft"),
+    /** mission, or chat (D-109): a conversation whose every message is a task, kept open between messages. */
+    kind: missionKind().notNull().default("mission"),
     priority: missionPriority().notNull().default("balanced"),
     budget: jsonb().$type<{ usd?: number; minutes?: number }>().notNull().default(sql`'{}'::jsonb`),
     assumptions: jsonb().$type<string[]>().notNull().default(sql`'[]'::jsonb`),
@@ -83,7 +86,7 @@ export const missions = pgTable(
     lastEventSeq: bigint({ mode: "number" }).notNull().default(0),
     ...timestamps(),
   },
-  (t) => [index().on(t.workspaceId, t.createdAt)],
+  (t) => [index().on(t.workspaceId, t.createdAt), index().on(t.workspaceId, t.kind, t.updatedAt)],
 );
 
 export const plans = pgTable(
