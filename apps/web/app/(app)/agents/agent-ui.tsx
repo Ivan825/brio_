@@ -13,6 +13,7 @@ import type { AgentSummary, ConnectorModel, InstalledConnector, RunnerSummary } 
 export function AgentList({ agents }: { agents: AgentSummary[] }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
   return (
     <section aria-labelledby="agents-title" className="flex flex-col gap-3">
       <h2 id="agents-title" className="font-mono text-2xs uppercase tracking-[0.08em] text-fg-muted">
@@ -46,11 +47,35 @@ export function AgentList({ agents }: { agents: AgentSummary[] }) {
                     <Chip tone="warning">price unknown</Chip>
                   )}
                   {!a.modelListed && <Chip tone="warning">model not in live list</Chip>}
+                  {!a.runnable && (
+                    <Chip tone="danger" title={a.notRunnableBecause ?? undefined}>
+                      can't run
+                    </Chip>
+                  )}
                   <Chip>max {usd(a.limits.maxCostUsd ?? 1)}</Chip>
                 </div>
               </div>
+              {!a.runnable && a.notRunnableBecause && (
+                <p className="text-xs text-danger" data-testid="not-runnable">
+                  {a.notRunnableBecause}. Use Edit to set one, or choose a model with a known price.
+                </p>
+              )}
               {a.rolePrompt && <p className="line-clamp-2 text-xs text-fg-muted">{a.rolePrompt}</p>}
-              <div>
+              {editing === a.id && (
+                <AgentEditor
+                  agent={a}
+                  onDone={() => {
+                    setEditing(null);
+                    router.refresh();
+                  }}
+                />
+              )}
+              <div className="flex gap-1">
+                {editing !== a.id && (
+                  <Button size="sm" variant="ghost" onClick={() => setEditing(a.id)}>
+                    Edit
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="ghost"
@@ -77,6 +102,144 @@ export function AgentList({ agents }: { agents: AgentSummary[] }) {
 }
 
 const num = (v: string) => (v.trim() === "" ? undefined : Number(v));
+
+/** Changes an agent in place: its model, its price (needed when the vendor's is unknown), role prompt and limit. */
+function AgentEditor({ agent, onDone }: { agent: AgentSummary; onDone: () => void }) {
+  const ids = useId();
+  const [model, setModel] = useState(agent.model);
+  const [models, setModels] = useState<ConnectorModel[]>([]);
+  const [priceIn, setPriceIn] = useState(agent.priceOverride ? String(agent.priceOverride.inputPerM) : "");
+  const [priceOut, setPriceOut] = useState(agent.priceOverride ? String(agent.priceOverride.outputPerM) : "");
+  const [rolePrompt, setRolePrompt] = useState(agent.rolePrompt);
+  const [maxCostUsd, setMaxCostUsd] = useState(String(agent.limits.maxCostUsd ?? 1));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!agent.connector) return;
+    let live = true;
+    api<{ models: ConnectorModel[] }>(`/v1/connectors/${agent.connector.id}/models`)
+      .then((r) => live && setModels(r.models))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [agent.connector]);
+
+  const chosen = models.find((m) => m.id === model);
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      if ((priceIn === "") !== (priceOut === "")) throw new Error("Set both prices, or neither");
+      await api(`/v1/agents/${agent.id}`, {
+        method: "PATCH",
+        body: {
+          model,
+          rolePrompt,
+          limits: { ...agent.limits, maxCostUsd: num(maxCostUsd) },
+          priceOverride:
+            priceIn && priceOut
+              ? {
+                  inputPerM: Number(priceIn),
+                  outputPerM: Number(priceOut),
+                  cachedInputPerM: null,
+                  cacheWritePerM: null,
+                }
+              : null,
+        },
+      });
+      onDone();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form
+      onSubmit={save}
+      className="grid gap-3 border-t border-line pt-3 md:grid-cols-2"
+      aria-label={`Edit ${agent.name}`}
+    >
+      <div className="flex flex-col gap-1 md:col-span-2">
+        <Label htmlFor={`${ids}-model`}>Model</Label>
+        <Input
+          id={`${ids}-model`}
+          list={`${ids}-models`}
+          value={model}
+          onChange={(e) => setModel(e.target.value)}
+          className="font-mono"
+          required
+        />
+        <datalist id={`${ids}-models`}>
+          {models.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.price
+                ? `${m.displayName ?? m.id} · ${perM(m.price.inputPerM)}/${perM(m.price.outputPerM)}`
+                : (m.displayName ?? m.id)}
+            </option>
+          ))}
+        </datalist>
+        {chosen && (
+          <p className="font-mono text-2xs text-fg-subtle">
+            {chosen.price
+              ? `${perM(chosen.price.inputPerM)} in · ${perM(chosen.price.outputPerM)} out per M tokens (${chosen.price.kind})`
+              : "no known price for this model: set one below, or it cannot run"}
+          </p>
+        )}
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={`${ids}-in`}>Your price, $ per M input tokens</Label>
+        <Input
+          id={`${ids}-in`}
+          type="number"
+          min="0"
+          step="any"
+          value={priceIn}
+          onChange={(e) => setPriceIn(e.target.value)}
+          placeholder="the vendor's, when known"
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={`${ids}-out`}>Your price, $ per M output tokens</Label>
+        <Input
+          id={`${ids}-out`}
+          type="number"
+          min="0"
+          step="any"
+          value={priceOut}
+          onChange={(e) => setPriceOut(e.target.value)}
+          placeholder="0 on a free tier"
+        />
+      </div>
+      <div className="flex flex-col gap-1 md:col-span-2">
+        <Label htmlFor={`${ids}-role`}>Role prompt</Label>
+        <Textarea id={`${ids}-role`} value={rolePrompt} onChange={(e) => setRolePrompt(e.target.value)} />
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={`${ids}-cost`}>Max $ per attempt</Label>
+        <Input
+          id={`${ids}-cost`}
+          type="number"
+          min="0"
+          step="any"
+          value={maxCostUsd}
+          onChange={(e) => setMaxCostUsd(e.target.value)}
+        />
+      </div>
+      <div className="flex items-end gap-2">
+        <Button type="submit" variant="primary" disabled={busy}>
+          Save changes
+        </Button>
+        <Button onClick={onDone}>Cancel</Button>
+      </div>
+      <FormError>{error}</FormError>
+    </form>
+  );
+}
 
 export function AgentBuilder({
   connectors: all,

@@ -103,6 +103,7 @@ export function ChatApp({
   const router = useRouter();
   const { setRunning } = useRunning();
   const usable = useMemo(() => agents.filter((a) => a.runnable), [agents]);
+  const idle = useMemo(() => agents.filter((a) => !a.runnable), [agents]);
   const colour = useMemo(() => new Map(agents.map((a, i) => [a.id, agentColorVar(i)])), [agents]);
   const [view, setView] = useState<ChatView | null>(initial);
   const [chats, setChats] = useState(initialChats);
@@ -316,6 +317,16 @@ export function ChatApp({
           aria-label="Send a message"
         >
           <div className="mx-auto flex max-w-3xl flex-col gap-2">
+            {idle.length > 0 && (
+              <p className="text-xs text-warning" data-testid="idle-agents">
+                {idle.map((a) => a.name).join(", ")} can&apos;t answer yet:{" "}
+                {idle[0]?.notRunnableBecause ?? "its connector is not ready"}
+                {idle.length > 1 ? " (and others)" : ""}.{" "}
+                <Link href="/agents" className="underline underline-offset-2">
+                  Fix it on Agents
+                </Link>
+              </p>
+            )}
             {usable.length > 0 && (
               <fieldset className="flex flex-wrap items-center gap-1.5">
                 <legend className="sr-only">Who answers, and how</legend>
@@ -345,6 +356,20 @@ export function ChatApp({
                     </button>
                   );
                 })}
+                {idle.map((a) => (
+                  <span
+                    key={a.id}
+                    title={a.notRunnableBecause ?? "can't run yet"}
+                    className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-sm border border-dashed border-line px-2 py-0.5 font-mono text-2xs text-fg-subtle"
+                  >
+                    <span
+                      className="h-1.5 w-1.5 rounded-xs"
+                      style={{ background: colour.get(a.id) }}
+                      aria-hidden
+                    />
+                    {a.name} · can&apos;t run
+                  </span>
+                ))}
                 <span className="mx-1 h-4 w-px bg-line" aria-hidden />
                 <span className="flex flex-wrap gap-1">
                   {MODES.map((m) => {

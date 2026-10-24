@@ -139,6 +139,8 @@ export interface AgentSummary {
   connector: { id: string; displayName: string; registryKey: string; preset?: string; status: string } | null;
   price: Price | null;
   runnable: boolean;
+  /** Why it cannot run (no known price, a disabled connector…); null when it can. */
+  notRunnableBecause?: string | null;
   modelListed: boolean;
   /** The local runner it runs on; null for the cloud. */
   runnerId?: string | null;
