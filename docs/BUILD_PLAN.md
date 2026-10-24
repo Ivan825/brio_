@@ -15,8 +15,8 @@ Status column: update as you go (`todo` / `in progress` / `done (commit sha)`).
 | M6 ∥ | Hosted-agent, browser, media and research adapters | M2 | done (24 Oct 2026, pushed in steps; live vendor runs await owner keys, see CHANGELOG) |
 | M7 ∥ | Protocol surfaces: Brio MCP server, A2A server + client, ACP | M3 | done (24 Oct 2026, pushed in steps; live client connections await a public deployment, see CHANGELOG) |
 | M8 | Web app complete + CLI + local runner | M3–M7 | done (24 Oct 2026, pushed in steps; a real signed-in CLI on the owner's machine and github.com pull requests await the owner, see CHANGELOG) |
-| M9 | Governance complete, memory graph, notifications, orgs/RBAC | M3, M8 | todo |
-| M10 | Self-host packaging, hardening, docs site, launch readiness | all | todo |
+| M9 | Governance complete, memory graph, notifications, orgs/RBAC | M3, M8 | done (24 Oct 2026, pushed in steps; live email, push, Slack and Mandate await the owner's keys and apps, see CHANGELOG) |
+| M10 | Self-host packaging, hardening, docs site, launch readiness | all | in progress |
 
 ---
 

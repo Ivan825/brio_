@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-24 — M9 Governance, memory, notifications, roles
+Pushed in small steps (CLAUDE.md rule 9, D-17).
+- **Budgets at every scope (D-89):** monthly limits for the workspace and each agent, plus every mission's and task's own. Before dispatch every scope must fit the estimate and the attempt is capped to what is left; while it runs a guard warns past the soft threshold and, the moment a scope is crossed, stops every running attempt in it (`limit_exceeded`) — the task waits, blocked, until a person raises the budget on the board.
+- **Policy engine (D-90):** data routing by sensitivity (confidential work goes only to local models unless a policy allows a connector), connector allow and deny lists, network and approval policies — applied wherever agents are chosen and checked again at dispatch, so nothing routes around them.
+- **Approvals wherever people are (D-91, D-92):** email through Resend, browser push (VAPID), and the workspace's own Slack app with Approve and Deny buttons (signed, mapped to a member by email); each event reaches each person once, by their preferences. MCP clients may decide approvals with the `brio:approve` scope a person grants on consent.
+- **Ledger (D-93):** owners and admins browse it, verify the hash chain (the first broken entry is named) and export it as JSONL or CSV.
+- **Project memory (D-94):** a graph built from events — missions, tasks, contracts, prompts, decisions and the files they touched. The brief for a file or topic goes to every attempt on the project and to `get_brief`; people add, correct and forget what is remembered, each change in the ledger.
+- **Roles (D-95):** owner, admin, member and viewer enforced on every route; role changes follow the rules and are in the ledger.
+- **Global scoreboard (D-14 → D-96):** opt-in both ways — add this workspace's outcomes, anonymised; start unseen agents from global numbers once 20 outcomes from three workspaces stand behind them.
+- **Mandate (D-07 → D-97):** connect a Mandate and every paid attempt asks it for authority first, spends no more than was held, and settles the real cost; spend a person must approve waits in Mandate's inbox; unreachable means nothing paid runs.
+- **Fixes found on the way:** a task that failed late could fail its whole mission; an attempt whose cap equalled what the budget had left could overspend; a local-runner test assumed a fixed delay.
+- **Acceptance evidence:** a confidential task is never routed to a disallowed connector (property tests over the engine, API tests, and in the browser until a policy allows it); a budget stop halts two running attempts within 5 s of the mission crossing its budget; the brief for a changed file holds the plan's assumption, the person's answer, the contract and the prompt behind it, and the next mission's agent gets it; notifications by email, push and Slack (decided from Slack, forged requests refused); the roles matrix; ledger tamper detection; the global scoreboard's thresholds; Mandate's approve, wait-for-a-person, decline and unreachable paths against a fake following its agent API.
+- **Not yet verified live:** Resend, web push in a real browser, a real Slack app and a real Mandate instance need the owner's keys and apps.
+
 ## 2026-10-24 — M8 Web app complete, CLI, local runner
 Pushed in small steps (CLAUDE.md rule 9, D-17).
 - **The pull request, approved (D-81):** a mission on a repository proposes its delivery when it ends — the integration branch pushed, a pull request on GitHub — and waits for a person in the inbox or on the board; approved, a runner pushes and opens the pull request as the project token's owner; denied or failed, ask again. Projects keep a git token in the vault for private repositories and pull requests (D-82); GitHub Enterprise via `BRIO_GITHUB_API_URL`.

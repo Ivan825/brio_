@@ -81,6 +81,7 @@ Mandate (the owner's existing product: scoped, revocable spending authority for 
 - Option A (default): `packages/governance` implements budgets/approvals/ledger natively with Mandate-compatible schemas, so a workspace can later connect Mandate.
 - Option B: delegate spend authority and API-key proxying to a Mandate instance via its API/MCP server.
 Decide in `docs/DECISIONS.md` (D-07). Either way the ledger format stays Mandate-compatible.
+- As built (M9, D-97): Option A, plus an optional connection to a Mandate instance for spend authority. Owners and admins connect one USD mandate's agent token (Governance page or `PUT /v1/integrations/mandate`); it is checked with Mandate and kept in the vault. Every paid attempt then asks Mandate after Brio's own budgets: an approval becomes a hold the attempt may not exceed; the real cost is captured, or the hold voided, when the attempt ends; a request a person must approve keeps the task blocked (Mandate's inbox decides; Brio asks again with the same idempotency key until it does); a decline or an unreachable Mandate blocks the task. Attempts under a person's own subscription ask nothing. Holds and settlements are `spend` ledger entries in Brio too. Mandate's agent API cannot create, pause or revoke mandates — those stay in Mandate.
 
 ## 8. Audit ledger
 - Append-only table with `seq`, `prev_hash`, `hash = sha256(prev_hash || canonical_json(payload))`.
