@@ -6,6 +6,7 @@ import type { FastifyBaseLogger } from "fastify";
 import type { PgBoss } from "pg-boss";
 import type { AttemptRunner } from "./attempts";
 import type { Auth } from "./auth";
+import type { BillingReporter } from "./billing";
 import type { BudgetGuard } from "./budgets";
 import type { Config } from "./config";
 import type { LogMailer, Mailer } from "./mailer";
@@ -45,6 +46,8 @@ export interface AppContext {
   budgets: BudgetGuard;
   /** Settles Mandate holds and follows requests waiting for a person (D-07). */
   mandate: MandateSettler;
+  /** Sends daily usage to the operator's billing system, when configured (D-105). */
+  billing: BillingReporter;
   /** Tells people what needs them: email, browser push, Slack (M9). */
   notifier: Notifier;
   /** Builds each project's memory graph from the event log (M9). */

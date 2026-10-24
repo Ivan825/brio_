@@ -17,6 +17,7 @@ import { ZodError } from "zod";
 import { a2aRoutes } from "./a2a/server";
 import { AttemptRunner } from "./attempts";
 import { createAuth } from "./auth";
+import { BillingReporter } from "./billing";
 import { BudgetGuard } from "./budgets";
 import type { Config } from "./config";
 import type { AppContext } from "./context";
@@ -56,6 +57,7 @@ import { runnerRoutes } from "./routes/runners";
 import { scoreboardRoutes } from "./routes/scoreboard";
 import { templateRoutes } from "./routes/templates";
 import { tokenRoutes } from "./routes/tokens";
+import { usageRoutes } from "./routes/usage";
 import { workspaceRoutes } from "./routes/workspaces";
 import { RunnerHub } from "./runners/hub";
 
@@ -169,6 +171,7 @@ export async function buildServer({
   ctx.runners = new RunnerHub(ctx);
   ctx.budgets = new BudgetGuard(ctx);
   ctx.mandate = new MandateSettler(ctx, mandateSweepMs);
+  ctx.billing = new BillingReporter(ctx);
   ctx.notifier = new Notifier(ctx);
   ctx.memory = new MemoryIngest(ctx);
   const chainer = new LedgerChainer(handle.db, ledger, (err) =>
@@ -251,6 +254,7 @@ export async function buildServer({
     await ledgerRoutes(app, ctx);
     await memoryRoutes(app, ctx);
     await mandateRoutes(app, ctx);
+    await usageRoutes(app, ctx);
     if (config.BRIO_DEV_OUTBOX && config.NODE_ENV !== "production") await devRoutes(app, ctx);
     // Local runners connect over a WebSocket on the API's own HTTP server.
     ctx.runners.attach(app.server);
@@ -263,6 +267,7 @@ export async function buildServer({
     ctx.notifier.start();
     ctx.memory.start();
     chainer.start();
+    ctx.billing.start();
   }
 
   return {
@@ -276,6 +281,7 @@ export async function buildServer({
       ctx.notifier.stop();
       ctx.memory.stop();
       await chainer.stop();
+      await ctx.billing.stop();
       await ctx.runners.stop();
       await app.close();
       await ctx.queue.stop({ graceful: false }).catch(() => {});

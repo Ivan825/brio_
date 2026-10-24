@@ -17,6 +17,12 @@ const Env = z.object({
    * address — what sign-in rate limits key on — is the one the last trusted proxy saw. 0 when nothing is in front.
    */
   BRIO_TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(1),
+  /**
+   * The billing hook (D-105): where the worker sends each workspace's daily usage, signed with the secret (HMAC-SHA256),
+   * for an operator that charges for hosting Brio. Off unless both are set.
+   */
+  BRIO_BILLING_WEBHOOK_URL: z.url().optional(),
+  BRIO_BILLING_WEBHOOK_SECRET: z.string().min(32).optional(),
   /** Requests a client address may make each minute (live event streams and runners' sockets aside); 0: no limit. */
   BRIO_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(0).default(1200),
   /** Connections the API keeps to Postgres: the orchestrator, live event streams and requests share them. */

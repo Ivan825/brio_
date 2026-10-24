@@ -253,6 +253,15 @@ API tokens (M7): a person makes one for a workspace in the web app and gives it 
 | POST | `/v1/tokens` | owner, admin, member; signed-in person only (no API token) | Makes an API token for this workspace; its value is shown once. |
 | DELETE | `/v1/tokens/:id` | any member; signed-in person only (no API token) | Revokes an API token. |
 
+## usage
+
+Usage analytics and the public status page (M10, D-105).
+
+| Method | Path | Who | What |
+|---|---|---|---|
+| GET | `/v1/usage` | any member | What the workspace spent and ran: totals, and by day, agent, vendor and task type (`?days=30`, or `from`/`to`). |
+| GET | `/v1/status` | public | Public status: whether each part of Brio is working, with nothing about any workspace — the API, the database, live events, and whether work is being picked up and kept alive by runners. |
+
 ## workspaces
 
 | Method | Path | Who | What |
