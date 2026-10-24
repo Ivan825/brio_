@@ -75,4 +75,16 @@ test("confidential work stays put until a policy allows its connector; the ledge
   await expect(
     page.getByTestId("notification-settings").getByLabel("Missions done or failed"),
   ).not.toBeChecked();
+
+  // Sharing with the global scoreboard is off until an owner or admin turns it on (D-14).
+  await page.goto("/scoreboard");
+  const sharing = page.getByTestId("score-sharing");
+  const share = sharing.getByRole("checkbox", { name: /Add this workspace's outcomes/ });
+  await expect(share).not.toBeChecked();
+  await share.click();
+  await expect(share).toBeChecked();
+  await page.reload();
+  await expect(
+    page.getByTestId("score-sharing").getByRole("checkbox", { name: /Add this workspace's outcomes/ }),
+  ).toBeChecked();
 });
