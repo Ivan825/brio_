@@ -48,6 +48,12 @@ export interface RunnerOptions {
   runnerId?: string;
   resolveAdapter?: (key: string) => AgentAdapter | undefined;
   answerWaitMs?: number;
+  /**
+   * How sandbox proxies reach this runner's mailbox. By default the Docker host (`host.docker.internal`), which is
+   * where a runner on the host listens; a runner in a container names itself and the Docker network it is on, and
+   * each proxy joins that network too (the proxy still refuses every other private address).
+   */
+  hostAccess?: { mailboxHost: string; network?: string };
   /** Port for the mailbox MCP server (0: any free port). */
   mailboxPort?: number;
   /** The GitHub REST API pull requests are opened through (GitHub Enterprise Server: its /api/v3). */

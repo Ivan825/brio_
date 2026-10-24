@@ -54,6 +54,14 @@ const runner = new Runner({
   },
   concurrency: config.BRIO_RUNNER_CONCURRENCY,
   mailboxPort: config.BRIO_RUNNER_MAILBOX_PORT,
+  ...(config.BRIO_RUNNER_MAILBOX_HOST
+    ? {
+        hostAccess: {
+          mailboxHost: config.BRIO_RUNNER_MAILBOX_HOST,
+          ...(config.BRIO_RUNNER_NETWORK ? { network: config.BRIO_RUNNER_NETWORK } : {}),
+        },
+      }
+    : {}),
 });
 await runner.start();
 await runner.reap();
@@ -63,7 +71,7 @@ const health = config.BRIO_RUNNER_HEALTH_PORT
       if (req.url !== "/health") return void res.writeHead(404).end();
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({ ok: true, runner: runner.id, active: runner.active.length }));
-    }).listen(config.BRIO_RUNNER_HEALTH_PORT, "127.0.0.1")
+    }).listen(config.BRIO_RUNNER_HEALTH_PORT, config.BRIO_RUNNER_HEALTH_HOST)
   : null;
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {

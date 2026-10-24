@@ -17,6 +17,9 @@ export class GitError extends Error {
 }
 
 const SAFE_CONFIG = [
+  // Worktrees belong to the sandbox's user when the runner is root (a runner in a container).
+  "-c",
+  "safe.directory=*",
   "-c",
   "core.hooksPath=/dev/null",
   "-c",

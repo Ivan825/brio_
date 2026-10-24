@@ -31,6 +31,8 @@ export interface CreateSandboxInput {
   proxyAllowPrivate?: boolean;
   /** Port of the runner's mailbox server; the proxy relays brio-mailbox:8080 to it. */
   mailboxPort?: number;
+  /** Where the runner's mailbox is reached from the proxy (default: the Docker host), and a network to join for it. */
+  hostAccess?: { mailboxHost: string; network?: string };
 }
 
 /** A relative path inside the worktree, or an error. Absolute paths and `..` escapes are refused. */
@@ -40,6 +42,19 @@ export function confine(path: string): string {
   if (normal.startsWith("/") || normal === ".." || normal.startsWith("../"))
     throw new Error(`${path} is outside the working directory`);
   return normal === "." ? WORKDIR : posix.join(WORKDIR, normal);
+}
+
+/** chown -R, for a root runner's worktrees (the sandbox never runs as root). */
+function chownTree(path: string, owner: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("chown", ["-R", owner, path], { stdio: ["ignore", "ignore", "pipe"] });
+    let err = "";
+    child.stderr.on("data", (d: Buffer) => {
+      err += d.toString("utf8");
+    });
+    child.on("error", reject);
+    child.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`chown failed: ${err.trim()}`))));
+  });
 }
 
 const hostUser = () => {
@@ -98,14 +113,16 @@ export class DockerSandbox implements SandboxHandle {
           ...(i.mailboxPort
             ? [
                 "-e",
-                `BRIO_PROXY_MAILBOX_UPSTREAM=host.docker.internal:${i.mailboxPort}`,
-                "--add-host",
-                "host.docker.internal:host-gateway",
+                `BRIO_PROXY_MAILBOX_UPSTREAM=${i.hostAccess?.mailboxHost ?? "host.docker.internal"}:${i.mailboxPort}`,
+                ...(i.hostAccess ? [] : ["--add-host", "host.docker.internal:host-gateway"]),
               ]
             : []),
           i.images.proxy,
         ]);
         await docker(["network", "connect", "--alias", "egress", "--alias", "brio-mailbox", network, proxy]);
+        // A runner in a container: the proxy also joins its network, to reach the mailbox there.
+        if (i.mailboxPort && i.hostAccess?.network)
+          await docker(["network", "connect", i.hostAccess.network, proxy]);
         await waitForProxy(proxy);
         netArgs.push("--network", network);
         const url = `http://egress:${PROXY_PORT}`;
@@ -115,6 +132,8 @@ export class DockerSandbox implements SandboxHandle {
       }
 
       const mount = `${i.worktree}:${WORKDIR}${i.spec.worktree === "ro" ? ":ro" : ""}`;
+      // A runner running as root (in a container) hands the worktree to the sandbox's user, who must write to it.
+      if (process.getuid?.() === 0 && i.spec.worktree === "rw") await chownTree(i.worktree, hostUser());
       await docker([
         "run",
         "-d",
