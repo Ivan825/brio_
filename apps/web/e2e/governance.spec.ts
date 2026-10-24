@@ -66,6 +66,13 @@ test("confidential work stays put until a policy allows its connector; the ledge
   await budgets.getByTestId("budget-row").first().getByRole("button", { name: "Save" }).click();
   await expect(budgets.getByTestId("budget-row").first()).toContainText("of $25.00");
 
+  // Mandate is optional; a token that is not one is refused before anything is called.
+  const mandate = page.getByRole("form", { name: "Connect Mandate" });
+  await mandate.getByLabel("Mandate URL").fill("https://mandate.example.com");
+  await mandate.getByLabel(/Agent token/).fill("not-a-token");
+  await mandate.getByRole("button", { name: "Connect Mandate" }).click();
+  await expect(page.getByTestId("mandate").getByRole("alert")).toContainText("starts with mnd_");
+
   // Notification preferences.
   await page.goto("/settings");
   const settings = page.getByTestId("notification-settings");
