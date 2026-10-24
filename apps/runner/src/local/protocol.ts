@@ -6,6 +6,9 @@ import type { Actor, EventType } from "@brio/schema";
 import type { MergeCheck, MergeInput, MergeOutcome } from "../integrate";
 import type { CollectedResult, MergeConflict } from "../worktree";
 
+/** The WebSocket subprotocol a runner asks for; its token travels beside it in the handshake. */
+export const RUNNER_SUBPROTOCOL = "brio-runner";
+
 export const PROTOCOL_VERSION = 1;
 
 export interface RunnerCapabilities {

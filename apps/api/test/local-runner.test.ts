@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readEventsSince, schema } from "@brio/db";
 import { hasTestDatabase } from "@brio/db/testing";
-import { LocalRunner } from "@brio/runner";
+import { LocalRunner, PROTOCOL_VERSION, RUNNER_SUBPROTOCOL } from "@brio/runner";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client, type Harness, startHarness } from "./helpers";
@@ -315,6 +315,58 @@ describe.skipIf(!hasTestDatabase)("M8 acceptance: a local runner", () => {
       expect(await h.db.db.select().from(schema.attempts).where(eq(schema.attempts.taskId, t.id))).toEqual(
         [],
       );
+  }, 60_000);
+
+  it("gives a socket only to a live runner token, and takes only the runner's own kind of events", async () => {
+    const url = `${base.replace("http", "ws")}/v1/runners/connect`;
+    const opens = (protocols: string[]) =>
+      new Promise<string>((res) => {
+        const ws = new WebSocket(url, protocols);
+        ws.onopen = () => {
+          ws.close();
+          res("open");
+        };
+        ws.onerror = () => res("refused");
+      });
+    expect(await opens([RUNNER_SUBPROTOCOL])).toBe("refused");
+    expect(await opens([RUNNER_SUBPROTOCOL, ["brio_rnr", "notarealtoken0123456789abcdef"].join("_")])).toBe(
+      "refused",
+    );
+
+    // Speak as the runner itself (its daemon stopped), holding an attempt, and try to post what only Brio may.
+    await runner.stop();
+    const ws = new WebSocket(url, [RUNNER_SUBPROTOCOL, token]);
+    await new Promise((r) => {
+      ws.onopen = r;
+    });
+    const got: Array<{ t: string; attempt?: { id: string } }> = [];
+    ws.onmessage = (e) => got.push(JSON.parse(String(e.data)));
+    ws.send(JSON.stringify({ t: "hello", token, protocol: PROTOCOL_VERSION, capabilities: {} }));
+    const m = await c.request("POST", "/v1/missions", {
+      goal: "Say hello again",
+      plan: PLAN,
+      projectId,
+      routing: { strategy: "single", agentId },
+    });
+    const id = m.json().mission.id as string;
+    expect((await c.request("POST", `/v1/missions/${id}/plans/1/approve`)).statusCode).toBe(200);
+    let attemptId = "";
+    for (let i = 0; i < 100 && !attemptId; i++) {
+      attemptId = got.find((x) => x.t === "attempt")?.attempt?.id ?? "";
+      if (!attemptId) await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(attemptId).not.toBe("");
+    const send = (type: string, payload: Record<string, unknown>, actor?: string) =>
+      ws.send(JSON.stringify({ t: "event", attemptId, type, payload, ...(actor ? { actor } : {}) }));
+    send("approval.requested", { what: "read a file", approvalId: "00000000-0000-7000-8000-000000000001" });
+    send("mission.done", {});
+    send("attempt.message", { role: "assistant", text: "hi" }, "user:00000000-0000-7000-8000-000000000002");
+    await new Promise((r) => setTimeout(r, 1000));
+    const events = await readEventsSince(h.db.db, id, 0, 1000);
+    expect(events.map((e) => e.type)).not.toContain("approval.requested");
+    expect(events.map((e) => e.type)).not.toContain("mission.done");
+    expect(events.find((e) => e.type === "attempt.message")?.actor).toBe(`agent:${agentId}`);
+    ws.close();
   }, 60_000);
 
   it("a revoked runner is cut off", async () => {

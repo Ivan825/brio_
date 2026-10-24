@@ -14,6 +14,7 @@ import {
   isCommand,
   mergeFromWire,
   PROTOCOL_VERSION,
+  RUNNER_SUBPROTOCOL,
   type RunnerMessage,
   recordAttemptFinish,
   recordCheck,
@@ -38,6 +39,15 @@ const CONNECT_PATH = "/v1/runners/connect";
 const MAX_MESSAGE = 128 * 1024 * 1024;
 
 /** Asks whichever API instance holds the runner's connection to look for its work. */
+/** The events a runner may report about an attempt it holds (the attempt's end comes as attempt_done). */
+const RUNNER_EVENTS = new Set<string>([
+  "attempt.started",
+  "attempt.message",
+  "attempt.tool_call",
+  "attempt.file_edit",
+  "attempt.cost",
+]);
+
 export async function pokeRunner(db: AppContext["db"], runnerId: string): Promise<void> {
   await db.execute(sql`select pg_notify(${RUNNER_JOBS_CHANNEL}, ${runnerId})`);
 }
@@ -62,7 +72,11 @@ interface Connection {
 }
 
 export class RunnerHub {
-  private readonly wss = new WebSocketServer({ noServer: true, maxPayload: MAX_MESSAGE });
+  private readonly wss = new WebSocketServer({
+    noServer: true,
+    maxPayload: MAX_MESSAGE,
+    handleProtocols: (protocols) => (protocols.has(RUNNER_SUBPROTOCOL) ? RUNNER_SUBPROTOCOL : false),
+  });
   private readonly connections = new Map<string, Connection>();
   private listener: pg.Client | null = null;
   private timers: NodeJS.Timeout[] = [];
@@ -74,7 +88,22 @@ export class RunnerHub {
   attach(server: Server): void {
     server.on("upgrade", (req: IncomingMessage, socket: Duplex, head: Buffer) => {
       if (new URL(req.url ?? "/", "http://x").pathname !== CONNECT_PATH) return;
-      this.wss.handleUpgrade(req, socket, head, (ws) => this.accept(ws));
+      // Only a live runner token gets a socket at all (security review L1): large messages are for runners, not for
+      // whoever connects.
+      const offered = String(req.headers["sec-websocket-protocol"] ?? "")
+        .split(",")
+        .map((p) => p.trim());
+      const token = offered.find((p) => p.startsWith(RUNNER_TOKEN_PREFIX));
+      void (token ? this.liveRunner(token) : Promise.resolve(null)).then(
+        (ok) => {
+          if (!ok || !offered.includes(RUNNER_SUBPROTOCOL)) {
+            socket.end("HTTP/1.1 401 Unauthorized\r\nconnection: close\r\ncontent-length: 0\r\n\r\n");
+            return;
+          }
+          this.wss.handleUpgrade(req, socket, head, (ws) => this.accept(ws));
+        },
+        () => socket.destroy(),
+      );
     });
   }
 
@@ -155,6 +184,15 @@ export class RunnerHub {
         ws.close(4003, "refused");
       });
     });
+  }
+
+  /** Whether a token belongs to a runner that is not revoked. */
+  private async liveRunner(token: string): Promise<boolean> {
+    const [r] = await this.ctx.db
+      .select({ id: runners.id })
+      .from(runners)
+      .where(and(eq(runners.tokenHash, runnerTokenHash(token)), isNull(runners.revokedAt)));
+    return Boolean(r);
   }
 
   private async hello(ws: WebSocket, raw: string) {
@@ -245,6 +283,16 @@ export class RunnerHub {
   private async pump(c: Connection): Promise<void> {
     if (this.stopped || this.connections.get(c.runnerId) !== c) return;
     const { db } = this.ctx;
+    // Revoked on another API instance: this one hears of it here, before handing out more work.
+    const [live] = await db
+      .select({ id: runners.id })
+      .from(runners)
+      .where(and(eq(runners.id, c.runnerId), isNull(runners.revokedAt)));
+    if (!live) {
+      c.ws.close(4003, "revoked");
+      this.connections.delete(c.runnerId);
+      return;
+    }
     const local = sql`${attempts.dispatch} -> 'target' ->> 'runnerId' = ${c.runnerId}`;
 
     // Queued attempts: claimed here, started there.
@@ -396,6 +444,14 @@ export class RunnerHub {
       case "event": {
         const a = c.attempts.get(m.attemptId);
         if (!a) return;
+        // A runner reports on its attempt and nothing else (security review M3): no approvals, mission or budget
+        // events, no one else's name on them. An agent's question goes to its person.
+        const question =
+          m.type === "message.sent" && m.payload.to === "user" && m.payload.kind === "question";
+        if (!RUNNER_EVENTS.has(m.type) && !question) {
+          this.ctx.log.warn({ runnerId: c.runnerId, type: m.type }, "a runner sent an event it may not send");
+          return;
+        }
         // Spend is live on the attempt, before its event, as with the cloud runner (budgets read it, M9).
         if (m.type === "attempt.cost" && typeof m.payload.totalUsd === "number")
           await db.update(attempts).set({ costUsd: m.payload.totalUsd }).where(eq(attempts.id, m.attemptId));
@@ -405,7 +461,7 @@ export class RunnerHub {
           taskId: a.taskId,
           attemptId: m.attemptId,
           type: m.type,
-          actor: m.actor ?? `agent:${a.dispatch.agent.agentId}`,
+          actor: m.type === "attempt.started" ? "system" : `agent:${a.dispatch.agent.agentId}`,
           payload: m.payload,
         });
         return;

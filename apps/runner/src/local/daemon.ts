@@ -26,6 +26,7 @@ import {
   collectedToWire,
   mergeToWire,
   PROTOCOL_VERSION,
+  RUNNER_SUBPROTOCOL,
   type RunnerCapabilities,
   type RunnerMessage,
   resultToWire,
@@ -120,7 +121,9 @@ export class LocalRunner {
     const connect = () => {
       if (this.stopped) return;
       const Impl = this.o.WebSocket ?? WebSocket;
-      const ws = new Impl(this.wsUrl());
+      // The token goes in the handshake (as a subprotocol: a browser-style WebSocket sends no headers), so the API
+      // accepts no socket from anyone without one; hello repeats it.
+      const ws = new Impl(this.wsUrl(), [RUNNER_SUBPROTOCOL, this.o.token]);
       this.ws = ws;
       ws.addEventListener("open", () => {
         this.send({ t: "hello", token: this.o.token, protocol: PROTOCOL_VERSION, capabilities });
