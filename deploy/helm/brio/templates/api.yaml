@@ -5,8 +5,6 @@ metadata:
   labels: {{- include "brio.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.api.replicas }}
-  # One orchestrator at a time: the old pod stops before the new one starts.
-  strategy: { type: Recreate }
   selector:
     matchLabels: {{- include "brio.selector" (dict "root" . "component" "api") | nindent 6 }}
   template:
@@ -29,6 +27,7 @@ spec:
             {{- include "brio.env" . | nindent 12 }}
             - { name: APP_URL, value: {{ .Values.appUrl | quote }} }
             - { name: PORT, value: "4000" }
+            - { name: BRIO_API_ROLE, value: web }
           readinessProbe:
             httpGet: { path: /health, port: http }
             periodSeconds: 5

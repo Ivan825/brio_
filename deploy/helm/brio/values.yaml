@@ -40,11 +40,18 @@ env:
   BRIO_GITHUB_API_URL: https://api.github.com
   BRIO_PRICING_REFRESH_HOURS: "24"
 
+# The API in two roles (D-99): web pods serve people, clients and runners (scale them); one worker runs missions —
+# the orchestrator, budget guard, notifications, memory, Mandate and the ledger chainer.
 api:
-  replicas: 1 # the orchestrator loop expects one API replica (docs/ARCHITECTURE.md)
+  replicas: 2
   resources:
     requests: { cpu: 250m, memory: 512Mi }
     limits: { memory: 1536Mi }
+
+worker:
+  resources:
+    requests: { cpu: 500m, memory: 512Mi }
+    limits: { memory: 2Gi }
 
 web:
   replicas: 2
