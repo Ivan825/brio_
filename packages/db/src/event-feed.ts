@@ -58,6 +58,11 @@ export class EventFeed {
     }, 1000).unref();
   }
 
+  /** Whether the LISTEN connection is up (live events flow); false while it reconnects. */
+  get listening(): boolean {
+    return this.client !== null && !this.stopped;
+  }
+
   /** Every mission's new events (the orchestrator reacts to them). Returns the unsubscribe function. */
   subscribeAll(listener: (missionId: string, seq: number, hint: EventHint) => void): () => void {
     this.everything.add(listener);

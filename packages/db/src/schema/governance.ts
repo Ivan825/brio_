@@ -116,3 +116,25 @@ export const vaultSecrets = pgTable(
   },
   (t) => [unique().on(t.workspaceId, t.label)],
 );
+
+/**
+ * The daily usage reports the billing hook sent (or is still trying to send) to an operator's billing system (D-105):
+ * one per workspace and UTC day, so each day is reported exactly once.
+ */
+export const usageReports = pgTable(
+  "usage_reports",
+  {
+    id: id(),
+    workspaceId: ws(),
+    /** YYYY-MM-DD, UTC. */
+    day: text().notNull(),
+    /** sent | failed */
+    status: text().notNull(),
+    tries: integer().notNull().default(0),
+    payload: jsonb().$type<Record<string, unknown>>(),
+    lastError: text(),
+    sentAt: timestamp({ withTimezone: true }),
+    ...timestamps(),
+  },
+  (t) => [unique().on(t.workspaceId, t.day)],
+);

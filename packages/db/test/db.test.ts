@@ -63,6 +63,7 @@ const EXPECTED_TABLES = [
   "slack_apps",
   "tasks",
   "templates",
+  "usage_reports",
   "users",
   "vault_secrets",
   "verifications",
