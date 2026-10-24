@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, jsonb, pgTable, text, uuid, vector } from "drizzle-orm/pg-core";
+import { index, jsonb, pgTable, text, uniqueIndex, uuid, vector } from "drizzle-orm/pg-core";
 import { deletedAt, id, timestamps } from "./columns";
 import { memoryEdgeKind, memoryNodeKind, projectKind } from "./enums";
 import { vaultSecrets } from "./governance";
@@ -44,10 +44,13 @@ export const memoryNodes = pgTable(
     body: text().notNull().default(""),
     embedding: vector({ dimensions: EMBEDDING_DIMENSIONS }),
     sourceEventId: uuid(),
+    /** What the node stands for (task:<id>, file:<path>, prompt:<attempt>, agent:<id>, contract:…): one node each. */
+    ref: text(),
     ...timestamps(),
   },
   (t) => [
     index().on(t.projectId, t.kind),
+    uniqueIndex().on(t.projectId, t.ref).where(sql`${t.ref} is not null`),
     index("memory_nodes_embedding_idx").using("hnsw", t.embedding.op("vector_cosine_ops")),
   ],
 );
@@ -68,5 +71,5 @@ export const memoryEdges = pgTable(
     kind: memoryEdgeKind().notNull(),
     ...timestamps(),
   },
-  (t) => [index().on(t.fromId), index().on(t.toId)],
+  (t) => [index().on(t.fromId), index().on(t.toId), uniqueIndex().on(t.fromId, t.toId, t.kind)],
 );
