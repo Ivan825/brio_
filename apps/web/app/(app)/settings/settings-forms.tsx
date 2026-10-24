@@ -59,7 +59,7 @@ export function RenameWorkspace({ id, name, disabled }: { id: string; name: stri
 
 export function InviteMember({ workspaceId }: { workspaceId: string }) {
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"member" | "admin">("member");
+  const [role, setRole] = useState<"member" | "admin" | "viewer">("member");
   const { busy, error, done, run } = useAction();
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -83,10 +83,11 @@ export function InviteMember({ workspaceId }: { workspaceId: string }) {
         <select
           aria-label="Role"
           value={role}
-          onChange={(e) => setRole(e.target.value as "member" | "admin")}
+          onChange={(e) => setRole(e.target.value as "member" | "admin" | "viewer")}
           className="h-8 rounded-md border border-line bg-surface px-2 text-sm text-fg"
         >
           <option value="member">member</option>
+          <option value="viewer">viewer (reads only)</option>
           <option value="admin">admin</option>
         </select>
         <Button type="submit" variant="primary" disabled={busy || !email}>
@@ -235,5 +236,70 @@ export function ApiTokens({ tokens, origin }: { tokens: ApiTokenRow[]; origin: s
       </form>
       <FormError>{error}</FormError>
     </div>
+  );
+}
+
+/** A member's role, changed by owners and admins (only owners make owners and admins), or the member removed. */
+export function MemberRole({
+  workspaceId,
+  userId,
+  role,
+  isOwner,
+  self,
+}: {
+  workspaceId: string;
+  userId: string;
+  role: string;
+  isOwner: boolean;
+  self: boolean;
+}) {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const roles = isOwner ? ["owner", "admin", "member", "viewer"] : ["member", "viewer"];
+  const locked = !isOwner && (role === "owner" || role === "admin");
+  const act = async (fn: () => Promise<unknown>) => {
+    setError(null);
+    try {
+      await fn();
+      router.refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+  if (locked) return <span className="font-mono text-2xs text-fg-subtle">{role}</span>;
+  return (
+    <span className="flex items-center gap-1">
+      <select
+        aria-label={`Role of ${userId}`}
+        value={role}
+        onChange={(e) =>
+          void act(() =>
+            api(`/v1/workspaces/${workspaceId}/members/${userId}`, {
+              method: "PATCH",
+              body: { role: e.target.value },
+            }),
+          )
+        }
+        className="h-7 rounded-md border border-line bg-surface px-1.5 font-mono text-2xs text-fg"
+      >
+        {roles.map((r) => (
+          <option key={r} value={r}>
+            {r}
+          </option>
+        ))}
+      </select>
+      {!self && (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() =>
+            void act(() => api(`/v1/workspaces/${workspaceId}/members/${userId}`, { method: "DELETE" }))
+          }
+        >
+          Remove
+        </Button>
+      )}
+      {error && <span className="font-mono text-2xs text-danger">{error}</span>}
+    </span>
   );
 }

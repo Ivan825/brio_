@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { EmptyState } from "@/components/empty-state";
-import { getWorkspaces, serverApi } from "@/lib/server-api";
+import { getSessionUser, getWorkspaces, serverApi } from "@/lib/server-api";
 import type { RunnerSummary } from "@/lib/types";
 import { NotificationSettings, type NotificationSettingsView } from "./notifications";
 import { LocalRunners } from "./runners";
@@ -8,6 +8,7 @@ import {
   type ApiTokenRow,
   ApiTokens,
   InviteMember,
+  MemberRole,
   PasskeySettings,
   RenameWorkspace,
 } from "./settings-forms";
@@ -30,6 +31,7 @@ export default async function SettingsPage() {
     );
   }
   const { data } = await serverApi<MembersResponse>(`/v1/workspaces/${active.id}/members`);
+  const me = await getSessionUser();
   const canManage = active.role === "owner" || active.role === "admin";
   const canAct = canManage || active.role === "member";
   const tokens = canAct
@@ -65,7 +67,17 @@ export default async function SettingsPage() {
             <li key={m.userId} className="flex items-center gap-3 px-4 py-2.5">
               <span className="min-w-0 flex-1 truncate">{m.name || m.email}</span>
               <span className="hidden truncate font-mono text-xs text-fg-muted sm:inline">{m.email}</span>
-              <span className="font-mono text-2xs text-fg-subtle">{m.role}</span>
+              {canManage ? (
+                <MemberRole
+                  workspaceId={active.id}
+                  userId={m.userId}
+                  role={m.role}
+                  isOwner={active.role === "owner"}
+                  self={m.userId === me?.id}
+                />
+              ) : (
+                <span className="font-mono text-2xs text-fg-subtle">{m.role}</span>
+              )}
             </li>
           ))}
           {data?.invitations.map((i) => (
