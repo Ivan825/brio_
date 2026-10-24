@@ -106,7 +106,8 @@ export async function buildServer({
         censor: "[redacted]",
       },
     },
-    trustProxy: true,
+    // The nearest BRIO_TRUST_PROXY_HOPS proxies are believed; anything a client wrote further left is not.
+    trustProxy: (_address: string, hop: number) => hop < config.BRIO_TRUST_PROXY_HOPS,
   });
 
   // Emails go through Resend when it is configured (M9); the local outbox keeps a copy in development and tests.

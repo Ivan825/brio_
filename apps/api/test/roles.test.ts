@@ -177,6 +177,24 @@ describe.skipIf(!hasTestDatabase)("M9: roles enforced everywhere", () => {
     expect(res.statusCode, res.body).toBe(200);
   });
 
+  it("cannot go around Brio's rules through Better Auth's own workspace endpoints", async () => {
+    const [viewerRow] = await h.db.db
+      .select()
+      .from(schema.members)
+      .where(and(eq(schema.members.workspaceId, workspaceId), eq(schema.members.userId, ids.viewer)));
+    for (const [path, body] of [
+      ["update-member-role", { memberId: viewerRow!.id, role: "admin", organizationId: workspaceId }],
+      ["remove-member", { memberIdOrEmail: viewerRow!.id, organizationId: workspaceId }],
+      ["delete", { organizationId: workspaceId }],
+      ["invite-member", { email: "sneaky@example.com", role: "admin", organizationId: workspaceId }],
+    ] as const) {
+      const res = await as.admin.request("POST", `/api/auth/organization/${path}`, body);
+      expect(res.statusCode, `${path}: ${res.body}`).toBe(404);
+    }
+    const [after] = await h.db.db.select().from(schema.members).where(eq(schema.members.id, viewerRow!.id));
+    expect(after?.role).toBe("viewer");
+  });
+
   it("changes roles by the rules, and records each change", async () => {
     // Members and viewers change nobody.
     expect(
