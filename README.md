@@ -100,8 +100,11 @@ done      PR ready · $1.12 · 6m40s_
 
 ## The CLI and your own machine
 
+Install it from npm (Node 22 or newer), or run it without installing with `npx brio-orchestrator`:
+
 ```bash
-pnpm --filter @brio/cli exec brio login --url http://localhost:3000   # approve the code in the browser
+npm install -g brio-orchestrator
+brio login --url https://your-brio.example     # approve the code in the browser
 brio run "Add a health endpoint, with tests" --project site --watch
 brio plan <mission> --gate api.health          # edits make a new plan version
 brio approve                                   # what waits for you; brio approve <mission> to start it

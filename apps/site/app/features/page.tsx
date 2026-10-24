@@ -306,7 +306,11 @@ export default function Features() {
         lead="The web app is one door. The others: your terminal, your editor's agent over MCP, any A2A agent, and the REST API."
       >
         <div className="grid items-start gap-8 lg:grid-cols-2">
-          <Table caption="The brio CLI" rows={CLI.map(([c, w]) => [c, w])} minWidth={0} />
+          <Table
+            caption="The brio CLI: npm install -g brio-orchestrator"
+            rows={CLI.map(([c, w]) => [c, w])}
+            minWidth={0}
+          />
           <Table caption="Brio's MCP tools" rows={MCP_TOOLS.map(([t, w]) => [t, w])} minWidth={0} />
         </div>
         <div className="mt-8">

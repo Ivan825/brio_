@@ -475,6 +475,28 @@ This only works while you open Brio at `http://localhost:8080`, not at the `ts.n
 
 ---
 
+## 15. Publish the CLI to npm
+
+Anyone can then install the `brio` command with `npm install -g brio-orchestrator`, or run it with `npx brio-orchestrator`. The package is built from `apps/cli` into one file with no dependencies, and published from your Mac as you (no bot).
+
+1. **Create an npm account:** <https://www.npmjs.com/signup> (free). Verify your email.
+2. **Log in from the Terminal:**
+   ```sh
+   npm login
+   ```
+   It opens the browser; sign in there. Check with `npm whoami`.
+3. **Publish:**
+   ```sh
+   cd ~/projects/brio_
+   pnpm --filter @brio/cli publish:npm
+   ```
+   It builds the package and publishes it. If your account uses two-factor codes, npm asks for one.
+4. **Check:** `npx brio-orchestrator --version` prints `brio 0.1.0`, and <https://www.npmjs.com/package/brio-orchestrator> shows the README.
+
+**A new version:** raise `version` in `apps/cli/package.json` (npm never accepts the same version twice), commit, then run step 3 again.
+
+---
+
 ## What you can't do without paying (and don't need to)
 
 - **Email from `@yourname.com`** needs a domain. Gmail's own address works fine.

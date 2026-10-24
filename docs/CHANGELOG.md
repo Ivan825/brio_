@@ -4,6 +4,7 @@
 Everything below, M0 to M10 and what came after, released as one version:
 - **Install:** `ghcr.io/ivan825/brio-{api,runner,web}:0.1.0` for amd64 and arm64; the Helm chart uses them by default, Compose with `./setup.sh --prebuilt`.
 - **Versions:** every package is 0.1.0. A tag `vX.Y.Z` on a commit that passed CI adds `X.Y.Z` and `X.Y` to that commit's images.
+- **The CLI on npm** (D-111): `npm install -g brio-orchestrator`, or `npx brio-orchestrator`. One bundled file with no dependencies; `brio --version`.
 - **Website and docs:** <https://brio-orchestrator.vercel.app>, with every guide in this folder under `/docs`.
 
 ## 2026-10-24 — After M10: no domain needed, and a product website

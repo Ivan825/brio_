@@ -478,7 +478,11 @@ export default function Home() {
             mono={false}
             minWidth={0}
           />
-          <Table caption="The brio CLI" rows={CLI.map(([cmd, what]) => [cmd, what])} minWidth={0} />
+          <Table
+            caption="The brio CLI: npm install -g brio-orchestrator"
+            rows={CLI.map(([cmd, what]) => [cmd, what])}
+            minWidth={0}
+          />
         </div>
       </Section>
 

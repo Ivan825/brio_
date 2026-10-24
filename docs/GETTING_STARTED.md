@@ -68,7 +68,7 @@ When the mission is done you get its report: what was done, by whom, which check
 
 | From | How |
 |---|---|
-| Terminal | `brio login`, then `brio run "your goal"` and `brio board` (`apps/cli`) |
+| Terminal | `npm install -g brio-orchestrator`, then `brio login`, `brio run "your goal"` and `brio board` |
 | Claude Code, Cursor, Codex and other MCP clients | Add Brio's MCP server (`<your Brio>/mcp`); the client signs you in with OAuth, then `delegate` hands Brio a goal and returns the verified report |
 | Any A2A agent | Brio is an A2A agent: its card is at `/.well-known/agent-card.json`; use an API token from **Settings** |
 | Your own code | The REST API ([API reference](API.md)) with an API token |
