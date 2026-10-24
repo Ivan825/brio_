@@ -9,6 +9,7 @@ import type { Auth } from "./auth";
 import type { BudgetGuard } from "./budgets";
 import type { Config } from "./config";
 import type { LogMailer, Mailer } from "./mailer";
+import type { MemoryIngest } from "./memory";
 import type { Notifier } from "./notify/notifier";
 import type { Orchestrator } from "./orchestrator/orchestrator";
 import type { PricingService } from "./pricing";
@@ -43,5 +44,7 @@ export interface AppContext {
   budgets: BudgetGuard;
   /** Tells people what needs them: email, browser push, Slack (M9). */
   notifier: Notifier;
+  /** Builds each project's memory graph from the event log (M9). */
+  memory: MemoryIngest;
   log: FastifyBaseLogger;
 }

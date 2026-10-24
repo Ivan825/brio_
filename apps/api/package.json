@@ -24,6 +24,7 @@
     "@brio/core": "workspace:*",
     "@brio/db": "workspace:*",
     "@brio/governance": "workspace:*",
+    "@brio/memory": "workspace:*",
     "@brio/registry": "workspace:*",
     "@brio/runner": "workspace:*",
     "@brio/schema": "workspace:*",

@@ -10,6 +10,7 @@ import {
   routable,
 } from "@brio/core";
 import { schema } from "@brio/db";
+import { brief } from "@brio/memory";
 import { enqueueAttempt, requestCancel } from "@brio/runner";
 import { type Actor, type HandoffPacket, TaskContract, TaskType } from "@brio/schema";
 import { and, eq, inArray, isNull } from "drizzle-orm";
@@ -205,6 +206,15 @@ export class AttemptRunner {
     };
     // What the mission was started from (an issue, attached files), for every attempt.
     const given = await inputsForAttempt(ctx.db, input.workspaceId, mission.inputs);
+    // The project's memory for this task (M9): the files it will touch and what it is about.
+    const memo = project
+      ? await brief(ctx.db, project.id, {
+          paths: contract.expectedFootprint?.paths ?? [],
+          topic: task.title,
+        })
+      : null;
+    if (memo?.summary)
+      given.files.push({ path: "brief.md", content: `# Project memory\n\n${memo.summary}\n` });
     const runInput: Omit<RunInput, "attemptId"> = {
       taskTitle: task.title,
       taskType,
@@ -218,7 +228,7 @@ export class AttemptRunner {
         .join("\n\n"),
       contract,
       handoffs: input.handoffs ?? [],
-      brief: EMPTY_BRIEF,
+      brief: memo?.summary ? { summary: memo.summary, items: memo.items } : EMPTY_BRIEF,
       attachments: given.attachments,
       limits,
       mcpServers: [],

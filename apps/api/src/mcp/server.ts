@@ -114,8 +114,12 @@ export function buildBrioMcp(ctx: AppContext, caller: Caller, opts: { pollMs?: n
     "get_brief",
     {
       description:
-        "A mission's brief: goal, plan, what is done, decisions handed over and contracts in force.",
-      inputSchema: { mission_id: id },
+        "A mission's brief: goal, plan, what is done, decisions handed over and contracts in force; with paths or a topic, also what its project remembers about them (the decisions, contracts and prompts behind recent changes).",
+      inputSchema: {
+        mission_id: id,
+        paths: z.array(z.string().min(1).max(500)).max(50).optional(),
+        topic: z.string().min(1).max(300).optional(),
+      },
     },
     async (a) => run(() => tools.getBrief(a)),
   );

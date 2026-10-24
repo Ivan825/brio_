@@ -53,6 +53,9 @@ importers:
       '@brio/governance':
         specifier: workspace:*
         version: link:../../packages/governance
+      '@brio/memory':
+        specifier: workspace:*
+        version: link:../../packages/memory
       '@brio/registry':
         specifier: workspace:*
         version: link:../../packages/registry

@@ -3,6 +3,7 @@
 // review. Every tool acts as the caller in the caller's workspace, through the same rules as the web app.
 import { renderMissionReport } from "@brio/core";
 import { schema } from "@brio/db";
+import { brief } from "@brio/memory";
 import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
 import type { AppContext } from "../context";
 import { decideApproval } from "../deliveries";
@@ -289,8 +290,16 @@ export class BrioTools {
   }
 
   /** The mission brief: goal, plan, what finished tasks handed over and the contracts in force. */
-  async getBrief(a: { mission_id: string }) {
+  async getBrief(a: { mission_id: string; paths?: string[]; topic?: string }) {
     const m = await this.mission(a.mission_id);
+    // What the project remembers about some files or a topic (M9), from the mission's project.
+    const memory =
+      m.projectId && (a.paths?.length || a.topic)
+        ? await brief(this.ctx.db, m.projectId, {
+            paths: a.paths ?? [],
+            ...(a.topic ? { topic: a.topic } : {}),
+          })
+        : null;
     const done = await this.ctx.db
       .select({ key: tasks.key, title: tasks.title })
       .from(tasks)
@@ -316,6 +325,11 @@ export class BrioTools {
       active.length
         ? `Contracts: ${active.map((c) => `${c.name} v${c.version}`).join(", ")}`
         : "No contracts yet.",
+      memory
+        ? memory.summary
+          ? `## Project memory\n${memory.summary}`
+          : "The project remembers nothing about that yet."
+        : "",
     ]
       .filter(Boolean)
       .join("\n\n");

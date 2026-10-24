@@ -22,6 +22,7 @@ import type { AppContext } from "./context";
 import { HttpError } from "./http";
 import { LogMailer, type Mailer, ResendMailer } from "./mailer";
 import { mcpRoutes } from "./mcp/server";
+import { MemoryIngest } from "./memory";
 import { Notifier } from "./notify/notifier";
 import { Orchestrator } from "./orchestrator/orchestrator";
 import { PricingService, parseFx } from "./pricing";
@@ -38,6 +39,7 @@ import { healthRoutes } from "./routes/health";
 import { hookRoutes } from "./routes/hooks";
 import { inboxRoutes } from "./routes/inbox";
 import { ledgerRoutes } from "./routes/ledger";
+import { memoryRoutes } from "./routes/memory";
 import { messageRoutes } from "./routes/messages";
 import { missionRoutes } from "./routes/missions";
 import { notificationRoutes } from "./routes/notifications";
@@ -154,6 +156,7 @@ export async function buildServer({
   ctx.runners = new RunnerHub(ctx);
   ctx.budgets = new BudgetGuard(ctx);
   ctx.notifier = new Notifier(ctx);
+  ctx.memory = new MemoryIngest(ctx);
 
   await ctx.pricing.seed();
   let pricingTimer: NodeJS.Timeout | undefined;
@@ -214,10 +217,12 @@ export async function buildServer({
   await policyRoutes(app, ctx);
   await notificationRoutes(app, ctx);
   await ledgerRoutes(app, ctx);
+  await memoryRoutes(app, ctx);
   if (config.BRIO_DEV_OUTBOX && config.NODE_ENV !== "production") await devRoutes(app, ctx);
   ctx.orchestrator.start();
   ctx.budgets.start();
   ctx.notifier.start();
+  ctx.memory.start();
   // Local runners connect over a WebSocket on the API's own HTTP server.
   ctx.runners.attach(app.server);
   await ctx.runners.start();
@@ -230,6 +235,7 @@ export async function buildServer({
       await ctx.orchestrator.stop();
       ctx.budgets.stop();
       ctx.notifier.stop();
+      ctx.memory.stop();
       await ctx.runners.stop();
       await app.close();
       await ctx.queue.stop({ graceful: false }).catch(() => {});
