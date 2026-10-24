@@ -1,0 +1,18 @@
+# Build context for the Brio images (Dockerfile at the repo root). Dependencies are installed inside the image.
+**/node_modules
+**/.next
+**/.turbo
+**/dist
+**/coverage
+**/playwright-report
+**/test-results
+**/blob-report
+**/*.tsbuildinfo
+.git
+.env
+.env.*
+!.env.example
+**/*.pem
+**/*.key
+.brio
+deploy/helm
