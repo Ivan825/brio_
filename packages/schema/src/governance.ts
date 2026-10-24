@@ -53,6 +53,7 @@ export const LedgerKind = z.enum([
   "connector.added",
   "connector.removed",
   "memory.change",
+  "member.changed",
 ]);
 export type LedgerKind = z.infer<typeof LedgerKind>;
 
