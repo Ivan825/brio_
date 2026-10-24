@@ -13,7 +13,8 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:live": "vitest run --config vitest.live.config.ts",
-    "load": "tsx load/run.ts"
+    "load": "tsx load/run.ts",
+    "docs:api": "tsx scripts/api-reference.ts"
   },
   "dependencies": {
     "@a2a-js/sdk": "1.3.0",

@@ -165,6 +165,7 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
     return updated ?? row;
   };
 
+  /** The workspace's installed connectors with their health and settings (never their keys). */
   app.get("/v1/connectors", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
@@ -442,6 +443,7 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
     return reply.status(201).send({ connector: present(checked) });
   });
 
+  /** Renames a connector, replaces its key, disables it or changes the task types it takes. */
   app.patch("/v1/connectors/:id", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
@@ -517,6 +519,7 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
     return reply.status(204).send();
   });
 
+  /** Checks a connector against its vendor now (a free call where the vendor has one). */
   app.post("/v1/connectors/:id/health", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);

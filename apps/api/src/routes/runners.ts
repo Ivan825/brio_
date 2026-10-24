@@ -42,6 +42,7 @@ export async function runnerRoutes(app: FastifyInstance, ctx: AppContext) {
     createdAt: r.createdAt,
   });
 
+  /** The workspace's local runners (not revoked), their owners, modes and whether they are connected. */
   app.get("/v1/runners", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
@@ -54,6 +55,7 @@ export async function runnerRoutes(app: FastifyInstance, ctx: AppContext) {
     return { runners: rows.map(present), hostModeConsent: HOST_MODE_CONSENT };
   });
 
+  /** Registers a local runner and returns its token once (host mode needs the owner's consent). */
   app.post("/v1/runners", async (req, reply) => {
     const s = await requireSession(ctx, req);
     requireSignedIn(s, "register runners");

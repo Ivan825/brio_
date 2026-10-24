@@ -6,6 +6,7 @@ import { HttpError, requireMember, requireSession, workspaceFor } from "../http"
 const Query = z.object({ preset: z.string().min(1).optional() });
 
 export async function pricingRoutes(app: FastifyInstance, ctx: AppContext) {
+  /** Known model prices, with where each came from. */
   app.get("/v1/pricing", async (req) => {
     await requireSession(ctx, req);
     const { preset } = Query.parse(req.query);

@@ -86,6 +86,7 @@ export async function memoryRoutes(app: FastifyInstance, ctx: AppContext) {
     return { s, workspaceId, node: n };
   };
 
+  /** What a project remembers, by kind (decisions, contracts, prompts, files, preferences). */
   app.get("/v1/projects/:id/memory", async (req) => {
     const { project } = await projectFor(req);
     const q = List.parse(req.query);
@@ -104,12 +105,14 @@ export async function memoryRoutes(app: FastifyInstance, ctx: AppContext) {
     return { items: rows.map((n) => present(n)) };
   });
 
+  /** The brief for paths (`?paths=`) or a topic (`?topic=`): the decisions, contracts and prompts behind them. */
   app.get("/v1/projects/:id/brief", async (req) => {
     const { project } = await projectFor(req);
     const q = BriefQuery.parse(req.query);
     return brief(ctx.db, project.id, { paths: q.paths, ...(q.topic ? { topic: q.topic } : {}) });
   });
 
+  /** Adds something for the project to remember (a preference, a decision). */
   app.post("/v1/projects/:id/memory", async (req, reply) => {
     const { s, workspaceId, project } = await projectFor(req, ["owner", "admin", "member"]);
     const body = Add.parse(req.body);
@@ -135,6 +138,7 @@ export async function memoryRoutes(app: FastifyInstance, ctx: AppContext) {
     return reply.status(201).send({ item: present(row) });
   });
 
+  /** Corrects a remembered item. */
   app.patch("/v1/memory/:id", async (req) => {
     const { s, workspaceId, node } = await nodeFor(req);
     const body = Edit.parse(req.body);

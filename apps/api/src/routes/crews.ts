@@ -53,6 +53,7 @@ export async function crewRoutes(app: FastifyInstance, ctx: AppContext) {
     return c;
   }
 
+  /** The workspace's crews: saved sets of agents, with an agent per task type. */
   app.get("/v1/crews", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
@@ -65,6 +66,7 @@ export async function crewRoutes(app: FastifyInstance, ctx: AppContext) {
     return { crews: rows.map(present) };
   });
 
+  /** Makes a crew. */
   app.post("/v1/crews", async (req, reply) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
@@ -86,6 +88,7 @@ export async function crewRoutes(app: FastifyInstance, ctx: AppContext) {
     return reply.status(201).send({ crew: present(row) });
   });
 
+  /** Replaces a crew's agents and pins. */
   app.put("/v1/crews/:id", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
@@ -104,6 +107,7 @@ export async function crewRoutes(app: FastifyInstance, ctx: AppContext) {
     return { crew: present(row) };
   });
 
+  /** Removes a crew; missions routed to it keep the agents they had. */
   app.delete("/v1/crews/:id", async (req, reply) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);

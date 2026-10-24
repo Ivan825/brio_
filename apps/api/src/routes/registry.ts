@@ -23,6 +23,7 @@ const CREDENTIAL: Record<string, { kind: "key" | "json"; hint: string; optional?
 
 /** The connector catalogue: every registry entry grouped by category, with what Brio can actually reach today. */
 export async function registryRoutes(app: FastifyInstance, ctx: AppContext) {
+  /** The connector registry: every connector, preset and service Brio knows, with how to connect it. */
   app.get("/v1/registry", async (req) => {
     await requireSession(ctx, req);
     const r = registry();

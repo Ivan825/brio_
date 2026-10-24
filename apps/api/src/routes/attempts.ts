@@ -42,6 +42,7 @@ export async function attemptRoutes(app: FastifyInstance, ctx: AppContext) {
     return reply.status(202).send({ attempt: presentAttempt(attempt) });
   });
 
+  /** A task's attempts, newest first, with their status, cost, checks and agent. */
   app.get("/v1/tasks/:id/attempts", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
@@ -55,6 +56,7 @@ export async function attemptRoutes(app: FastifyInstance, ctx: AppContext) {
     return { attempts: rows.map(presentAttempt) };
   });
 
+  /** Stops an attempt: a queued one at once, a running one through its runner. */
   app.post("/v1/attempts/:id/cancel", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
@@ -64,6 +66,7 @@ export async function attemptRoutes(app: FastifyInstance, ctx: AppContext) {
     return { cancelled: true };
   });
 
+  /** What an attempt produced: its report, files, diff and media. */
   app.get("/v1/attempts/:id/artifacts", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);

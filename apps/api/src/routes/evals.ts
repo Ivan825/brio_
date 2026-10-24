@@ -12,6 +12,7 @@ const { evalRuns } = schema;
 const Params = z.object({ id: z.uuid() });
 
 export async function evalRoutes(app: FastifyInstance, ctx: AppContext) {
+  /** The workspace's eval runs (golden missions), newest first, with their verdicts. */
   app.get("/v1/evals/runs", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
@@ -38,6 +39,7 @@ export async function evalRoutes(app: FastifyInstance, ctx: AppContext) {
     };
   });
 
+  /** One eval run: each golden mission's result per strategy, cost and time, and the verdict. */
   app.get("/v1/evals/runs/:id", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
@@ -51,6 +53,7 @@ export async function evalRoutes(app: FastifyInstance, ctx: AppContext) {
     return { run: { id: row.id, createdAt: row.createdAt, ...row.run } };
   });
 
+  /** Records a finished eval run (the harness, `pnpm evals`, uploads its results, summaries and verdict). */
   app.post("/v1/evals/runs", { bodyLimit: 8 * 1024 * 1024 }, async (req, reply) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);

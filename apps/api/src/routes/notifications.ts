@@ -38,6 +38,7 @@ const SlackConnect = z.object({
 });
 
 export async function notificationRoutes(app: FastifyInstance, ctx: AppContext) {
+  /** Your notification channels and kinds, and what the workspace has connected (email, push, Slack). */
   app.get("/v1/notifications/prefs", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
@@ -65,6 +66,7 @@ export async function notificationRoutes(app: FastifyInstance, ctx: AppContext) 
     };
   });
 
+  /** Sets which channels and kinds of events reach you. */
   app.put("/v1/notifications/prefs", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
@@ -97,6 +99,7 @@ export async function notificationRoutes(app: FastifyInstance, ctx: AppContext) 
     return reply.status(201).send({ subscribed: true });
   });
 
+  /** Removes this browser's push subscription. */
   app.delete("/v1/notifications/push", async (req, reply) => {
     const s = await requireSession(ctx, req);
     const { endpoint } = z.object({ endpoint: z.url() }).parse(req.body);
@@ -195,6 +198,7 @@ export async function notificationRoutes(app: FastifyInstance, ctx: AppContext) 
     return { slack: { connected: true, teamId: row?.teamId, team: who.team, channelId: row?.channelId } };
   });
 
+  /** Disconnects the workspace's Slack app. */
   app.delete("/v1/integrations/slack", async (req, reply) => {
     const s = await requireSession(ctx, req);
     requireSignedIn(s, "disconnect Slack");

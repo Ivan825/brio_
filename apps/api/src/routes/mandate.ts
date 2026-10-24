@@ -19,6 +19,7 @@ const Connect = z.object({
 });
 
 export async function mandateRoutes(app: FastifyInstance, ctx: AppContext) {
+  /** The workspace's Mandate connection, live state from Mandate, and recent spend holds. */
   app.get("/v1/integrations/mandate", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
@@ -74,6 +75,7 @@ export async function mandateRoutes(app: FastifyInstance, ctx: AppContext) {
     };
   });
 
+  /** Connects a Mandate: its URL and a USD mandate's agent token (checked with Mandate, kept in the vault). */
   app.put("/v1/integrations/mandate", async (req) => {
     const s = await requireSession(ctx, req);
     requireSignedIn(s, "connect Mandate");

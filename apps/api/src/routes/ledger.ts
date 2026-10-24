@@ -90,6 +90,7 @@ export async function ledgerRoutes(app: FastifyInstance, ctx: AppContext) {
     return { ...verifyChain(entries), checkedAt: new Date().toISOString() };
   });
 
+  /** The whole ledger as JSONL or CSV (`?format=`), for auditors. */
   app.get("/v1/ledger/export", async (req, reply) => {
     const workspaceId = await auditor(req);
     const { format } = Export.parse(req.query);

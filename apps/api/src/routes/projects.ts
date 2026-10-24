@@ -61,6 +61,7 @@ const present = (p: Project) => ({
 });
 
 export async function projectRoutes(app: FastifyInstance, ctx: AppContext) {
+  /** The workspace's projects: repository, branch, local runner and settings. */
   app.get("/v1/projects", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
@@ -73,6 +74,7 @@ export async function projectRoutes(app: FastifyInstance, ctx: AppContext) {
     return { projects: rows.map(present) };
   });
 
+  /** Makes a project from a repository URL (or a path on a local runner). */
   app.post("/v1/projects", async (req, reply) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
@@ -141,6 +143,7 @@ export async function projectRoutes(app: FastifyInstance, ctx: AppContext) {
     return reply.status(201).send({ project: present(row) });
   });
 
+  /** Changes a project's repository, branch, git token, GitHub repository or runner. */
   app.patch("/v1/projects/:id", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);

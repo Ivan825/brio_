@@ -16,6 +16,7 @@ const Review = z.object({
 });
 
 export async function messageRoutes(app: FastifyInstance, ctx: AppContext) {
+  /** A mission's messages: agents' questions and answers, blockers and review requests. */
   app.get("/v1/missions/:id/messages", async (req) => {
     const s = await requireSession(ctx, req);
     const { id } = Params.parse(req.params);

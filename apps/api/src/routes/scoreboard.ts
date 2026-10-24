@@ -34,6 +34,7 @@ const GlobalQuery = z.object({ taskType: z.string().max(80).optional() });
 const TREND_POINTS = 30;
 
 export async function scoreboardRoutes(app: FastifyInstance, ctx: AppContext) {
+  /** Who wins at what: pass rate, Elo, cost and speed per agent and task type, with trends (`?taskType=&vendor=&days=`). */
   app.get("/v1/scoreboard", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
@@ -116,6 +117,7 @@ export async function scoreboardRoutes(app: FastifyInstance, ctx: AppContext) {
     return { sharing: await scoreSharingOf(ctx.db, workspaceId) };
   });
 
+  /** Whether the workspace adds to, and starts from, the global scoreboard (D-14). */
   app.put("/v1/scoreboard/sharing", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);

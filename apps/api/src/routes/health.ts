@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import type { AppContext } from "../context";
 
 export async function healthRoutes(app: FastifyInstance, ctx: AppContext) {
+  /** Liveness and database reachability: `{ ok, db }`. */
   app.get("/health", async (_req, reply) => {
     try {
       await ctx.db.execute(sql`select 1`);

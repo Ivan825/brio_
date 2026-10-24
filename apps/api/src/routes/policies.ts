@@ -31,6 +31,7 @@ const present = (p: typeof policies.$inferSelect) => ({
 });
 
 export async function policyRoutes(app: FastifyInstance, ctx: AppContext) {
+  /** The workspace's policies (data routing, connector allow and deny lists, network, approvals). */
   app.get("/v1/policies", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
@@ -43,6 +44,7 @@ export async function policyRoutes(app: FastifyInstance, ctx: AppContext) {
     return { policies: rows.map(present) };
   });
 
+  /** Adds a policy. */
   app.post("/v1/policies", async (req, reply) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
@@ -76,6 +78,7 @@ export async function policyRoutes(app: FastifyInstance, ctx: AppContext) {
     return reply.status(201).send({ policy: present(row) });
   });
 
+  /** Changes or disables a policy. */
   app.patch("/v1/policies/:id", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
@@ -95,6 +98,7 @@ export async function policyRoutes(app: FastifyInstance, ctx: AppContext) {
     return { policy: present(row) };
   });
 
+  /** Removes a policy. */
   app.delete("/v1/policies/:id", async (req, reply) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);

@@ -36,6 +36,7 @@ const present = (t: Template) => ({
 });
 
 export async function templateRoutes(app: FastifyInstance, ctx: AppContext) {
+  /** The workspace's mission templates. */
   app.get("/v1/templates", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
@@ -48,6 +49,7 @@ export async function templateRoutes(app: FastifyInstance, ctx: AppContext) {
     return { templates: rows.map(present) };
   });
 
+  /** Saves a template: a mission's plan (`fromMission`) or a plan given (`graph`). */
   app.post("/v1/templates", async (req, reply) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
@@ -101,6 +103,7 @@ export async function templateRoutes(app: FastifyInstance, ctx: AppContext) {
     return reply.status(201).send({ template: present(row) });
   });
 
+  /** Removes a template. */
   app.delete("/v1/templates/:id", async (req, reply) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);

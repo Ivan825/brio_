@@ -39,6 +39,7 @@ export type InboxItem =
     };
 
 export async function inboxRoutes(app: FastifyInstance, ctx: AppContext) {
+  /** Everything in the workspace waiting for a person, oldest first: plans to approve, results to review, agents' questions, actions to allow. */
   app.get("/v1/inbox", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);

@@ -510,8 +510,10 @@ export async function a2aRoutes(app: FastifyInstance, ctx: AppContext, opts: { p
   );
   const transport = new JsonRpcTransportHandler(handler);
 
+  /** Brio's A2A Agent Card: its skills and the JSON-RPC endpoint. */
   app.get("/.well-known/agent-card.json", async () => AgentCard.toJSON(card));
 
+  /** A2A JSON-RPC: send a message (a goal becomes a mission), follow a task, answer it, cancel it. API token required. */
   app.post("/a2a", async (req, reply) => {
     // Only API tokens: an A2A caller acts as a person in one workspace.
     const session = await requireSession(ctx, req);

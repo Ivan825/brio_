@@ -17,6 +17,7 @@ const Decide = z.object({
 });
 
 export async function approvalRoutes(app: FastifyInstance, ctx: AppContext) {
+  /** Approves or denies an action waiting on a person (a push, a pull request); approved, a runner carries it out. */
   app.post("/v1/approvals/:id/decide", async (req) => {
     const s = await requireSession(ctx, req);
     requireSignedIn(s, "decide approvals");
@@ -36,6 +37,7 @@ export async function approvalRoutes(app: FastifyInstance, ctx: AppContext) {
     };
   });
 
+  /** A mission's deliveries (its branch pushed, its pull request) and their approvals. */
   app.get("/v1/missions/:id/deliveries", async (req) => {
     const s = await requireSession(ctx, req);
     const m = await loadMission(ctx.db, Params.parse(req.params).id);

@@ -151,6 +151,7 @@ export async function agentRoutes(app: FastifyInstance, ctx: AppContext) {
     return row;
   };
 
+  /** The workspace's agents: connector, model, price, limits, options, the task types they take and whether they can run now. */
   app.get("/v1/agents", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
@@ -163,6 +164,7 @@ export async function agentRoutes(app: FastifyInstance, ctx: AppContext) {
     return { agents: await Promise.all(rows.map(present)) };
   });
 
+  /** Makes an agent from an installed connector and a model (with its price, limits, options, role prompt, tools and runner). */
   app.post("/v1/agents", async (req, reply) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
@@ -188,6 +190,7 @@ export async function agentRoutes(app: FastifyInstance, ctx: AppContext) {
     return reply.status(201).send({ agent: await present(row) });
   });
 
+  /** Changes an agent; only the fields sent change. */
   app.patch("/v1/agents/:id", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
@@ -213,6 +216,7 @@ export async function agentRoutes(app: FastifyInstance, ctx: AppContext) {
     return { agent: await present(updated) };
   });
 
+  /** Removes an agent; its past attempts and scores stay. */
   app.delete("/v1/agents/:id", async (req, reply) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);

@@ -29,6 +29,7 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
     return reply.status(201).send({ mission: presentMission(mission) });
   });
 
+  /** The workspace's missions, newest first, with status, cost and progress. */
   app.get("/v1/missions", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
@@ -55,6 +56,7 @@ export async function missionRoutes(app: FastifyInstance, ctx: AppContext) {
     return { report, final: Boolean(saved) };
   });
 
+  /** A mission with its latest plan and tasks. */
   app.get("/v1/missions/:id", async (req) => {
     const s = await requireSession(ctx, req);
     const m = await loadMission(ctx.db, Params.parse(req.params).id);

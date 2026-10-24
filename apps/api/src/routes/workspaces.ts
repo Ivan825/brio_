@@ -75,6 +75,7 @@ export async function workspaceRoutes(app: FastifyInstance, ctx: AppContext) {
       .send({ workspace: { id: response.id, name: response.name, slug: response.slug } });
   });
 
+  /** Renames a workspace. */
   app.patch("/v1/workspaces/:id", async (req) => {
     const s = await requireSession(ctx, req);
     const { id } = Params.parse(req.params);
@@ -117,6 +118,7 @@ export async function workspaceRoutes(app: FastifyInstance, ctx: AppContext) {
     return { activeWorkspaceId: id };
   });
 
+  /** A workspace's members and their roles, and pending invitations. */
   app.get("/v1/workspaces/:id/members", async (req) => {
     const s = await requireSession(ctx, req);
     const { id } = Params.parse(req.params);

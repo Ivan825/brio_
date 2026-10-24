@@ -59,6 +59,7 @@ export async function tokenRoutes(app: FastifyInstance, ctx: AppContext) {
     return { tokens: rows.map(present) };
   });
 
+  /** Makes an API token for this workspace; its value is shown once. */
   app.post("/v1/tokens", async (req, reply) => {
     const s = await requireSession(ctx, req);
     requireSignedIn(s, "make API tokens");
@@ -91,6 +92,7 @@ export async function tokenRoutes(app: FastifyInstance, ctx: AppContext) {
     return reply.status(201).send({ token: { ...present(row), value: token } });
   });
 
+  /** Revokes an API token. */
   app.delete("/v1/tokens/:id", async (req, reply) => {
     const s = await requireSession(ctx, req);
     requireSignedIn(s, "revoke API tokens");

@@ -28,6 +28,7 @@ export async function planRoutes(app: FastifyInstance, ctx: AppContext) {
     return { s, m };
   };
 
+  /** Every version of a mission's plan, oldest first, with its lint and approval. */
   app.get("/v1/missions/:id/plans", async (req) => {
     const { m } = await missionFor(req);
     const rows = await ctx.db
@@ -69,6 +70,7 @@ export async function planRoutes(app: FastifyInstance, ctx: AppContext) {
     }
   });
 
+  /** Approves a plan version; its tasks start. */
   app.post("/v1/missions/:id/plans/:version/approve", async (req) => {
     const { s, m } = await missionFor(req, ["owner", "admin", "member"]);
     const { version } = VersionParams.parse(req.params);
@@ -87,6 +89,7 @@ export async function planRoutes(app: FastifyInstance, ctx: AppContext) {
     return { replanning: true };
   });
 
+  /** Cancels a mission and stops its running attempts. */
   app.post("/v1/missions/:id/cancel", async (req) => {
     const { s, m } = await missionFor(req, ["owner", "admin", "member"]);
     await cancelMission(ctx, m, `user:${s.userId}`);

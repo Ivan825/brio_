@@ -69,6 +69,7 @@ export async function budgetRoutes(app: FastifyInstance, ctx: AppContext) {
     };
   });
 
+  /** Sets the workspace's or an agent's monthly limit (USD) and warning threshold; null removes it. */
   app.put("/v1/budgets", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
