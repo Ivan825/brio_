@@ -29,6 +29,10 @@ const FOCUS = "xdotool search --onlyvisible --class chromium | tail -1 | xargs -
 const KEYBOARD = new Set(["type", "key", "hold_key"]);
 
 /** Single-quotes a value for sh. */
+/** Stops the browser and its display, and waits until both have exited (the next open may want another size). */
+export const CLOSE_BROWSER =
+  "pkill -x chromium; pkill -x Xvfb; i=0; while pgrep -x Xvfb >/dev/null || pgrep -x chromium >/dev/null; do i=$((i+1)); [ $i -gt 100 ] && break; sleep 0.1; done; rm -f /tmp/.X99-lock";
+
 export const sh = (s: string) => `'${s.replaceAll("'", `'\\''`)}'`;
 
 const int = (v: unknown, what: string, max = 100_000): number => {
@@ -156,7 +160,7 @@ export function sandboxActuator(sandbox: SandboxHandle): Actuator {
       return "OK";
     },
     async close() {
-      await sandbox.exec("pkill -x chromium; pkill -x Xvfb", { timeoutMs: 10_000 }).catch(() => {});
+      await sandbox.exec(CLOSE_BROWSER, { timeoutMs: 10_000 }).catch(() => {});
     },
   };
 }

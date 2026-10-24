@@ -8,7 +8,7 @@ import { AdapterError, isLimitAbort } from "../../errors";
 import type { AgentAdapter, ProducedFile, RunInput, RunResult, SandboxHandle } from "../../types";
 import { ServiceClient } from "../client";
 import { QUESTION_WAIT_MS } from "../job";
-import { sh } from "./actuator";
+import { CLOSE_BROWSER, sh } from "./actuator";
 import { BROWSER_RULES, browserCapabilities } from "./browser-use";
 import { startUrl } from "./computer-use";
 
@@ -55,8 +55,7 @@ export function sandboxNovaBrowser(sandbox: SandboxHandle): NovaBrowser {
       )),
     goto: async (url) => void (await run(`brio-cdp goto ${sh(url)}`)),
     settle: async () => void (await run("brio-cdp settle")),
-    close: async () =>
-      void (await sandbox.exec("pkill -x chromium; pkill -x Xvfb", { timeoutMs: 10_000 }).catch(() => {})),
+    close: async () => void (await sandbox.exec(CLOSE_BROWSER, { timeoutMs: 10_000 }).catch(() => {})),
   };
 }
 

@@ -7,6 +7,12 @@
 set -eu
 W=${1:?width}; H=${2:?height}; URL=${3:-about:blank}; MODE=${4:-}
 export DISPLAY=:99
+# A display left from an earlier open at another size (or a closing one) is replaced; wait until it is gone.
+if xdpyinfo >/dev/null 2>&1 && ! xdpyinfo | grep -q "dimensions: *${W}x${H} pixels"; then
+  pkill -x chromium || true; pkill -x Xvfb || true
+  i=0; while pgrep -x Xvfb >/dev/null || pgrep -x chromium >/dev/null; do i=$((i+1)); [ "$i" -gt 100 ] && break; sleep 0.1; done
+  rm -f /tmp/.X99-lock
+fi
 if ! xdpyinfo >/dev/null 2>&1; then
   Xvfb :99 -screen 0 "${W}x${H}x24" -nolisten tcp >/tmp/xvfb.log 2>&1 &
   i=0; until xdpyinfo >/dev/null 2>&1; do i=$((i+1)); [ "$i" -gt 100 ] && { cat /tmp/xvfb.log >&2; exit 1; }; sleep 0.1; done
@@ -20,4 +26,6 @@ nohup chromium --no-sandbox --no-first-run --no-default-browser-check --disable-
   --remote-debugging-address=127.0.0.1 --remote-debugging-port=9222 \
   --window-position=0,0 --window-size="${W},${H}" ${KIOSK} ${PROXY} "${URL}" >/tmp/chromium.log 2>&1 &
 i=0; until xdotool search --onlyvisible --class chromium >/dev/null 2>&1; do i=$((i+1)); [ "$i" -gt 200 ] && { tail -20 /tmp/chromium.log >&2; exit 1; }; sleep 0.1; done
+# The window is up; wait for the page to load (DevTools), then for it to be painted.
+brio-cdp settle >/dev/null 2>&1 || true
 sleep 1
