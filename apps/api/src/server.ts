@@ -94,7 +94,7 @@ export async function buildServer({
   sweepMs,
   mandateSweepMs,
 }: BuildOptions): Promise<BrioServer> {
-  const handle = database ?? createDb(config.DATABASE_URL);
+  const handle = database ?? createDb(config.DATABASE_URL, { max: config.DATABASE_POOL_MAX });
   const ownsDb = !database;
 
   const app = Fastify({
@@ -157,7 +157,13 @@ export async function buildServer({
     queue: await startQueue(config.DATABASE_URL),
   } as AppContext;
   ctx.attempts = new AttemptRunner(ctx);
-  ctx.orchestrator = new Orchestrator(ctx, { ...(sweepMs ? { sweepMs } : {}) });
+  // BRIO_API_ROLE: a "web" process serves people and clients; a "worker" process runs missions; "all" does both.
+  const serves = config.BRIO_API_ROLE !== "worker";
+  const runs = config.BRIO_API_ROLE !== "web";
+  ctx.orchestrator = new Orchestrator(ctx, {
+    ...(sweepMs ? { sweepMs } : {}),
+    ...(runs ? {} : { passive: true }),
+  });
   ctx.runners = new RunnerHub(ctx);
   ctx.budgets = new BudgetGuard(ctx);
   ctx.mandate = new MandateSettler(ctx, mandateSweepMs);
@@ -166,7 +172,7 @@ export async function buildServer({
 
   await ctx.pricing.seed();
   let pricingTimer: NodeJS.Timeout | undefined;
-  if (config.BRIO_PRICING_REFRESH_HOURS > 0) {
+  if (runs && config.BRIO_PRICING_REFRESH_HOURS > 0) {
     const refresh = () =>
       ctx.pricing
         .refreshFromOpenRouter(AbortSignal.timeout(30_000))
@@ -196,44 +202,48 @@ export async function buildServer({
   });
 
   await healthRoutes(app, ctx);
-  await authRoutes(app, ctx);
-  await workspaceRoutes(app, ctx);
-  await missionRoutes(app, ctx);
-  await registryRoutes(app, ctx);
-  await connectorRoutes(app, ctx);
-  await agentRoutes(app, ctx);
-  await attemptRoutes(app, ctx);
-  await pricingRoutes(app, ctx);
-  await planRoutes(app, ctx);
-  await projectRoutes(app, ctx);
-  await messageRoutes(app, ctx);
-  await scoreboardRoutes(app, ctx);
-  await evalRoutes(app, ctx);
-  await hookRoutes(app, ctx);
-  await tokenRoutes(app, ctx);
-  await oauthRoutes(app, ctx);
-  await mcpRoutes(app, ctx);
-  await a2aRoutes(app, ctx);
-  await inboxRoutes(app, ctx);
-  await approvalRoutes(app, ctx);
-  await crewRoutes(app, ctx);
-  await templateRoutes(app, ctx);
-  await runnerRoutes(app, ctx);
-  await budgetRoutes(app, ctx);
-  await policyRoutes(app, ctx);
-  await notificationRoutes(app, ctx);
-  await ledgerRoutes(app, ctx);
-  await memoryRoutes(app, ctx);
-  await mandateRoutes(app, ctx);
-  if (config.BRIO_DEV_OUTBOX && config.NODE_ENV !== "production") await devRoutes(app, ctx);
-  ctx.orchestrator.start();
-  ctx.budgets.start();
-  ctx.mandate.start();
-  ctx.notifier.start();
-  ctx.memory.start();
-  // Local runners connect over a WebSocket on the API's own HTTP server.
-  ctx.runners.attach(app.server);
-  await ctx.runners.start();
+  if (serves) {
+    await authRoutes(app, ctx);
+    await workspaceRoutes(app, ctx);
+    await missionRoutes(app, ctx);
+    await registryRoutes(app, ctx);
+    await connectorRoutes(app, ctx);
+    await agentRoutes(app, ctx);
+    await attemptRoutes(app, ctx);
+    await pricingRoutes(app, ctx);
+    await planRoutes(app, ctx);
+    await projectRoutes(app, ctx);
+    await messageRoutes(app, ctx);
+    await scoreboardRoutes(app, ctx);
+    await evalRoutes(app, ctx);
+    await hookRoutes(app, ctx);
+    await tokenRoutes(app, ctx);
+    await oauthRoutes(app, ctx);
+    await mcpRoutes(app, ctx);
+    await a2aRoutes(app, ctx);
+    await inboxRoutes(app, ctx);
+    await approvalRoutes(app, ctx);
+    await crewRoutes(app, ctx);
+    await templateRoutes(app, ctx);
+    await runnerRoutes(app, ctx);
+    await budgetRoutes(app, ctx);
+    await policyRoutes(app, ctx);
+    await notificationRoutes(app, ctx);
+    await ledgerRoutes(app, ctx);
+    await memoryRoutes(app, ctx);
+    await mandateRoutes(app, ctx);
+    if (config.BRIO_DEV_OUTBOX && config.NODE_ENV !== "production") await devRoutes(app, ctx);
+    // Local runners connect over a WebSocket on the API's own HTTP server.
+    ctx.runners.attach(app.server);
+    await ctx.runners.start();
+  }
+  if (runs) {
+    ctx.orchestrator.start();
+    ctx.budgets.start();
+    ctx.mandate.start();
+    ctx.notifier.start();
+    ctx.memory.start();
+  }
 
   return {
     app,

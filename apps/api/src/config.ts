@@ -6,6 +6,14 @@ const Env = z.object({
   HOST: z.string().default("0.0.0.0"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
   DATABASE_URL: z.string().min(1),
+  /**
+   * What this API process does: "all" (one process: requests and running missions), or, to scale requests apart from
+   * the one process that runs missions, "web" (REST, live events, MCP, A2A and local runners' connections; as many as
+   * you like) and "worker" (the orchestrator, budget guard, notifications, memory, Mandate; exactly one).
+   */
+  BRIO_API_ROLE: z.enum(["all", "web", "worker"]).default("all"),
+  /** Connections the API keeps to Postgres: the orchestrator, live event streams and requests share them. */
+  DATABASE_POOL_MAX: z.coerce.number().int().min(2).max(500).default(20),
   /** The browser-facing origin. The web app proxies /api and /v1 here, so auth cookies are first-party. */
   APP_URL: z.url().default("http://localhost:3000"),
   BETTER_AUTH_SECRET: z

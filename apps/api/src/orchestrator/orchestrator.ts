@@ -130,7 +130,22 @@ const seedOf = (s: string) => {
 
 export interface OrchestratorOptions {
   sweepMs?: number;
+  /**
+   * A web-only API process (BRIO_API_ROLE=web): it records what people do (approvals, reviews, replans) but never
+   * runs missions; the worker process does, woken by the events those writes emit.
+   */
+  passive?: boolean;
 }
+
+/** Events that never change scheduling: they do not trigger a tick (see start()). */
+const QUIET_EVENTS = new Set([
+  "attempt.queued",
+  "attempt.started",
+  "attempt.message",
+  "attempt.tool_call",
+  "attempt.file_edit",
+  "attempt.cost",
+]);
 
 export class Orchestrator {
   private readonly busy = new Map<string, Promise<void>>();
@@ -156,7 +171,11 @@ export class Orchestrator {
   /** Reacts to every new event, and sweeps active missions so nothing waits on a missed notification. */
   start(): void {
     this.stopped = false;
-    this.unsubscribe = this.ctx.feed.subscribeAll((missionId) => this.schedule(missionId));
+    // Events that cannot change what happens next (an agent's messages, tool calls, edits and costs; the queueing and
+    // start of an attempt) do not wake the mission; the sweep is the safety net either way.
+    this.unsubscribe = this.ctx.feed.subscribeAll((missionId, _seq, hint) => {
+      if (!hint.type || !QUIET_EVENTS.has(hint.type)) this.schedule(missionId);
+    });
     this.timer = setInterval(() => void this.sweep(), this.opts.sweepMs ?? 3000);
     this.timer.unref();
     void this.sweep();
@@ -181,7 +200,7 @@ export class Orchestrator {
 
   /** Runs a tick for the mission; ticks of one mission never overlap, and a request during a tick runs one more. */
   schedule(missionId: string): void {
-    if (this.stopped) return;
+    if (this.stopped || this.opts.passive) return;
     if (this.busy.has(missionId)) {
       this.dirty.add(missionId);
       return;

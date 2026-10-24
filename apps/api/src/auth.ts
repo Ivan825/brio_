@@ -92,7 +92,9 @@ export function createAuth({ db, config, mailer, ledger }: AuthDeps) {
         },
       }),
       passkey({ rpID: appUrl.hostname, rpName: "Brio", origin: config.APP_URL }),
-      jwt(),
+      // JWTs are for MCP clients (OAuth); signing one into a header on every session lookup only cost a key read and
+      // a signature per request.
+      jwt({ disableSettingJwtHeader: true }),
       mcp({
         loginPage: "/sign-in",
         consentPage: "/oauth/consent",
