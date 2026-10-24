@@ -1,7 +1,9 @@
 # Publishes Brio's service images to GitHub Packages after CI passes on main (D-110), so a server can download them
 # instead of building: ghcr.io/<owner>/brio-{api,runner,web}, tagged sha-<12 chars of the commit> and latest, for
-# linux/amd64 and linux/arm64 (each built natively). A version tag (v0.1.0) adds that version's tags (0.1.0, 0.1) to
-# the images already built for its commit. It reads the code and writes packages; it never writes to the repository.
+# linux/amd64 and linux/arm64 (each built natively). A commit with a version tag (v0.1.0) also gets that version's
+# tags (0.1.0, 0.1): when its images are built, or when the tag is pushed after. Run it by hand (Actions → images →
+# Run workflow) to build any commit, branch or tag. It reads the code and writes packages; it never writes to the
+# repository.
 name: images
 
 on:
@@ -12,18 +14,36 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit, branch or tag to build (a tagged commit gets its version tags too)
+        default: main
 
 permissions:
   contents: read
   packages: write
 
+# One run per commit and event at a time; builds of different commits, and releases, never wait on each other.
 concurrency:
-  group: images
+  group: images-${{ github.event_name }}-${{ github.event.workflow_run.head_sha || inputs.ref || github.ref }}
   cancel-in-progress: false
 
 jobs:
-  build:
+  commit:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || inputs.ref }}
+      - id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: commit
     strategy:
       fail-fast: true
       matrix:
@@ -34,7 +54,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ needs.commit.outputs.sha }}
       - name: Image name
         run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/brio-${{ matrix.target }}" >> "$GITHUB_ENV"
       - uses: docker/setup-buildx-action@v4
@@ -52,7 +72,7 @@ jobs:
           build-args: ${{ matrix.target == 'web' && 'API_URL=http://api:4000' || '' }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.event.workflow_run.head_sha || github.sha }}
+            org.opencontainers.image.revision=${{ needs.commit.outputs.sha }}
             org.opencontainers.image.licenses=AGPL-3.0-only
           outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=${{ matrix.target }}-${{ matrix.platform }}
@@ -69,7 +89,7 @@ jobs:
 
   # One tag per image for both platforms, only once every image has built, so a server never sees half a release.
   publish:
-    needs: build
+    needs: [commit, build]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -84,24 +104,33 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Tag sha-<commit> and latest
+      - name: Tag sha-<commit>, latest (main only) and the commit's versions
         env:
-          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          SHA: ${{ needs.commit.outputs.sha }}
+          LATEST: ${{ github.event_name == 'workflow_run' }}
         run: |
           owner="${GITHUB_REPOSITORY_OWNER,,}"
+          # Version tags on this commit: v1.2.3 gives 1.2.3 and 1.2 (annotated tags are listed with ^{}).
+          versions="$(git ls-remote --tags "https://github.com/$GITHUB_REPOSITORY" 'refs/tags/v*' \
+            | awk -v sha="$SHA" '$1 == sha { t = $2; sub("refs/tags/v", "", t); sub("\\^\\{\\}$", "", t); print t }' \
+            | sort -u)"
           for target in api runner web; do
             image="ghcr.io/$owner/brio-$target"
-            docker buildx imagetools create \
-              -t "$image:sha-${SHA:0:12}" -t "$image:latest" \
+            tags=(-t "$image:sha-${SHA:0:12}")
+            [ "$LATEST" = true ] && tags+=(-t "$image:latest")
+            for v in $versions; do tags+=(-t "$image:$v" -t "$image:${v%.*}"); done
+            docker buildx imagetools create "${tags[@]}" \
               "$image@$(cat digests/$target-amd64)" "$image@$(cat digests/$target-arm64)"
             docker buildx imagetools inspect "$image:sha-${SHA:0:12}"
           done
+          echo "published sha-${SHA:0:12}${versions:+ and versions: $versions}"
 
-  # A release: the tagged commit's images (built when it passed CI on main) get the version's tags.
+  # A version tag pushed after its commit's images were built: add the version's tags now. If they are not built yet,
+  # the build adds them when it publishes (above).
   release:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 10
     steps:
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
@@ -116,13 +145,11 @@ jobs:
         run: |
           owner="${GITHUB_REPOSITORY_OWNER,,}"
           version="${TAG#v}"
-          minor="${version%.*}"
           for target in api runner web; do
             image="ghcr.io/$owner/brio-$target"
-            # A tag pushed with its commit waits for that commit's images (CI, then the build above: up to an hour).
-            for _ in $(seq 1 120); do
-              docker buildx imagetools inspect "$image:sha-${SHA:0:12}" >/dev/null 2>&1 && break
-              sleep 30
-            done
-            docker buildx imagetools create -t "$image:$version" -t "$image:$minor" "$image:sha-${SHA:0:12}"
+            if ! docker buildx imagetools inspect "$image:sha-${SHA:0:12}" >/dev/null 2>&1; then
+              echo "::notice::$image:sha-${SHA:0:12} is not built yet; its build adds $version when it publishes (or run this workflow with ref $TAG)"
+              exit 0
+            fi
+            docker buildx imagetools create -t "$image:$version" -t "$image:${version%.*}" "$image:sha-${SHA:0:12}"
           done
