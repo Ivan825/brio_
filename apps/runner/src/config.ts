@@ -15,8 +15,16 @@ const Env = z.object({
   BRIO_RUNNER_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(2),
   /** Port of the mailbox MCP server sandboxes reach through their proxy (0: any free port). */
   BRIO_RUNNER_MAILBOX_PORT: z.coerce.number().int().min(0).default(0),
+  /**
+   * A runner in a container (self-host bundles): the name sandbox proxies reach it by, and the Docker network it is
+   * on. Unset, proxies reach a runner on the Docker host.
+   */
+  BRIO_RUNNER_MAILBOX_HOST: z.string().min(1).optional(),
+  BRIO_RUNNER_NETWORK: z.string().min(1).optional(),
   /** Liveness endpoint (GET /health) for orchestrators; off when unset. */
   BRIO_RUNNER_HEALTH_PORT: z.coerce.number().int().positive().optional(),
+  /** Interface the health endpoint listens on (0.0.0.0 for Kubernetes probes). */
+  BRIO_RUNNER_HEALTH_HOST: z.string().default("127.0.0.1"),
   BRIO_IMAGE_BASE: z.string().optional(),
   BRIO_IMAGE_CLI: z.string().optional(),
   BRIO_IMAGE_PROXY: z.string().optional(),
@@ -29,7 +37,10 @@ const Env = z.object({
 export type RunnerConfig = z.infer<typeof Env> & { allowPrivateUrls: boolean };
 
 export function loadRunnerConfig(env: NodeJS.ProcessEnv = process.env): RunnerConfig {
-  const parsed = Env.safeParse(env);
+  // A variable set to nothing (`BRIO_AWS_KMS_KEY_ID=` in an env file) is not set.
+  const parsed = Env.safeParse(
+    Object.fromEntries(Object.entries(env).filter(([, v]) => v !== undefined && v.trim() !== "")),
+  );
   if (!parsed.success)
     throw new Error(
       `invalid environment: ${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`,

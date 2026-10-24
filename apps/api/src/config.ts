@@ -58,8 +58,12 @@ export type Config = Omit<z.infer<typeof Env>, "BRIO_ALLOW_PRIVATE_URLS" | "BRIO
   allowLocalRepos: boolean;
 };
 
+/** A variable set to nothing (`RESEND_API_KEY=` in an env file) is not set. */
+export const withoutBlanks = (env: NodeJS.ProcessEnv): NodeJS.ProcessEnv =>
+  Object.fromEntries(Object.entries(env).filter(([, v]) => v !== undefined && v.trim() !== ""));
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const parsed = Env.safeParse(env);
+  const parsed = Env.safeParse(withoutBlanks(env));
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
     throw new Error(`invalid environment: ${issues}`);
