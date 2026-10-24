@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Turns on automatic updates for this server's Brio (Linux with systemd): every 5 minutes, brio-update.sh checks the
-# branch on GitHub and rebuilds when it moved. Run once with sudo from deploy/compose/autoupdate:
+# branch on GitHub and updates when it moved (downloading ready-made images, or rebuilding, as .env says). Run once
+# with sudo from deploy/compose/autoupdate:
 #   sudo ./install.sh            turn on
 #   sudo ./install.sh --remove   turn off
 # Logs: journalctl -u brio-update --since today
@@ -18,7 +19,7 @@ fi
 chmod +x "$here/brio-update.sh"
 cat > /etc/systemd/system/brio-update.service <<UNIT
 [Unit]
-Description=Update Brio to the newest commit and rebuild
+Description=Update Brio to the newest commit
 After=network-online.target docker.service
 Wants=network-online.target
 

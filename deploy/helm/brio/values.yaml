@@ -4,7 +4,7 @@
 # used (API paths go straight to the API), so any API_URL works.
 
 image:
-  registry: "" # e.g. ghcr.io/acme
+  registry: "" # e.g. ghcr.io/ivan825: CI publishes brio-api/web/runner there, tagged latest and sha-<commit>
   tag: "0.1.0"
   pullPolicy: IfNotPresent
   api: brio-api

@@ -1,10 +1,27 @@
 #!/usr/bin/env sh
 # Writes .env for the self-host bundle with fresh secrets. It never changes a value in an existing .env: run again
 # after an upgrade, it only adds the settings this version has that the file lacks (blank, or with their defaults).
+#   ./setup.sh [address] [--prebuilt]
+# --prebuilt: download ready-made images from GitHub Packages instead of building them here, for small servers (1 GB).
 set -eu
 cd "$(dirname "$0")"
 rand() { openssl rand -base64 "$1" | tr -d '\n'; }
-app_url="${1:-http://localhost:8080}"
+app_url=http://localhost:8080
+image_prefix=
+image_version=
+for arg in "$@"; do
+  case "$arg" in
+    --prebuilt)
+      # Images of the repository this was cloned from: ghcr.io/<owner>/brio-*.
+      owner="$(git remote get-url origin 2>/dev/null | sed -E 's#.*github\.com[:/]([^/]+)/.*#\1#' | tr 'A-Z' 'a-z')"
+      case "$owner" in "" | */* | *:*) owner=ivan825 ;; esac
+      image_prefix="ghcr.io/$owner/brio"
+      image_version=latest
+      ;;
+    -*) echo "unknown option: $arg" >&2; exit 2 ;;
+    *) app_url="$arg" ;;
+  esac
+done
 data_dir="$(pwd)/data/runner"
 mkdir -p "$data_dir"
 umask 077
@@ -26,7 +43,14 @@ BRIO_VAULT_LOCAL_KEK=$(rand 32)
 
 # Where the runner keeps worktrees: an absolute path that Docker can mount (the same path inside and outside).
 BRIO_RUNNER_DIR=$data_dir
+# Attempts run at once on this machine. 1 on a 1 GB server.
 BRIO_RUNNER_CONCURRENCY=2
+
+# Where Brio's images come from. Empty: built on this machine (needs about 3 GB of memory, with swap). A registry
+# prefix such as ghcr.io/ivan825/brio: downloaded ready-made (docker compose pull), which suits a 1 GB server.
+# BRIO_VERSION is the tag to run; the automatic updater keeps it on the newest commit (sha-<commit>).
+BRIO_IMAGE_PREFIX=$image_prefix
+BRIO_VERSION=$image_version
 
 # Who may create an account: your address (and "@yourcompany.com" domains), comma-separated. Set it before Brio is
 # reachable from the internet (a tunnel, a public IP); invited people may always join. Empty: anyone who reaches Brio.
@@ -53,7 +77,11 @@ BRIO_VAPID_SUBJECT=mailto:admin@example.com
 ENV
 if [ ! -f .env ]; then
   mv "$template" .env
-  echo "Wrote $(pwd)/.env. Next: docker compose up -d, then open $app_url"
+  if [ -n "$image_prefix" ]; then
+    echo "Wrote $(pwd)/.env. Next: docker compose pull && docker compose up -d --no-build, then open $app_url"
+  else
+    echo "Wrote $(pwd)/.env. Next: docker compose up -d, then open $app_url"
+  fi
   exit 0
 fi
 
