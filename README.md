@@ -102,6 +102,10 @@ brio runner register --name laptop [--host]    # this machine as a runner (host 
 brio runner start
 ```
 
+## Self-host it
+
+`deploy/compose` runs everything on one machine with Docker (`./setup.sh && docker compose up -d`); `deploy/helm/brio` runs it on Kubernetes. See [`docs/SELF_HOST.md`](docs/SELF_HOST.md): every setting, backups, upgrades, and a smoke test that proves an install works.
+
 ## Run it locally
 
 Node 22, pnpm 10 and Docker (Postgres with pgvector, and the sandboxes agents run in).
@@ -139,6 +143,10 @@ Every vendor call goes through one `AgentAdapter` interface ([`docs/ADAPTER_SPEC
 
 | | |
 |---|---|
+| [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md) | From nothing to a finished mission (also served at `/docs`) |
+| [`docs/SELF_HOST.md`](docs/SELF_HOST.md) | Docker Compose or Helm, every setting, backups, upgrades |
+| [`docs/API.md`](docs/API.md) | Every REST route, generated from the code |
+| [`docs/ADAPTERS.md`](docs/ADAPTERS.md) | Writing an adapter for a new agent or model |
 | [`docs/PRD.md`](docs/PRD.md) | The problem, users, requirements and metrics |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Services, data model, mission/task/attempt flows, sandboxes |
 | [`docs/ROUTING_AND_QUALITY.md`](docs/ROUTING_AND_QUALITY.md) | Planner, router, execution modes, verifier, scoreboard, evals |
@@ -151,7 +159,9 @@ Every vendor call goes through one `AgentAdapter` interface ([`docs/ADAPTER_SPEC
 
 ## Status
 
-Pre-alpha. Built milestone by milestone in dependency order, each production-grade with tests, types and migrations. **Done:** M0, the foundation (monorepo and CI, database, sign-in and workspaces, the vault and redactor, the event spine with live SSE, the hash-chained ledger, the branded web app), M1, connectors and model APIs (18 vendor presets behind one adapter interface, live model lists, metered cost per call, the connector catalogue and agent builder, and running a task with a chosen agent), and M2, the runner (one hardened Docker sandbox per attempt with an egress allowlist, a git worktree per attempt, diffs as artifacts, and Claude Code, Codex, Cursor, Antigravity, OpenCode, Aider and Goose driven headless). M3, missions (a planner with contract-first plans you edit and approve, a crash-proof scheduler running tasks in parallel under file leases, handoff packets, contracts, an agent mailbox, and a first verifier), and M4, the learned router (Thompson sampling over your own scoreboard, weighed by cost and speed, with a rationale for every pick) and execution modes (best-of-n, ensemble, maker–checker, debate, cascade, pipeline), and M5, verification (every check kind, reviewers from another vendor, revise → reroute → revised plan), the merge engine, mission reports, and the eval harness with 30 golden missions, and M6, hosted agents (Claude Managed Agents, OpenAI Agents, Gemini, Jules, Devin, Manus, AgentCore, Foundry), browser agents (Claude computer use in a locked-down browser, Nova Act, Browser Use, cloud browsers), media (images, video, voice from nine vendors) and research (cited research agents; search and page tools for every agent). and M7, protocols (Brio as an MCP server for Claude Code, Cursor and Codex, with OAuth sign-in and a stdio `brio mcp`; Brio as an A2A agent; any A2A agent as a worker and any MCP server as a tool; ACP for coding CLIs), and M8, the complete web app (approvals inbox, projects, the full composer, plan editor with a graph view, the live board with diffs, costs and leases, crews, templates, the report page, pull requests approved before they are opened), the `brio` CLI (device-flow login, run, plan, board, approve) and the local runner (your machine, connected out over a WebSocket, Docker or host mode, CLIs under your own sign-in). Next is **M9**: governance, memory, notifications and organisations. See the [roadmap](docs/BUILD_PLAN.md) and [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
+All eleven milestones (M0–M10) are built, in dependency order, each with tests, types, migrations and docs: the foundation, connectors and model APIs, sandboxed runners and coding CLIs, missions and coordination, the learned router and execution modes, verification and evals, hosted, browser, media and research agents, MCP, A2A and ACP, the complete web app with the CLI and local runners, governance, memory, notifications and roles, and self-hosting, hardening and the docs site. Each milestone's acceptance evidence is in [`docs/CHANGELOG.md`](docs/CHANGELOG.md); the security review is in [`docs/SECURITY_REVIEW.md`](docs/SECURITY_REVIEW.md) and the load test in [`docs/LOAD_TEST.md`](docs/LOAD_TEST.md).
+
+What still needs the owner: live runs against real vendors (their keys), a public deployment (for remote MCP and A2A clients and webhooks), and the accounts Brio sends through (Google sign-in, Resend, Slack, web push keys).
 
 ## Licence
 

@@ -131,6 +131,7 @@ All settings are environment variables. A variable left blank counts as unset. C
 | `BRIO_API_ROLE` | `all` | `all`: one process. At scale, `web` processes (as many as you like) serve requests, live events, MCP, A2A and runners' sockets, and exactly one `worker` runs missions (D-99). The Helm chart runs it that way. |
 | `DATABASE_POOL_MAX` | `20` | Postgres connections per API process. |
 | `BRIO_TRUST_PROXY_HOPS` | `1` | Proxies in front of the API whose `X-Forwarded-For` is believed: Caddy, an ingress, or the web app is 1. Use `0` when clients reach the API directly. Sign-in rate limits key on the address this yields. |
+| `BRIO_BILLING_WEBHOOK_URL`, `BRIO_BILLING_WEBHOOK_SECRET` | — | For operators who charge for hosting Brio (D-105). The worker sends each workspace's usage for each finished UTC day, once, to this URL. It is signed `brio-signature: t=<unix>,v1=<hex HMAC-SHA256(secret, "<t>.<body>")>` and failures are retried hourly. Off unless both are set; the secret is at least 32 characters. |
 | `BRIO_RATE_LIMIT_PER_MINUTE` | `1200` | Requests per client address per minute (the health check, live event streams and runners' sockets are exempt); `0` turns it off. |
 | `PORT`, `HOST`, `LOG_LEVEL` | `4000`, `0.0.0.0`, `info` | |
 
@@ -206,4 +207,6 @@ Migrations only move forward. Take a backup first. An attempt running during the
   - the API's `GET /health` returns `{"ok":true,"db":"up"}`;
   - the runner's `GET /health` is on `BRIO_RUNNER_HEALTH_PORT`.
 - **Disk.** Sandbox images are about 1–3 GB. Old worktrees are removed when their attempts end.
+- **Status.** `/status` is a public page showing whether the API, the database, live events and the runners are working. `GET /v1/status` returns the same as JSON for your own monitoring. Neither says anything about any workspace.
+- **Usage.** Each workspace's spend and runs, by day, agent, vendor and kind of task, are on Governance (`GET /v1/usage`).
 - **Local runners.** People can still run `brio runner` on their own machines against a self-hosted Brio. They connect out to `BRIO_APP_URL` over a WebSocket.

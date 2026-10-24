@@ -1,5 +1,60 @@
 # Changelog
 
+## 2026-10-24 — M10 Self-host, hardening, launch readiness
+Pushed in small steps (CLAUDE.md rule 9, D-17).
+
+**Self-hosting** ([SELF_HOST.md](SELF_HOST.md)):
+- Production images for the API, runner and web app, from one Dockerfile.
+- A Docker Compose bundle: Postgres, a one-shot migration, the API, a runner driving the host's Docker, the web app, and Caddy with automatic TLS.
+- A Helm chart: web pods and one worker, runners each with their own Docker engine listening only on loopback, a migration hook, and an ingress.
+- A smoke test that drives a fresh install through its public entry point. It passed against the Compose bundle, and against a reproduction of the Helm runner pod.
+- Fixes found on the way:
+  - a blank environment variable counted as set;
+  - a runner in a container could not hand its worktrees to the sandbox user, or be reached by sandbox proxies;
+  - a browser reopened at another size kept the old display;
+  - a stale same-named container blocked a sandbox.
+
+**Load** ([LOAD_TEST.md](LOAD_TEST.md)):
+- 125 missions and 500 concurrent attempts, with API p95 136 ms and event fan-out p95 741 ms. All missions finished.
+- What it took:
+  - runners take jobs with one claim loop per queue: idle runners now cost Postgres 30 times less (D-100);
+  - the API runs as scalable web processes and one worker (D-99);
+  - events that cannot change scheduling no longer wake the orchestrator;
+  - no JWT is minted per request;
+  - ledger entries are chained after their transaction rather than under a workspace-wide lock (D-98);
+  - hot-path indexes, and a batched inbox.
+
+**Security** ([SECURITY_REVIEW.md](SECURITY_REVIEW.md)):
+- A threat model, and two whole-surface reviews. Every finding is fixed and tested:
+  - prices only from a vendor's own address (D-103);
+  - work on a person's machine only from them: their missions, plans they approved, their agents and memory, their deliveries (D-101);
+  - A2A for current members only, and removal revokes tokens and runners;
+  - Better Auth's own workspace endpoints closed, and only owners make admins;
+  - the URL guard sees through IPv6 disguises and pins connections against DNS rebinding (D-102);
+  - runners authenticate in the handshake and report only their attempts' own events;
+  - the ledger refuses pre-chained rows;
+  - rate limits per client address.
+- A sandbox escape suite against real containers.
+- A prompt-injection suite. Untrusted content is fenced so it cannot close its own quote, and every result is scanned, with findings held for a person (D-104).
+- `pnpm audit`: no high or critical advisories.
+
+**Docs site:**
+- `/docs` serves the repository's docs, public, with a getting-started guide, a guide to writing adapters, and an API reference generated from the routes (a test keeps it current).
+- `prompts/` is kept out of the repository.
+
+**Usage, billing hook, status (D-105, D-15 decided):**
+- Brio stays bring-your-own-keys.
+- Usage per workspace by day, agent, vendor and kind of task, on Governance.
+- A signed daily usage hook for operators who charge for hosting Brio.
+- A public `/status` page.
+
+**Acceptance evidence:**
+- A fresh install from the Compose docs ran a planned, sandboxed and checked mission end to end (about 15 minutes, mostly image builds).
+- The load-test SLOs were met.
+- No high or critical security findings are open.
+
+**Not yet verified live:** a real Kubernetes cluster, and a public deployment with TLS, need the owner's infrastructure.
+
 ## 2026-10-24 — M9 Governance, memory, notifications, roles
 Pushed in small steps (CLAUDE.md rule 9, D-17).
 - **Budgets at every scope (D-89):** monthly limits for the workspace and each agent, plus every mission's and task's own. Before dispatch every scope must fit the estimate and the attempt is capped to what is left; while it runs a guard warns past the soft threshold and, the moment a scope is crossed, stops every running attempt in it (`limit_exceeded`) — the task waits, blocked, until a person raises the budget on the board.

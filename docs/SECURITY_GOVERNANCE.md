@@ -89,11 +89,27 @@ Decide in `docs/DECISIONS.md` (D-07). Either way the ledger format stays Mandate
 - Periodic anchor: daily root hash written to an external store (configurable).
 - Ledger entries: dispatch, spend, approval decision, external side effect, policy change, key added/rotated.
 - As built (M9, D-93): owners and admins list the ledger, verify the chain (the first broken entry is named) and export it as JSONL or CSV (`GET /v1/ledger/export`). Memory edits (`memory.change`) and role changes (`member.changed`) are entries too.
+- As built (M10, D-98):
+  - An entry is written in the transaction that does what it records.
+  - Its seq and hashes are filled in a moment later by the worker's chainer, in the order entries were written, and by every reader before it reads.
+  - Triggers refuse rows written already chained, any change except chaining a pending entry once, and every DELETE or TRUNCATE. A CHECK keeps seq, prev_hash and hash set together.
+  - The external anchor is not built yet: keep exported chain heads elsewhere ([SECURITY_REVIEW.md](SECURITY_REVIEW.md)).
 
 ## 9. Prompt-injection defence
 - Treat all agent outputs, fetched pages, repo files and A2A responses as data. Agents never receive instructions from another agent's output as system-level text; handoff packets are wrapped and labelled as untrusted content.
 - Tool permissions are least-privilege per task; browser and messaging actions go through approvals.
 - The verifier flags outputs containing instructions aimed at other agents ("ignore previous…").
+- As built (M10, D-104):
+  - Untrusted text reaches a prompt only through `fence`/`untrustedBlock` (`packages/core`): a labelled block in a fence longer than any backtick run inside it, so the text can never close its own quote. That covers handoffs, attachments, issue text, other agents' messages, the project's memory, check output and failure reasons, and results under review or judgement.
+  - Every result gets a hard `injection_scan` check (`findInjection`), looking for:
+    - attempts to override instructions;
+    - chat role markers and jailbreak personas;
+    - requests to send secrets;
+    - notes addressed to "the AI reading this";
+    - hidden Unicode;
+    - piping a download into a shell.
+  - A finding holds the result for a person instead of passing it on.
+  - Tested by `packages/core/test/untrusted.test.ts` and `apps/api/test/injection.test.ts`.
 
 ## 10. Compliance posture (later milestones)
 SOC 2 controls mapping, data residency options (EU via Mistral/Bedrock EU/Foundry EU), DPA templates, SSO/SAML, SCIM.
