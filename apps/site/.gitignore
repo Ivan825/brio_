@@ -1,0 +1,4 @@
+public/brand/
+next-env.d.ts
+out/
+.vercel/

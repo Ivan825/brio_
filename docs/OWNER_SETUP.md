@@ -167,11 +167,15 @@ Brio sends sign-in links, invitations and notifications through your own Gmail a
 
 1. **Create a free Tailscale account:** <https://login.tailscale.com/start>. Sign in with Google or GitHub; the free Personal plan includes Funnel.
 2. **Install Tailscale on the Mac** from <https://tailscale.com/download/mac>. Open it and log in. It lives in the menu bar.
-3. **Install its command-line tool:** menu-bar icon → **Settings** → **CLI integration** → **Install**. If you don't see that option, add this line to `~/.zshrc`:
-   ```sh
-   alias tailscale=/Applications/Tailscale.app/Contents/MacOS/Tailscale
-   ```
-   Then open a new Terminal window. Check it with `tailscale status`.
+3. **Get its command-line tool.** It depends on which Tailscale you installed:
+   - **Standalone download:** menu-bar icon → **Settings** → **CLI integration** → **Show me how** → **Install Now** (asks for your Mac password).
+   - **Mac App Store version:** add this line to `~/.zshrc`:
+     ```sh
+     alias tailscale="/Applications/Tailscale.app/Contents/MacOS/Tailscale"
+     ```
+     Then open a new Terminal window.
+
+   Check it with `tailscale status`.
 4. **Publish Brio:**
    ```sh
    tailscale funnel --bg 8080

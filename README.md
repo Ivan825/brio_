@@ -133,7 +133,7 @@ pnpm e2e                                    # real browser, brand and flows
 TypeScript everywhere. It's a pnpm + Turborepo monorepo: Next.js for the web app, Fastify for the API and orchestrator, Docker sandboxes for runners, and Postgres (Drizzle, pgvector, pg-boss) as the only infrastructure.
 
 ```
-apps/      web · api · runner · cli · evals
+apps/      web · api · runner · cli · evals · site (the product website)
 packages/  schema · db · core · adapters · registry · vault · governance · memory · sdk · brand
 ```
 

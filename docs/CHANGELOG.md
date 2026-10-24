@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-24 — After M10: no domain needed, and a product website
+- **Email from a mailbox you already have** (D-106): any SMTP server, for example Gmail with an app password, sends sign-in links, invitations and notifications. You don't need a domain or a Resend account. Resend still wins when both are set.
+- **Sign-up by invitation** (D-107): with `BRIO_SIGNUP_ALLOW`, a Brio reachable from the internet (for example a laptop behind a tunnel) lets only the listed addresses, and people with a pending invitation, create accounts. Nobody else is sent a sign-in link.
+- **[Owner setup](OWNER_SETUP.md):** everything step by step with free accounts only:
+  - Gmail for email;
+  - a public HTTPS address from Tailscale Funnel;
+  - Slack and browser push;
+  - Claude Code over MCP;
+  - the local runner;
+  - a real pull request;
+  - live vendor tests;
+  - a local Kubernetes cluster;
+  - the website.
+- **The product website** (`apps/site`, D-108): a static page in the Brio brand. Its screenshots are of the real app, and its claims are checked by tests against the registry, the load test and the CLI. It is published to a free `*.vercel.app` address from the owner's machine, so the repository is never connected to Vercel.
+- **Fixed:** Governance's daily usage bars were invisible, and its breakdowns lost their names in narrow columns. The brand check now flags opacity modifiers on brand colours, which Tailwind silently drops.
+
 ## 2026-10-24 — M10 Self-host, hardening, launch readiness
 Pushed in small steps (CLAUDE.md rule 9, D-17).
 

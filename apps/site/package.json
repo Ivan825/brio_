@@ -1,0 +1,29 @@
+{
+  "name": "@brio/site",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Brio's product website: a static page, deployed anywhere static files go (vercel.app works without a domain)",
+  "type": "module",
+  "scripts": {
+    "sync-brand": "node scripts/sync-brand-assets.mjs",
+    "dev": "pnpm sync-brand && next dev --port 3100",
+    "build": "pnpm sync-brand && next build",
+    "deploy": "pnpm build && node scripts/deploy.mjs",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@brio/brand": "workspace:*",
+    "geist": "1.8.2",
+    "next": "16.4.2",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "autoprefixer": "10.6.1",
+    "postcss": "8.5.31",
+    "tailwindcss": "3.4.19"
+  }
+}

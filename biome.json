@@ -55,7 +55,7 @@
   },
   "overrides": [
     {
-      "includes": ["apps/web/app/globals.css"],
+      "includes": ["apps/web/app/globals.css", "apps/site/app/globals.css"],
       "linter": {
         "rules": {
           "suspicious": {

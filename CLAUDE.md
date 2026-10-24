@@ -55,6 +55,7 @@ apps/
   runner/         Sandbox worker: pulls attempts from queue, runs adapters inside Docker
   cli/            `brio` CLI (run missions, tail boards, local runner mode)
   evals/          Golden-mission benchmark harness
+  site/           Product website: static page, published to *.vercel.app with the Vercel CLI (D-108)
 packages/
   schema/         Zod schemas + TS types shared by all (Mission, Task, Contract, HandoffPacket, Event…)
   db/             Drizzle schema, migrations, query helpers

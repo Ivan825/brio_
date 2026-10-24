@@ -1,0 +1,70 @@
+@import "@brio/brand/tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 72px;
+  }
+  body {
+    line-height: 1.55;
+  }
+  ::selection {
+    background: var(--selection);
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+}
+
+/* The brass cursor after the wordmark (brand/BRAND.md §1): it blinks while work runs. */
+.brio-cursor {
+  display: inline-block;
+  width: 0.6em;
+  height: 0.16em;
+  margin-left: 0.06em;
+  background: var(--accent);
+  vertical-align: baseline;
+  animation: blink var(--blink) steps(1) infinite;
+}
+
+/* Event lines arrive one by one on the hero board. */
+.board-line {
+  animation: arrive var(--dur-slow) var(--ease) both;
+}
+
+@keyframes blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  50.01%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes arrive {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .brio-cursor,
+  .board-line {
+    animation: none;
+  }
+}
