@@ -31,3 +31,6 @@ blob-report/
 *.log
 logs/
 .brio/
+
+# Build prompts for Claude Code sessions: kept locally, never in the repository
+prompts/

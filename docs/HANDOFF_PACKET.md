@@ -85,7 +85,7 @@ Generation: after a task passes verification, Brio asks the finishing agent for 
     "Hosted agent APIs (Claude Managed Agents, OpenAI Agents API, Gemini Managed Agents) are beta/preview",
     "Crowded multi-CLI wrapper market; differentiation depends on verification + learned routing + governance"
   ],
-  "nextSteps": ["Start M0 in docs/BUILD_PLAN.md using prompts/01-M0-foundation.md"],
+  "nextSteps": ["Start M0 in docs/BUILD_PLAN.md using the M0 build prompt (prompts/01-M0-foundation.md, kept locally)"],
   "trust": "untrusted-content",
   "createdAt": "2026-10-23T07:30:00Z"
 }

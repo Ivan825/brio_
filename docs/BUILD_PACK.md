@@ -11,7 +11,7 @@ Everything Claude Code needs to build Brio, the multi-agent orchestrator: produc
    cd ~/projects/Brio
    claude
    ```
-4. Paste the whole of `prompts/00-kickoff.md`. Claude Code reads the docs, flags any contradictions, and starts M0.
+4. Paste the whole of `prompts/00-kickoff.md` (the build prompts are kept locally, outside the repository). Claude Code reads the docs, flags any contradictions, and starts M0.
 5. When it finishes a milestone, it tells you which prompt to paste next (`prompts/01-…` through `prompts/11-…`). M4–M7 can run in parallel in separate Claude Code sessions on separate git worktrees.
 
 ## What's inside
@@ -30,7 +30,7 @@ Everything Claude Code needs to build Brio, the multi-agent orchestrator: produc
 | `CONNECTORS.md` | Human-readable connector registry (98 entries, 13 categories) |
 | `registry/connectors.json` | The same registry as data; adapters and the UI load it |
 | `brand/` | Logo files (`brio_`), colour tokens, Tailwind preset, brand guide |
-| `prompts/` | Kickoff plus one prompt per milestone |
+| `prompts/` | Kickoff plus one prompt per milestone (local only: not in the repository, listed in `.gitignore`) |
 
 ## Open decisions you may want to settle early
 
