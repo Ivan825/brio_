@@ -1,0 +1,16 @@
+# Brio's entry point (docker-compose.yml). BRIO_SITE_ADDRESS is ":80" for plain HTTP, or a domain for automatic TLS.
+{$BRIO_SITE_ADDRESS}
+
+encode zstd gzip
+
+@api path /api/auth/* /v1/* /mcp /mcp/* /a2a /a2a/* /.well-known/* /health
+handle @api {
+	reverse_proxy api:4000 {
+		# Server-Sent Events: pass every event through at once.
+		flush_interval -1
+	}
+}
+
+handle {
+	reverse_proxy web:3000
+}

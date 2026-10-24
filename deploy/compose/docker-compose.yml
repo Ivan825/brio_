@@ -1,0 +1,111 @@
+# Brio, self-hosted on one machine with Docker (docs/SELF_HOST.md). From this directory:
+#   ./setup.sh            # writes .env with fresh secrets (once)
+#   docker compose up -d  # builds the images, migrates the database, starts everything
+# Then open BRIO_APP_URL (http://localhost:8080 by default).
+name: brio-server
+
+x-brio-env: &brio-env
+  NODE_ENV: production
+  DATABASE_URL: postgres://brio:${POSTGRES_PASSWORD:?run ./setup.sh first}@postgres:5432/brio
+  BRIO_KMS_PROVIDER: ${BRIO_KMS_PROVIDER:-local}
+  BRIO_VAULT_LOCAL_KEK: ${BRIO_VAULT_LOCAL_KEK:-}
+  BRIO_AWS_KMS_KEY_ID: ${BRIO_AWS_KMS_KEY_ID:-}
+  BRIO_ALLOW_PRIVATE_URLS: ${BRIO_ALLOW_PRIVATE_URLS:-false}
+  BRIO_GITHUB_API_URL: ${BRIO_GITHUB_API_URL:-https://api.github.com}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: brio
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run ./setup.sh first}
+      POSTGRES_DB: brio
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U brio -d brio"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # Applies database migrations, then exits; the API starts after it succeeds.
+  migrate:
+    image: ${BRIO_IMAGE_PREFIX:-brio}-api:${BRIO_VERSION:-local}
+    build: { context: ../.., target: api }
+    environment: *brio-env
+    working_dir: /app/packages/db
+    command: ["node", "--import", "tsx", "src/scripts/migrate.ts"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+
+  api:
+    image: ${BRIO_IMAGE_PREFIX:-brio}-api:${BRIO_VERSION:-local}
+    build: { context: ../.., target: api }
+    restart: unless-stopped
+    environment:
+      <<: *brio-env
+      APP_URL: ${BRIO_APP_URL:-http://localhost:8080}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?run ./setup.sh first}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      BRIO_EMAIL_FROM: ${BRIO_EMAIL_FROM:-Brio <onboarding@resend.dev>}
+      BRIO_VAPID_PUBLIC_KEY: ${BRIO_VAPID_PUBLIC_KEY:-}
+      BRIO_VAPID_PRIVATE_KEY: ${BRIO_VAPID_PRIVATE_KEY:-}
+      BRIO_VAPID_SUBJECT: ${BRIO_VAPID_SUBJECT:-mailto:admin@example.com}
+      BRIO_ALLOW_LOCAL_REPOS: ${BRIO_ALLOW_LOCAL_REPOS:-false}
+      BRIO_PRICING_REFRESH_HOURS: ${BRIO_PRICING_REFRESH_HOURS:-24}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  # Runs every attempt in its own sandbox container on this machine's Docker. Worktrees live at the same path inside
+  # and outside the runner (the sandboxes mount them from the host), and sandbox proxies join the brio network to reach
+  # the runner's mailbox.
+  runner:
+    image: ${BRIO_IMAGE_PREFIX:-brio}-runner:${BRIO_VERSION:-local}
+    build: { context: ../.., target: runner }
+    restart: unless-stopped
+    environment:
+      <<: *brio-env
+      BRIO_RUNNER_DIR: ${BRIO_RUNNER_DIR:?run ./setup.sh first}
+      BRIO_RUNNER_CONCURRENCY: ${BRIO_RUNNER_CONCURRENCY:-2}
+      BRIO_RUNNER_MAILBOX_PORT: "7070"
+      BRIO_RUNNER_MAILBOX_HOST: runner
+      BRIO_RUNNER_NETWORK: brio
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${BRIO_RUNNER_DIR}:${BRIO_RUNNER_DIR}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  web:
+    image: ${BRIO_IMAGE_PREFIX:-brio}-web:${BRIO_VERSION:-local}
+    build: { context: ../.., target: web, args: { API_URL: "http://api:4000" } }
+    restart: unless-stopped
+    depends_on: [api]
+
+  # The one entry point: API paths straight to the API (SSE, the runner WebSocket, MCP, A2A, OAuth discovery),
+  # everything else to the web app. With BRIO_SITE_ADDRESS set to a domain, Caddy gets a TLS certificate for it.
+  caddy:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    environment:
+      BRIO_SITE_ADDRESS: ${BRIO_SITE_ADDRESS:-:80}
+    ports:
+      - "${BRIO_HTTP_PORT:-8080}:80"
+      - "${BRIO_HTTPS_PORT:-8443}:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on: [web, api]
+
+networks:
+  default:
+    name: brio
+
+volumes:
+  pgdata:
+  caddy-data:
