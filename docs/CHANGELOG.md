@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.0 — 2026-10-24 — the first release
+Everything below, M0 to M10 and what came after, released as one version:
+- **Install:** `ghcr.io/ivan825/brio-{api,runner,web}:0.1.0` for amd64 and arm64; the Helm chart uses them by default, Compose with `./setup.sh --prebuilt`.
+- **Versions:** every package is 0.1.0. A tag `vX.Y.Z` on a commit that passed CI adds `X.Y.Z` and `X.Y` to that commit's images.
+- **Website and docs:** <https://brio-orchestrator.vercel.app>, with every guide in this folder under `/docs`.
+
 ## 2026-10-24 — After M10: no domain needed, and a product website
 - **Email from a mailbox you already have** (D-106): any SMTP server, for example Gmail with an app password, sends sign-in links, invitations and notifications. You don't need a domain or a Resend account. Resend still wins when both are set.
 - **Sign-up by invitation** (D-107): with `BRIO_SIGNUP_ALLOW`, a Brio reachable from the internet (for example a laptop behind a tunnel) lets only the listed addresses, and people with a pending invitation, create accounts. Nobody else is sent a sign-in link.

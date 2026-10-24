@@ -11,13 +11,17 @@ Give Brio one goal. It plans the work, hands each piece to the agent best at it,
 <p align="center">
   <a href="https://github.com/Ivan825/brio_/actions/workflows/ci.yml"><img src="https://github.com/Ivan825/brio_/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/licence-AGPL--3.0-blue.svg" alt="AGPL-3.0 licence"></a>
-  <img src="https://img.shields.io/badge/status-alpha-F2B33D" alt="Alpha">
+  <a href="https://github.com/Ivan825/brio_/releases"><img src="https://img.shields.io/github/v/release/Ivan825/brio_?color=F2B33D&label=release" alt="Latest release"></a>
+  <a href="https://github.com/Ivan825?tab=packages&repo_name=brio_"><img src="https://img.shields.io/badge/images-ghcr.io%2Fivan825-6C8CFF" alt="Docker images"></a>
   <img src="https://img.shields.io/badge/node-22-339933" alt="Node 22">
   <img src="https://img.shields.io/badge/BYOK-only-6C8CFF" alt="Bring your own keys">
 </p>
 
 <p align="center">
+  <a href="https://brio-orchestrator.vercel.app"><strong>Website</strong></a> ·
+  <a href="https://brio-orchestrator.vercel.app/docs">Docs</a> ·
   <a href="#how-it-works">How it works</a> ·
+  <a href="#host-it-yourself">Host it</a> ·
   <a href="#run-it-locally">Run locally</a> ·
   <a href="docs/ARCHITECTURE.md">Architecture</a> ·
   <a href="docs/BUILD_PLAN.md">Roadmap</a> ·
@@ -26,7 +30,7 @@ Give Brio one goal. It plans the work, hands each piece to the agent best at it,
 
 ---
 
-> **Built in the open.** Every milestone (M0–M10) is done, and so is **Chat**: talk to all your agents at once and have them answer together, review each other or debate. See the [changelog](docs/CHANGELOG.md) for what each step added, and [host it yourself](#host-it-yourself) in about fifteen minutes.
+> **v0.1.0, the first release.** Every milestone (M0–M10) is done, and so is **Chat**: talk to all your agents at once and have them answer together, review each other or debate. Ready-made images run it on a free 1 GB server; [host it yourself](#host-it-yourself) in about fifteen minutes. What each step added is in the [changelog](docs/CHANGELOG.md).
 
 ## The problem
 
@@ -118,6 +122,8 @@ Brio is self-hosted: there is no Brio cloud. It runs on a machine you control, w
 
 A server for one person needs only **1 GB of RAM** (with swap) and a 64 GB disk when it downloads Brio's ready-made images, which GitHub builds for every commit that passes its checks: Azure for Students includes such a server for free. Building the images on the server instead needs 2 CPUs and 4 GB. 4 CPUs, 8 GB and 80–100 GB are comfortable for a small team.
 
+Every release and every commit on `main` that passes its checks is published as images for amd64 and arm64: `ghcr.io/ivan825/brio-api`, `brio-runner` and `brio-web`, tagged with the version (`0.1.0`), `latest` and `sha-<commit>`. The Helm chart uses them by default, and Compose uses them with `./setup.sh --prebuilt`.
+
 On a fresh Ubuntu server, the whole install is:
 
 ```bash
@@ -134,6 +140,8 @@ docker compose pull && docker compose up -d --no-build   # migrates, starts; Cad
 - Claude Code over MCP;
 - the local runner;
 - the website.
+
+To follow `main` automatically, `sudo deploy/compose/autoupdate/install.sh` checks every 5 minutes and installs each new commit once its images are published ([automatic updates](docs/DEPLOY_CLOUD.md#automatic-updates)).
 
 ## Run it locally
 
@@ -173,6 +181,7 @@ Every vendor call goes through one `AgentAdapter` interface ([`docs/ADAPTER_SPEC
 | | |
 |---|---|
 | [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md) | From nothing to a finished mission (also served at `/docs`) |
+| [`docs/DEPLOY_CLOUD.md`](docs/DEPLOY_CLOUD.md) | A cloud server with HTTPS and no domain: free on Azure for Students, or any Ubuntu server; automatic updates |
 | [`docs/SELF_HOST.md`](docs/SELF_HOST.md) | Docker Compose or Helm, every setting, backups, upgrades |
 | [`docs/OWNER_SETUP.md`](docs/OWNER_SETUP.md) | Step by step with no domain and free accounts: Gmail email, a Tailscale address, Slack, push, local runner, live tests, the website |
 | [`docs/API.md`](docs/API.md) | Every REST route, generated from the code |
@@ -189,9 +198,17 @@ Every vendor call goes through one `AgentAdapter` interface ([`docs/ADAPTER_SPEC
 
 ## Status
 
-All eleven milestones (M0–M10) are built, in dependency order, each with tests, types, migrations and docs: the foundation, connectors and model APIs, sandboxed runners and coding CLIs, missions and coordination, the learned router and execution modes, verification and evals, hosted, browser, media and research agents, MCP, A2A and ACP, the complete web app with the CLI and local runners, governance, memory, notifications and roles, and self-hosting, hardening and the docs site. Each milestone's acceptance evidence is in [`docs/CHANGELOG.md`](docs/CHANGELOG.md); the security review is in [`docs/SECURITY_REVIEW.md`](docs/SECURITY_REVIEW.md) and the load test in [`docs/LOAD_TEST.md`](docs/LOAD_TEST.md).
+**v0.1.0** is the first release. All eleven milestones (M0–M10) are built, in dependency order, each with tests, types, migrations and docs:
+- the foundation, connectors and model APIs, sandboxed runners and coding CLIs;
+- missions and coordination, the learned router and execution modes, verification and evals;
+- hosted, browser, media and research agents; MCP, A2A and ACP;
+- the complete web app with Chat, the CLI and local runners;
+- governance, memory, notifications and roles;
+- self-hosting, ready-made images, hardening, the docs and the website.
 
-What still needs the owner: live runs against real vendors (their keys), a public deployment (for remote MCP and A2A clients and webhooks), and the accounts Brio sends through (Google sign-in, Resend, Slack, web push keys).
+Each milestone's acceptance evidence is in [`docs/CHANGELOG.md`](docs/CHANGELOG.md), the security review in [`docs/SECURITY_REVIEW.md`](docs/SECURITY_REVIEW.md) and the load test in [`docs/LOAD_TEST.md`](docs/LOAD_TEST.md).
+
+**Tested how:** every vendor family is covered by contract tests against recorded and simulated vendors, the web app by browser tests, a whole install by a smoke test through its public address, and the router by 30 golden missions. The owner's live runs so far used Gemini; the other vendors' adapters follow their documented APIs and have not yet been run against them with real keys. Reports from live use are welcome as issues.
 
 ## Licence
 
