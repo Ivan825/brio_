@@ -1,0 +1,10 @@
+Brio is installing as {{ include "brio.fullname" . }}.
+
+Open {{ .Values.appUrl }} once the pods are ready:
+  kubectl get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+
+{{- if not .Values.secrets.RESEND_API_KEY }}
+
+No email provider is set: sign-in links are written to the API's log until RESEND_API_KEY is set.
+  kubectl logs deploy/{{ include "brio.fullname" . }}-api | grep "Sign in to Brio"
+{{- end }}

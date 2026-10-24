@@ -1,0 +1,65 @@
+# Each runner pod brings its own Docker engine (docker:dind, privileged) on a volume shared with the runner at the
+# same path, so the sandboxes it starts mount the runner's worktrees. Sandbox proxies reach the runner's mailbox on
+# the pod's network through the engine's host gateway. Nothing runs on the node's own Docker.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "brio.fullname" . }}-runner
+  labels: {{- include "brio.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.runner.replicas }}
+  selector:
+    matchLabels: {{- include "brio.selector" (dict "root" . "component" "runner") | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "brio.selector" (dict "root" . "component" "runner") | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: runner
+          image: {{ include "brio.image" (dict "root" . "name" .Values.image.runner) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            {{- include "brio.env" . | nindent 12 }}
+            - { name: DOCKER_HOST, value: "tcp://127.0.0.1:2375" }
+            - { name: BRIO_RUNNER_DIR, value: /var/lib/brio/runner }
+            - { name: BRIO_RUNNER_CONCURRENCY, value: {{ .Values.runner.concurrency | quote }} }
+            - { name: BRIO_RUNNER_MAILBOX_PORT, value: "7070" }
+            - { name: BRIO_RUNNER_HEALTH_PORT, value: "4100" }
+            - { name: BRIO_RUNNER_HEALTH_HOST, value: "0.0.0.0" }
+          ports:
+            - { name: health, containerPort: 4100 }
+          livenessProbe:
+            httpGet: { path: /health, port: health }
+            periodSeconds: 15
+            failureThreshold: 4
+          volumeMounts:
+            - { name: work, mountPath: /var/lib/brio/runner }
+          resources: {{- toYaml .Values.runner.resources | nindent 12 }}
+        - name: dind
+          image: {{ .Values.runner.dind.image }}
+          securityContext:
+            privileged: true
+          # Only the runner in this pod talks to this engine, over the pod's loopback. Starting with "dockerd" keeps the
+          # image's default listener (every interface, no TLS) off: no other pod can reach this engine.
+          args: ["dockerd", "--host=tcp://127.0.0.1:2375", "--tls=false"]
+          env:
+            - { name: DOCKER_TLS_CERTDIR, value: "" }
+          volumeMounts:
+            - { name: work, mountPath: /var/lib/brio/runner }
+            - { name: docker, mountPath: /var/lib/docker }
+          resources: {{- toYaml .Values.runner.dind.resources | nindent 12 }}
+      volumes:
+        - name: work
+          emptyDir: { sizeLimit: {{ .Values.runner.dind.storageSize }} }
+        - name: docker
+          emptyDir: { sizeLimit: {{ .Values.runner.dind.storageSize }} }
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}

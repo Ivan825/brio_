@@ -1,0 +1,10 @@
+apiVersion: v2
+name: brio
+description: Brio, the multi-agent orchestrator — API, web app, sandbox runners and database migrations.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/Ivan825/brio_
+sources:
+  - https://github.com/Ivan825/brio_
+keywords: [agents, orchestration, llm, mcp, a2a]

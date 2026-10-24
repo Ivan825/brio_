@@ -31,7 +31,7 @@ BRIO_RUNNER_CONCURRENCY=2
 
 # Sign-in: email magic links need Resend (otherwise use Google sign-in).
 RESEND_API_KEY=
-BRIO_EMAIL_FROM=Brio <onboarding@resend.dev>
+BRIO_EMAIL_FROM="Brio <onboarding@resend.dev>"
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 

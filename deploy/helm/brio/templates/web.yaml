@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "brio.fullname" . }}-web
+  labels: {{- include "brio.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.web.replicas }}
+  selector:
+    matchLabels: {{- include "brio.selector" (dict "root" . "component" "web") | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "brio.selector" (dict "root" . "component" "web") | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext: {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: web
+          image: {{ include "brio.image" (dict "root" . "name" .Values.image.web) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - { name: http, containerPort: 3000 }
+          readinessProbe:
+            httpGet: { path: /sign-in, port: http }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /sign-in, port: http }
+            periodSeconds: 15
+            failureThreshold: 4
+          resources: {{- toYaml .Values.web.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "brio.fullname" . }}-web
+  labels: {{- include "brio.labels" . | nindent 4 }}
+spec:
+  selector: {{- include "brio.selector" (dict "root" . "component" "web") | nindent 4 }}
+  ports:
+    - { name: http, port: {{ .Values.service.webPort }}, targetPort: http }

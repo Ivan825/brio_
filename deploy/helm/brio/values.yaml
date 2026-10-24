@@ -1,0 +1,93 @@
+# Brio on Kubernetes (docs/SELF_HOST.md §Kubernetes). Images come from the repository's Dockerfile:
+#   docker build --target api -t <registry>/brio-api:<tag> .   (likewise runner, and web with --build-arg API_URL)
+# The web image proxies to the API at the API_URL it was built with; behind this chart's ingress that proxy is not
+# used (API paths go straight to the API), so any API_URL works.
+
+image:
+  registry: "" # e.g. ghcr.io/acme
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+  api: brio-api
+  web: brio-web
+  runner: brio-runner
+imagePullSecrets: []
+
+# The browser-facing origin (sign-in links, OAuth, cookies). Must match the ingress host.
+appUrl: https://brio.example.com
+
+# Secrets: either name an existing Secret holding these keys, or let the chart create one from `secrets`.
+#   DATABASE_URL, BETTER_AUTH_SECRET, BRIO_VAULT_LOCAL_KEK, and optionally RESEND_API_KEY, GOOGLE_CLIENT_ID,
+#   GOOGLE_CLIENT_SECRET, BRIO_VAPID_PUBLIC_KEY, BRIO_VAPID_PRIVATE_KEY
+existingSecret: ""
+secrets:
+  # Postgres 15+ with the pgvector extension, e.g. postgres://brio:pw@db:5432/brio?sslmode=require
+  DATABASE_URL: ""
+  # openssl rand -base64 32 (each)
+  BETTER_AUTH_SECRET: ""
+  BRIO_VAULT_LOCAL_KEK: ""
+  RESEND_API_KEY: ""
+  GOOGLE_CLIENT_ID: ""
+  GOOGLE_CLIENT_SECRET: ""
+  BRIO_VAPID_PUBLIC_KEY: ""
+  BRIO_VAPID_PRIVATE_KEY: ""
+
+# Non-secret settings, passed to the API and runner as they are (see docs/SELF_HOST.md for every variable).
+env:
+  LOG_LEVEL: info
+  BRIO_KMS_PROVIDER: local # or aws, with BRIO_AWS_KMS_KEY_ID
+  BRIO_EMAIL_FROM: "Brio <onboarding@resend.dev>"
+  BRIO_VAPID_SUBJECT: "mailto:admin@example.com"
+  BRIO_GITHUB_API_URL: https://api.github.com
+  BRIO_PRICING_REFRESH_HOURS: "24"
+
+api:
+  replicas: 1 # the orchestrator loop expects one API replica (docs/ARCHITECTURE.md)
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { memory: 1536Mi }
+
+web:
+  replicas: 2
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 768Mi }
+
+# Runners pull attempts from the queue and run each in a sandbox container. On Kubernetes each runner pod has its
+# own Docker engine (a privileged docker:dind sidecar) — the sandboxes are containers inside it, never on the node.
+runner:
+  replicas: 1
+  concurrency: 2
+  resources:
+    requests: { cpu: 500m, memory: 1Gi }
+    limits: { memory: 4Gi }
+  dind:
+    image: docker:27.5.1-dind
+    resources:
+      requests: { cpu: 500m, memory: 1Gi }
+      limits: { memory: 8Gi }
+    # Worktrees, repository caches and sandbox image layers; emptyDir unless a size-limited volume is wanted.
+    storageSize: 40Gi
+
+migrations:
+  enabled: true # a Job runs `migrate` before each install and upgrade
+
+service:
+  apiPort: 4000
+  webPort: 3000
+
+ingress:
+  enabled: true
+  className: "" # e.g. nginx
+  host: brio.example.com
+  annotations: {}
+    # nginx: SSE and the runner WebSocket stay open for minutes.
+    # nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    # nginx.ingress.kubernetes.io/proxy-buffering: "off"
+  tls: []
+    # - secretName: brio-tls
+    #   hosts: [brio.example.com]
+
+podSecurityContext: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

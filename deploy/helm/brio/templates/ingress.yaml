@@ -1,0 +1,37 @@
+{{- if .Values.ingress.enabled }}
+{{- $full := include "brio.fullname" . }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $full }}
+  labels: {{- include "brio.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations: {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.ingress.tls }}
+  tls: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          # API paths straight to the API: auth, REST, SSE, the runner WebSocket, MCP, A2A and discovery documents.
+          {{- range $p := list "/api/auth" "/v1" "/mcp" "/a2a" "/.well-known" "/health" }}
+          - path: {{ $p }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $full }}-api
+                port: { name: http }
+          {{- end }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $full }}-web
+                port: { name: http }
+{{- end }}

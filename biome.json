@@ -22,7 +22,8 @@
       "!apps/evals/golden/*/sim",
       "!brand",
       "!packages/brand/tokens.css",
-      "!packages/brand/tailwind.preset.ts"
+      "!packages/brand/tailwind.preset.ts",
+      "!deploy/helm/*/templates"
     ]
   },
   "formatter": {
