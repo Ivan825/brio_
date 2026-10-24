@@ -10,5 +10,10 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@brio/db": "workspace:*",
+    "@brio/schema": "workspace:*",
+    "drizzle-orm": "0.45.4"
   }
 }

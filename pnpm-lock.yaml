@@ -368,7 +368,17 @@ importers:
         specifier: 0.45.4
         version: 0.45.4(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(kysely@0.29.7)(pg@8.23.1)
 
-  packages/memory: {}
+  packages/memory:
+    dependencies:
+      '@brio/db':
+        specifier: workspace:*
+        version: link:../db
+      '@brio/schema':
+        specifier: workspace:*
+        version: link:../schema
+      drizzle-orm:
+        specifier: 0.45.4
+        version: 0.45.4(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(kysely@0.29.7)(pg@8.23.1)
 
   packages/registry:
     dependencies:
