@@ -93,6 +93,17 @@ function present(row: ConnectorRow) {
   };
 }
 
+/** Whether a connector talks to its vendor's own address from the registry, not one someone typed in. */
+export function officialEndpoint(cfg: ReturnType<typeof connectorConfig>): boolean {
+  const norm = (u: string | null | undefined) => (u ?? "").replace(/\/+$/, "");
+  const at = norm(cfg.baseUrl);
+  if (!at) return false;
+  if (cfg.preset)
+    return [cfg.preset.baseUrl, ...Object.values(cfg.preset.regions)].some((u) => u && norm(u) === at);
+  if (cfg.service) return !cfg.service.baseUrl.includes("{") && norm(cfg.service.baseUrl) === at;
+  return false;
+}
+
 export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
   const load = async (workspaceId: string, id: string) => {
     const [row] = await ctx.db
@@ -518,9 +529,12 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
   app.get("/v1/connectors/:id/models", async (req) => {
     const s = await requireSession(ctx, req);
     const workspaceId = workspaceFor(req, s);
-    await requireMember(ctx, workspaceId, s);
+    const { role } = await requireMember(ctx, workspaceId, s);
     const row = await load(workspaceId, Params.parse(req.params).id);
     const refresh = (req.query as { refresh?: string }).refresh === "true";
+    // Listing live spends the workspace's key and rewrites its cache: for those who act, not viewers.
+    if (refresh && role === "viewer")
+      throw new HttpError(403, "needs role owner, admin or member", "forbidden");
     let cached = await ctx.db
       .select()
       .from(connectorModels)
@@ -564,14 +578,17 @@ export async function connectorRoutes(app: FastifyInstance, ctx: AppContext) {
             })),
           );
       });
-      await ctx.pricing.upsert(
-        pricesFromModels(
-          cfg.presetKey ?? cfg.service?.pricing.pricePreset ?? "",
-          live,
-          "models_endpoint",
-          `${cfg.baseUrl}${cfg.preset?.models.path ?? cfg.service?.models.path ?? ""}`,
-        ),
-      );
+      // Prices a model list carries are shared by every workspace, so only the vendor's own address may set them
+      // (security review H1): a list from an address someone typed in names models for this connector, nothing more.
+      if (officialEndpoint(cfg))
+        await ctx.pricing.upsert(
+          pricesFromModels(
+            cfg.presetKey ?? cfg.service?.pricing.pricePreset ?? "",
+            live,
+            "models_endpoint",
+            `${cfg.baseUrl}${cfg.preset?.models.path ?? cfg.service?.models.path ?? ""}`,
+          ),
+        );
       cached = await ctx.db
         .select()
         .from(connectorModels)
