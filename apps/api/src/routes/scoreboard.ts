@@ -2,15 +2,20 @@
 // thumbs up/down on attempts, which feed the same scores.
 import { decay, passRate } from "@brio/core";
 import { schema } from "@brio/db";
-import { and, asc, eq, gte, inArray } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { AppContext } from "../context";
 import { HttpError, requireMember, requireSession, workspaceFor } from "../http";
 import { routeAgents } from "../orchestrator/agents";
-import { attemptAgentKey } from "../orchestrator/scoreboard";
+import {
+  attemptAgentKey,
+  GLOBAL_MIN_CONTRIBUTORS,
+  GLOBAL_MIN_N,
+  scoreSharingOf,
+} from "../orchestrator/scoreboard";
 
-const { attempts, ratings, scoreHistory, scores, tasks } = schema;
+const { attempts, ratings, scoreContributors, scoreHistory, scores, tasks, workspaces } = schema;
 
 const Query = z.object({
   taskType: z.string().max(80).optional(),
@@ -22,6 +27,9 @@ const RatingBody = z.object({
   rating: z.union([z.literal(1), z.literal(-1)]),
   comment: z.string().trim().max(2000).optional(),
 });
+
+const SharingBody = z.object({ share: z.boolean(), useGlobal: z.boolean() });
+const GlobalQuery = z.object({ taskType: z.string().max(80).optional() });
 
 const TREND_POINTS = 30;
 
@@ -94,6 +102,82 @@ export async function scoreboardRoutes(app: FastifyInstance, ctx: AppContext) {
             n: r.n,
             updatedAt: r.updatedAt,
             trend,
+          };
+        })
+        .sort((a, b) => a.taskType.localeCompare(b.taskType) || b.passRate - a.passRate || b.elo - a.elo),
+    };
+  });
+
+  /** Whether this workspace adds to, and starts from, the global scoreboard (D-14). */
+  app.get("/v1/scoreboard/sharing", async (req) => {
+    const s = await requireSession(ctx, req);
+    const workspaceId = workspaceFor(req, s);
+    await requireMember(ctx, workspaceId, s);
+    return { sharing: await scoreSharingOf(ctx.db, workspaceId) };
+  });
+
+  app.put("/v1/scoreboard/sharing", async (req) => {
+    const s = await requireSession(ctx, req);
+    const workspaceId = workspaceFor(req, s);
+    await requireMember(ctx, workspaceId, s, ["owner", "admin"]);
+    const body = SharingBody.parse(req.body);
+    await ctx.db.transaction(async (tx) => {
+      await tx
+        .update(workspaces)
+        .set({
+          settings: sql`${workspaces.settings} || jsonb_build_object('scores', ${JSON.stringify(body)}::jsonb)`,
+        })
+        .where(eq(workspaces.id, workspaceId));
+      await ctx.ledger.append(tx, {
+        workspaceId,
+        kind: "policy.change",
+        payload: { scoreSharing: body, by: s.userId },
+      });
+    });
+    return { sharing: body };
+  });
+
+  /**
+   * The global scoreboard: anonymised outcomes from every workspace that shares them. Only rows with enough outcomes
+   * from enough workspaces are shown, and nothing says which workspaces those were.
+   */
+  app.get("/v1/scoreboard/global", async (req) => {
+    const s = await requireSession(ctx, req);
+    await requireMember(ctx, workspaceFor(req, s), s);
+    const q = GlobalQuery.parse(req.query);
+    const contributors = sql<number>`(select count(*)::int from ${scoreContributors} c where c.agent_key = ${scores.agentKey} and c.task_type = ${scores.taskType})`;
+    const rows = await ctx.db
+      .select({ s: scores, contributors })
+      .from(scores)
+      .where(and(eq(scores.scope, "global"), q.taskType ? eq(scores.taskType, q.taskType) : undefined));
+    const now = new Date();
+    return {
+      minimum: { outcomes: GLOBAL_MIN_N, workspaces: GLOBAL_MIN_CONTRIBUTORS },
+      rows: rows
+        .filter((r) => r.s.n >= GLOBAL_MIN_N && r.contributors >= GLOBAL_MIN_CONTRIBUTORS)
+        .map(({ s: r }) => {
+          const current = decay(
+            {
+              alpha: r.alpha,
+              beta: r.beta,
+              elo: r.elo,
+              avgCost: r.avgCost,
+              latencyS: r.p50LatencyS,
+              n: r.n,
+              updatedAt: r.updatedAt,
+            },
+            now,
+          );
+          return {
+            agentKey: r.agentKey,
+            vendor: r.agentKey.slice(0, r.agentKey.indexOf("/")),
+            model: r.agentKey.slice(r.agentKey.indexOf("/") + 1),
+            taskType: r.taskType,
+            passRate: passRate(current),
+            elo: Math.round(current.elo),
+            avgCostUsd: r.avgCost,
+            latencyS: r.p50LatencyS,
+            n: r.n,
           };
         })
         .sort((a, b) => a.taskType.localeCompare(b.taskType) || b.passRate - a.passRate || b.elo - a.elo),

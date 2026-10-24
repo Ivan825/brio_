@@ -168,8 +168,13 @@ describe.skipIf(!hasTestDatabase)("M8 acceptance: a local runner", () => {
     missionId = m.json().mission.id;
     expect((await c.request("POST", `/v1/missions/${missionId}/plans/1/approve`)).statusCode).toBe(200);
     // Queued for the runner, which is not connected yet: the cloud runner leaves it alone.
+    let queued: typeof schema.attempts.$inferSelect | undefined;
+    for (let i = 0; i < 150 && !queued; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+      [queued] = await h.db.db.select().from(schema.attempts).where(eq(schema.attempts.agentId, agentId));
+    }
     await new Promise((r) => setTimeout(r, 1500));
-    const [queued] = await h.db.db.select().from(schema.attempts).where(eq(schema.attempts.agentId, agentId));
+    [queued] = await h.db.db.select().from(schema.attempts).where(eq(schema.attempts.agentId, agentId));
     expect(queued?.status).toBe("queued");
     expect((queued?.dispatch as { target?: unknown } | undefined)?.target).toEqual({
       kind: "local",
