@@ -486,5 +486,5 @@ This only works while you open Brio at `http://localhost:8080`, not at the `ts.n
 
 - **Email from `@yourname.com`** needs a domain. Gmail's own address works fine.
 - **Brio online while your Mac is off** needs a server that is always on. If you later want one:
-  - Oracle Cloud's Always Free tier has a 4-core, 24 GB machine; it asks for a card to verify you, but doesn't charge.
+  - Oracle Cloud's Always Free tier has an Arm machine (reported as cut to 2 cores and 12 GB in 2026). Popular regions are often "out of capacity", and Oracle reclaims machines that sit idle for a week. Check its current terms before relying on it.
   - Follow Parts 1, 3 and 4 there, the same way.
