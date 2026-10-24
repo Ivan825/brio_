@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
@@ -82,14 +83,19 @@ export const ledger = pgTable(
   {
     id: id(),
     workspaceId: ws(),
-    seq: bigint({ mode: "number" }).notNull(),
-    prevHash: text().notNull(),
-    hash: text().notNull().unique(),
+    // Null while the entry waits to be chained (D-98): set once, by the chainer, and never again (a trigger).
+    seq: bigint({ mode: "number" }),
+    prevHash: text(),
+    hash: text().unique(),
     kind: ledgerKind().notNull(),
     payload: jsonb().$type<Record<string, unknown>>().notNull(),
     createdAt: createdAt(),
   },
-  (t) => [unique().on(t.workspaceId, t.seq)],
+  (t) => [
+    unique().on(t.workspaceId, t.seq),
+    // What the chainer looks for, many times a second: kept small by being only the pending rows.
+    index("ledger_pending_index").on(t.workspaceId).where(sql`${t.hash} is null`),
+  ],
 );
 
 /** BYOK secrets under envelope encryption: a per-secret data key (DEK) wrapped by a key-encryption key (KEK). */

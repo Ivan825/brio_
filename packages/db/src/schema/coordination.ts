@@ -73,6 +73,8 @@ export const messages = pgTable(
   },
   (t) => [
     index().on(t.missionId),
+    // What waits for people in the workspace (the inbox).
+    index().on(t.workspaceId, t.status),
     check(
       "messages_one_recipient",
       sql`num_nonnulls(${t.toTaskId}, ${t.toAttemptId}) + ${t.toUser}::int = 1`,

@@ -45,6 +45,8 @@ export class EventWriter {
           type: e.type,
           actor: e.actor,
           payload,
+          // When the event was written, not when its transaction began (a long one would date it early).
+          ts: sql`clock_timestamp()`,
         })
         .returning();
       await tx.execute(

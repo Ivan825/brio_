@@ -183,6 +183,20 @@
       "when": 1792802816378,
       "tag": "0025_mandate_purpose",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792807194431,
+      "tag": "0026_hot_path_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1792808793467,
+      "tag": "0027_ledger_deferred_chain",
+      "breakpoints": true
     }
   ]
 }

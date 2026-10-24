@@ -132,7 +132,12 @@ export const tasks = pgTable(
     blockedReason: text(),
     ...timestamps(),
   },
-  (t) => [unique().on(t.missionId, t.planVersion, t.key), index().on(t.missionId, t.status)],
+  (t) => [
+    unique().on(t.missionId, t.planVersion, t.key),
+    index().on(t.missionId, t.status),
+    // The inbox and the workspace's views: its tasks by status.
+    index().on(t.workspaceId, t.status),
+  ],
 );
 
 export const attempts = pgTable(
@@ -174,7 +179,13 @@ export const attempts = pgTable(
     scored: text(),
     ...timestamps(),
   },
-  (t) => [index().on(t.taskId), index().on(t.agentId), index().on(t.status, t.heartbeatAt)],
+  (t) => [
+    index().on(t.taskId),
+    index().on(t.agentId),
+    index().on(t.status, t.heartbeatAt),
+    // A workspace's spend this month, read before every dispatch and on every cost event (M9 budgets).
+    index().on(t.workspaceId, t.createdAt),
+  ],
 );
 
 export const artifacts = pgTable(
