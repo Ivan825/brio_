@@ -40,7 +40,7 @@ This guide is for the person who owns a Brio install and has **no domain name an
    ```sh
    ./setup.sh
    ```
-   This writes `deploy/compose/.env` with fresh secret keys. **Back this file up somewhere private** (a password manager is ideal): without `BRIO_VAULT_LOCAL_KEK` in it, the API keys you store in Brio can never be decrypted.
+   This writes `deploy/compose/.env` with fresh secret keys. If `.env` already exists, for example from an older version, it changes nothing in it and only adds the settings it is missing, so run it again after every `git pull`. **Back this file up somewhere private** (a password manager is ideal): without `BRIO_VAULT_LOCAL_KEK` in it, the API keys you store in Brio can never be decrypted.
 5. **Allow only yourself to sign up.** Open `.env` in any editor (`open -e .env` opens TextEdit) and set your own address:
    ```sh
    BRIO_SIGNUP_ALLOW=you@gmail.com

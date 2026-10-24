@@ -1,17 +1,16 @@
 #!/usr/bin/env sh
-# Writes .env for the self-host bundle with fresh secrets. Run once; it never overwrites an existing .env.
+# Writes .env for the self-host bundle with fresh secrets. It never changes a value in an existing .env: run again
+# after an upgrade, it only adds the settings this version has that the file lacks (blank, or with their defaults).
 set -eu
 cd "$(dirname "$0")"
-if [ -f .env ]; then
-  echo ".env already exists; edit it instead (delete it to start over)."
-  exit 0
-fi
 rand() { openssl rand -base64 "$1" | tr -d '\n'; }
 app_url="${1:-http://localhost:8080}"
 data_dir="$(pwd)/data/runner"
 mkdir -p "$data_dir"
 umask 077
-cat > .env <<ENV
+template="$(mktemp)"
+trap 'rm -f "$template"' EXIT
+cat > "$template" <<ENV
 # Brio self-host settings (docs/SELF_HOST.md has every option). Keep this file secret and backed up:
 # without BRIO_VAULT_LOCAL_KEK the API keys stored in Brio cannot be decrypted.
 BRIO_APP_URL=$app_url
@@ -52,4 +51,27 @@ BRIO_VAPID_PUBLIC_KEY=
 BRIO_VAPID_PRIVATE_KEY=
 BRIO_VAPID_SUBJECT=mailto:admin@example.com
 ENV
-echo "Wrote $(pwd)/.env. Next: docker compose up -d, then open $app_url"
+if [ ! -f .env ]; then
+  mv "$template" .env
+  echo "Wrote $(pwd)/.env. Next: docker compose up -d, then open $app_url"
+  exit 0
+fi
+
+# An existing .env: append each missing setting with the comment above it in the template.
+added="$(awk -F= '
+  NR == FNR { if ($0 ~ /^[A-Z_][A-Z0-9_]*=/) have[$1] = 1; next }
+  /^#/ { note = note $0 "\n"; next }
+  /^[A-Z_][A-Z0-9_]*=/ { if (!($1 in have)) { printf "%s%s\n", note, $0 } note = ""; next }
+  { note = "" }
+' .env "$template")"
+if [ -z "$added" ]; then
+  echo ".env already has every setting; edit it to change them (delete it to start over)."
+  exit 0
+fi
+{
+  printf '\n# Added by setup.sh on %s: settings newer than this file (docs/SELF_HOST.md).\n' "$(date +%F)"
+  printf '%b\n' "$added"
+} >> .env
+echo "Added to $(pwd)/.env:"
+printf '%b' "$added" | grep -E '^[A-Z_]' | sed 's/=.*//; s/^/  /'
+echo "Fill them in, then: docker compose up -d"

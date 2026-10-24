@@ -196,6 +196,7 @@ On Kubernetes, use your database's own backups (point-in-time recovery where you
 
 ```sh
 git pull
+./setup.sh                       # adds settings this version has that your .env lacks; changes no value
 docker compose up -d --build     # migrations run before the new API starts
 ```
 
