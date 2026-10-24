@@ -18,6 +18,8 @@ services:
   postgres:
     image: pgvector/pgvector:pg17
     restart: unless-stopped
+    # Postgres keeps parallel-query and other shared memory in /dev/shm; Docker's 64 MB default is too small.
+    shm_size: 512mb
     environment:
       POSTGRES_USER: brio
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run ./setup.sh first}

@@ -5,6 +5,8 @@ services:
   postgres:
     image: pgvector/pgvector:pg17
     restart: unless-stopped
+    # Postgres keeps parallel-query and other shared memory in /dev/shm; Docker's 64 MB default is too small.
+    shm_size: 512mb
     # Tests, the eval harness and a dev server each open pools of their own; 100 connections run out.
     command: ["postgres", "-c", "max_connections=300"]
     environment:
