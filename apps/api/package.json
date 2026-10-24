@@ -12,7 +12,8 @@
     "start": "tsx src/main.ts",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "test:live": "vitest run --config vitest.live.config.ts"
+    "test:live": "vitest run --config vitest.live.config.ts",
+    "load": "tsx load/run.ts"
   },
   "dependencies": {
     "@a2a-js/sdk": "1.3.0",
