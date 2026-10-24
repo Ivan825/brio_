@@ -84,6 +84,9 @@ export class DockerSandbox implements SandboxHandle {
     const netArgs: string[] = [];
     const proxyEnv: string[] = [];
     await mkdir(i.scratchDir, { recursive: true, mode: 0o700 });
+    // What a runner that died mid-attempt left under these names (they are this attempt's own) goes first.
+    await docker(["rm", "-f", name, `brio-px-${short}`], { allowFail: true });
+    await docker(["network", "rm", `brio-net-${short}`], { allowFail: true });
 
     try {
       if (i.spec.network.mode === "none") netArgs.push("--network", "none");

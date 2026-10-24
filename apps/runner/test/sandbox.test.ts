@@ -85,6 +85,21 @@ describe.skipIf(!hasDocker)("docker sandbox", () => {
     await expect(s.readFile("../../etc/passwd")).rejects.toThrow(/outside/);
   });
 
+  it("starts even where a runner that died left a container under the attempt's name", async () => {
+    const id = "00000000-0000-7000-8000-00000000000a";
+    await docker([
+      "run",
+      "-d",
+      "--name",
+      `brio-sbx-${id.replaceAll("-", "").slice(-12)}`,
+      DEFAULT_IMAGES.base,
+      "sleep",
+      "300",
+    ]);
+    const s = await create(spec(), id);
+    expect((await s.exec("echo up")).stdout.trim()).toBe("up");
+  });
+
   it("has no network at all in mode none", async () => {
     const s = await create(spec(), "00000000-0000-7000-8000-000000000003");
     const r = await s.exec("curl -sS -m 5 https://example.com", { timeoutMs: 20_000 });
